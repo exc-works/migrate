@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
+if [[ -z "${staged_files}" ]]; then
+  exit 0
+fi
+
+# Only inspect added lines from staged diff to reduce false positives.
+added_lines=$(git diff --cached --unified=0 --no-color -- ${staged_files} \
+  | sed -n 's/^+//p' \
+  | sed '/^+++/d')
+
+if [[ -z "${added_lines}" ]]; then
+  exit 0
+fi
+
+key_matches=$(printf '%s\n' "${added_lines}" \
+  | grep -En -- '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----' || true)
+if [[ -n "${key_matches}" ]]; then
+  echo "[pre-commit] blocked: private key material detected in staged changes"
+  printf '%s\n' "${key_matches}"
+  exit 1
+fi
+
+quoted_secret_matches=$(printf '%s\n' "${added_lines}" \
+  | grep -Eni -- "(password|token|secret)[[:space:]]*[:=][[:space:]]*['\"][^'\"\$]{8,}['\"]" || true)
+quoted_secret_matches=$(printf '%s\n' "${quoted_secret_matches}" \
+  | grep -Evi -- '(change_me|example|placeholder|dummy|redacted|\$\{)' || true)
+if [[ -n "${quoted_secret_matches}" ]]; then
+  echo "[pre-commit] blocked: possible hardcoded credential detected"
+  printf '%s\n' "${quoted_secret_matches}"
+  exit 1
+fi
+
+dsn_secret_matches=$(printf '%s\n' "${added_lines}" \
+  | grep -Eni -- "(password|token|secret)=[A-Za-z0-9._~+/-]{8,}" || true)
+dsn_secret_matches=$(printf '%s\n' "${dsn_secret_matches}" \
+  | grep -Evi -- '(change_me|example|placeholder|dummy|redacted|\$\{)' || true)
+if [[ -n "${dsn_secret_matches}" ]]; then
+  echo "[pre-commit] blocked: possible DSN credential detected"
+  printf '%s\n' "${dsn_secret_matches}"
+  exit 1
+fi
+
+exit 0

@@ -1,0 +1,5 @@
+.idea
+.cache
+.gocache
+build
+/sql-migrate
