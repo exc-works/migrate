@@ -8,18 +8,30 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/exc-works/sql-migrate/internal/config"
 	"github.com/exc-works/sql-migrate/internal/dialect"
 	"github.com/exc-works/sql-migrate/internal/logger"
 	"github.com/exc-works/sql-migrate/internal/migrate"
 	"github.com/exc-works/sql-migrate/internal/source"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/spf13/cobra"
+)
+
+var (
+	openDB = sql.Open
+	pingDB = func(ctx context.Context, db *sql.DB) error {
+		return db.PingContext(ctx)
+	}
+	newMigrateService  = migrate.NewService
+	pingTimeout        = 5 * time.Second
+	safeDescPattern    = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+	safeVersionPattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 )
 
 func main() {
@@ -140,12 +152,19 @@ func main() {
 			if version == "" {
 				version = time.Now().UTC().Format("20060102150405")
 			}
-			desc := strings.ReplaceAll(strings.TrimSpace(args[0]), " ", "_")
-			if desc == "" {
-				return errors.New("description must not be empty")
+			version, err = sanitizeVersion(version)
+			if err != nil {
+				return err
+			}
+			desc, err := sanitizeDescription(args[0])
+			if err != nil {
+				return err
 			}
 			filename := fmt.Sprintf("V%s__%s.sql", version, desc)
-			fullPath := filepath.Join(migrationDir, filename)
+			fullPath, err := secureJoinWithin(migrationDir, filename)
+			if err != nil {
+				return err
+			}
 			if _, err := os.Stat(fullPath); err == nil {
 				return fmt.Errorf("migration file already exists: %s", filename)
 			}
@@ -208,14 +227,17 @@ func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.Open(d.DriverName(), c.DataSourceName)
+	db, err := openDB(d.DriverName(), c.DataSourceName)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.PingContext(context.Background()); err != nil {
+	pingCtx, cancel := context.WithTimeout(context.Background(), pingTimeout)
+	defer cancel()
+	if err := pingDB(pingCtx, db); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
-	return migrate.NewService(context.Background(), migrate.Config{
+	svc, err := newMigrateService(context.Background(), migrate.Config{
 		Dialect:           d,
 		DB:                db,
 		Logger:            logger.NewStd(c.LoggerLevel, os.Stdout),
@@ -226,6 +248,11 @@ func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
 		},
 		DryRunOutput: os.Stdout,
 	})
+	if err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return svc, nil
 }
 
 func withDryRun(svc *migrate.Service) (*migrate.Service, error) {
@@ -257,4 +284,47 @@ func printStatusTable(items []migrate.MigrationStatus) {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", item.Migration.Version, item.Migration.Filename, item.Migration.Hash, item.Status)
 	}
 	_ = w.Flush()
+}
+
+func sanitizeDescription(raw string) (string, error) {
+	desc := strings.ReplaceAll(strings.TrimSpace(raw), " ", "_")
+	if desc == "" {
+		return "", errors.New("description must not be empty")
+	}
+	if strings.Contains(desc, "..") || strings.ContainsAny(desc, `/\`) {
+		return "", errors.New("description contains unsafe path characters")
+	}
+	if !safeDescPattern.MatchString(desc) {
+		return "", errors.New("description must match [a-zA-Z0-9_]+")
+	}
+	return desc, nil
+}
+
+func sanitizeVersion(raw string) (string, error) {
+	version := strings.TrimSpace(raw)
+	if version == "" {
+		return "", errors.New("version must not be empty")
+	}
+	if strings.Contains(version, "..") || strings.ContainsAny(version, `/\`) {
+		return "", errors.New("version contains unsafe path characters")
+	}
+	if !safeVersionPattern.MatchString(version) {
+		return "", errors.New("version must match [a-zA-Z0-9_]+")
+	}
+	return version, nil
+}
+
+func secureJoinWithin(baseDir, name string) (string, error) {
+	baseAbs, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", err
+	}
+	baseClean := filepath.Clean(baseAbs)
+	targetClean := filepath.Clean(filepath.Join(baseClean, name))
+
+	basePrefix := baseClean + string(os.PathSeparator)
+	if targetClean != baseClean && !strings.HasPrefix(targetClean, basePrefix) {
+		return "", fmt.Errorf("migration file path escapes directory: %s", name)
+	}
+	return targetClean, nil
 }

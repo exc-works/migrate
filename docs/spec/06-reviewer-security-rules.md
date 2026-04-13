@@ -17,5 +17,12 @@
 在 `pre-commit` hook 中至少增加一类敏感信息扫描：
 
 - 私钥特征匹配。
+- 绝对路径匹配（Unix `/...` 与 Windows `C:\...`）。
 - 常见密码/Token 模式匹配。
 - 高风险连接串字段匹配（如 `password=`、`secret=`、`token=`）。
+- staged 文件列表必须使用 NUL 分隔读取，避免空格文件名绕过。
+
+## 远端兜底策略
+
+- 必须启用远端受保护分支策略，禁止绕过检查直接合并。
+- 必须启用远端 push protection 或等价的 pre-receive 扫描。

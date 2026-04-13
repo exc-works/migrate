@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
-if [[ -z "${staged_files}" ]]; then
+declare -a staged_files=()
+while IFS= read -r -d '' path; do
+  staged_files+=("${path}")
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+if [[ ${#staged_files[@]} -eq 0 ]]; then
   exit 0
 fi
 
 # Only inspect added lines from staged diff to reduce false positives.
-added_lines=$(git diff --cached --unified=0 --no-color -- ${staged_files} \
+added_lines=$(git diff --cached --unified=0 --no-color -- "${staged_files[@]}" \
   | sed -n 's/^+//p' \
   | sed '/^+++/d')
 
@@ -20,6 +24,16 @@ key_matches=$(printf '%s\n' "${added_lines}" \
 if [[ -n "${key_matches}" ]]; then
   echo "[pre-commit] blocked: private key material detected in staged changes"
   printf '%s\n' "${key_matches}"
+  exit 1
+fi
+
+absolute_path_matches=$(printf '%s\n' "${added_lines}" \
+  | grep -En -- "([A-Za-z]:\\\\[^[:space:]\"']+)|((^|[[:space:]'\"=:(])/[A-Za-z0-9._~+/-]+)" || true)
+absolute_path_matches=$(printf '%s\n' "${absolute_path_matches}" \
+  | grep -Ev -- '://[A-Za-z0-9]' || true)
+if [[ -n "${absolute_path_matches}" ]]; then
+  echo "[pre-commit] blocked: absolute path detected in staged changes"
+  printf '%s\n' "${absolute_path_matches}"
   exit 1
 fi
 

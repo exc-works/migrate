@@ -24,10 +24,16 @@ go test ./...
 go test -tags=integration ./...
 ```
 
-## Enable Pre-commit Secret Scan
+## Enable Pre-commit Security Scan
 
 ```bash
 ./scripts/install-git-hooks.sh
 ```
 
-This enables repository hooks via `core.hooksPath=.githooks` and runs secret checks before each commit.
+This enables repository hooks via `core.hooksPath=.githooks` and blocks commits that add:
+
+- private key material
+- absolute filesystem paths (Unix and Windows)
+- hardcoded credentials (`password` / `token` / `secret`)
+
+For remote enforcement, configure protected branch push protection or server-side pre-receive scanning.

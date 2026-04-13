@@ -6,6 +6,17 @@ on:
     branches: [ main, master ]
 
 jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate hook scripts
+        run: |
+          bash -n .githooks/pre-commit
+          bash -n scripts/install-git-hooks.sh
+      - name: Test hook behavior
+        run: ./scripts/test-pre-commit-hook.sh
+
   unit:
     runs-on: ubuntu-latest
     steps:
