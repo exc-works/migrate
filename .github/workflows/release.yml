@@ -43,8 +43,8 @@ jobs:
             goarch: 386
             arch_label: x86
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Download dependencies
@@ -63,7 +63,7 @@ jobs:
           raw_name="${BINARY_NAME}_${GITHUB_REF_NAME}_${GOOS}_${{ matrix.arch_label }}${ext}"
           CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "dist/${raw_name}" ./cmd/sql-migrate
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.goos }}-${{ matrix.arch_label }}
           path: dist/*
@@ -74,7 +74,7 @@ jobs:
     needs: build
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist

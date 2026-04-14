@@ -9,7 +9,7 @@ jobs:
   policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate hook scripts
         run: |
           bash -n .githooks/pre-commit
@@ -20,8 +20,8 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Download dependencies
@@ -38,8 +38,8 @@ jobs:
       matrix:
         db: [postgres, mysql, mariadb, sqlite]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Download dependencies
@@ -66,9 +66,9 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
             echo "INTEGRATION_ORACLE_DSN is not set, skip oracle integration tests."
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
         with:
           go-version-file: go.mod
@@ -84,8 +84,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Build all
