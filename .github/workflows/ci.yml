@@ -53,19 +53,32 @@ jobs:
         run: go test -tags=integration ./integrationtest/...
 
   integration-oracle:
-    if: ${{ secrets.INTEGRATION_ORACLE_DSN != '' }}
     runs-on: ubuntu-latest
+    env:
+      INTEGRATION_ORACLE_DSN: ${{ secrets.INTEGRATION_ORACLE_DSN }}
     steps:
+      - name: Check Oracle DSN
+        id: oracle_dsn
+        run: |
+          if [ -n "${INTEGRATION_ORACLE_DSN:-}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "INTEGRATION_ORACLE_DSN is not set, skip oracle integration tests."
+          fi
       - uses: actions/checkout@v4
+        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
       - uses: actions/setup-go@v5
+        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
         with:
           go-version-file: go.mod
       - name: Download dependencies
+        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
         run: go mod download
       - name: Integration tests (oracle)
+        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
         env:
           INTEGRATION_DB: oracle
-          INTEGRATION_ORACLE_DSN: ${{ secrets.INTEGRATION_ORACLE_DSN }}
         run: go test -tags=integration ./integrationtest/...
 
   build:
