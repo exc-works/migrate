@@ -1,6 +1,6 @@
 # sql-migrate
 
-SQL migration tool with PostgreSQL/MySQL/MariaDB support.
+SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite support.
 
 ## Install
 

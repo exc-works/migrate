@@ -20,7 +20,9 @@ import (
 	"github.com/exc-works/sql-migrate/internal/source"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/sijms/go-ora/v2"
 	"github.com/spf13/cobra"
+	_ "modernc.org/sqlite"
 )
 
 var (

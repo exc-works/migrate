@@ -53,4 +53,15 @@ if ! git commit -m "should-pass-url" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Should allow go module path and indirect comment syntax.
+cat > go-mod-line-ok.txt <<'EOF'
+github.com/dustin/go-humanize v1.0.1 // indirect
+modernc.org/memory v1.11.0/go.mod h1:/JP4VbVC+K5sU2wZi9bHoq2MAkCnrt2r98UGeSK7Mjw=
+EOF
+git add go-mod-line-ok.txt
+if ! git commit -m "should-pass-go-module-lines" >/dev/null 2>&1; then
+  echo "expected go module path lines to pass"
+  exit 1
+fi
+
 echo "pre-commit hook smoke tests passed"

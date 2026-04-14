@@ -28,9 +28,11 @@ if [[ -n "${key_matches}" ]]; then
 fi
 
 absolute_path_matches=$(printf '%s\n' "${added_lines}" \
-  | grep -En -- "([A-Za-z]:\\\\[^[:space:]\"']+)|((^|[[:space:]'\"=:(])/[A-Za-z0-9._~+/-]+)" || true)
+  | grep -En -- "([A-Za-z]:\\\\[^[:space:]\"']+)|((^|[[:space:]'\"=:(])/[A-Za-z0-9._~+-][A-Za-z0-9._~+/-]*)" || true)
 absolute_path_matches=$(printf '%s\n' "${absolute_path_matches}" \
   | grep -Ev -- '://[A-Za-z0-9]' || true)
+absolute_path_matches=$(printf '%s\n' "${absolute_path_matches}" \
+  | grep -Ev -- 'h1:/[A-Za-z0-9+/=]+' || true)
 if [[ -n "${absolute_path_matches}" ]]; then
   echo "[pre-commit] blocked: absolute path detected in staged changes"
   printf '%s\n' "${absolute_path_matches}"

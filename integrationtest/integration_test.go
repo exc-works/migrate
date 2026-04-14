@@ -11,54 +11,70 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/docker/go-connections/nat"
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/exc-works/sql-migrate/internal/dialect"
 	"github.com/exc-works/sql-migrate/internal/logger"
 	"github.com/exc-works/sql-migrate/internal/migrate"
 	"github.com/exc-works/sql-migrate/internal/source"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/sijms/go-ora/v2"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	_ "modernc.org/sqlite"
 )
 
 func TestMigrateIntegration(t *testing.T) {
-	requireProviderHealthy(t)
 	for _, flavor := range selectedFlavors() {
 		flavor := flavor
 		t.Run(flavor, func(t *testing.T) {
 			t.Parallel()
-			db, d, cleanup := startContainerDB(t, flavor)
+			db, d, cleanup := startDB(t, flavor)
 			defer cleanup()
-			runScenario(t, db, d)
+			runScenario(t, db, d, migrationDirForFlavor(flavor))
 		})
 	}
 }
 
+var providerHealth struct {
+	once     sync.Once
+	err      error
+	panicVal any
+}
+
 func requireProviderHealthy(t *testing.T) {
 	t.Helper()
-	defer func() {
-		if r := recover(); r != nil {
-			if isCI() {
-				t.Fatalf("testcontainers provider panic in CI: %v", r)
-			}
-			t.Skipf("testcontainers provider unavailable: %v", r)
-		}
-	}()
 
-	ctx := context.Background()
-	provider, err := testcontainers.ProviderDocker.GetProvider()
-	if err == nil {
-		err = provider.Health(ctx)
-	}
-	if err != nil {
-		if isCI() {
-			t.Fatalf("testcontainers provider unhealthy in CI: %v", err)
+	providerHealth.once.Do(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				providerHealth.panicVal = r
+			}
+		}()
+		ctx := context.Background()
+		provider, err := testcontainers.ProviderDocker.GetProvider()
+		if err == nil {
+			err = provider.Health(ctx)
 		}
-		t.Skipf("testcontainers provider unavailable: %v", err)
+		providerHealth.err = err
+	})
+
+	if providerHealth.panicVal != nil {
+		if isCI() {
+			t.Fatalf("testcontainers provider panic in CI: %v", providerHealth.panicVal)
+		}
+		t.Skipf("testcontainers provider unavailable: %v", providerHealth.panicVal)
+	}
+
+	if providerHealth.err != nil {
+		if isCI() {
+			t.Fatalf("testcontainers provider unhealthy in CI: %v", providerHealth.err)
+		}
+		t.Skipf("testcontainers provider unavailable: %v", providerHealth.err)
 	}
 }
 
@@ -67,10 +83,9 @@ func isCI() bool {
 		strings.EqualFold(strings.TrimSpace(os.Getenv("GITHUB_ACTIONS")), "true")
 }
 
-func runScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
+func runScenario(t *testing.T, db *sql.DB, d dialect.Dialect, migrationDir string) {
 	t.Helper()
 	ctx := context.Background()
-	migrationDir := filepath.Join("testdata")
 
 	primarySchema := randomName("migration_schema")
 	svc, err := migrate.NewService(ctx, migrate.Config{
@@ -188,35 +203,89 @@ func queryCount(t *testing.T, db *sql.DB, query string) int {
 	return count
 }
 
+const (
+	envIntegrationDB      = "INTEGRATION_DB"
+	envIntegrationSQLite  = "INTEGRATION_SQLITE_DSN"
+	envIntegrationOracle  = "INTEGRATION_ORACLE_DSN"
+	defaultPingTimeoutSec = 60
+)
+
+var defaultIntegrationFlavors = []string{"postgres", "mysql", "mariadb", "sqlite", "oracle"}
+
 func selectedFlavors() []string {
-	v := strings.TrimSpace(os.Getenv("INTEGRATION_DB"))
+	v := strings.TrimSpace(os.Getenv(envIntegrationDB))
 	if v == "" {
-		return []string{"postgres", "mysql", "mariadb"}
+		return append([]string(nil), defaultIntegrationFlavors...)
 	}
 	parts := strings.Split(v, ",")
 	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, p := range parts {
-		p = strings.TrimSpace(p)
+		p = strings.ToLower(strings.TrimSpace(p))
 		if p != "" {
+			if p == "all" {
+				return append([]string(nil), defaultIntegrationFlavors...)
+			}
+			if _, ok := seen[p]; ok {
+				continue
+			}
+			seen[p] = struct{}{}
 			out = append(out, p)
 		}
 	}
 	if len(out) == 0 {
-		return []string{"postgres", "mysql", "mariadb"}
+		return append([]string(nil), defaultIntegrationFlavors...)
 	}
 	return out
 }
 
-func startContainerDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
+func migrationDirForFlavor(flavor string) string {
+	switch flavor {
+	case "oracle":
+		return filepath.Join("testdata_oracle")
+	case "sqlite":
+		return filepath.Join("testdata_sqlite")
+	default:
+		return filepath.Join("testdata")
+	}
+}
+
+func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
+	t.Helper()
+
+	d, err := dialect.FromName(flavor)
+	if err != nil {
+		if isOptionalFlavor(flavor) {
+			t.Skipf("%s integration skipped: dialect not available: %v", flavor, err)
+		}
+		t.Fatalf("resolve dialect %s: %v", flavor, err)
+	}
+
+	switch flavor {
+	case "postgres", "mysql", "mariadb":
+		db, cleanup := startContainerDB(t, flavor, d)
+		return db, d, cleanup
+	case "sqlite":
+		db, cleanup := startSQLiteDB(t, d)
+		return db, d, cleanup
+	case "oracle":
+		db, cleanup := startOracleDB(t, d)
+		return db, d, cleanup
+	default:
+		t.Fatalf("unsupported flavor: %s", flavor)
+	}
+	return nil, nil, func() {}
+}
+
+func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, func()) {
 	t.Helper()
 	ctx := context.Background()
+	requireProviderHealthy(t)
 
 	var (
-		request    testcontainers.ContainerRequest
-		port       string
-		driverName string
-		dsn        func(host, mappedPort string) string
-		d          dialect.Dialect
+		request testcontainers.ContainerRequest
+		port    string
+		dsn     func(host, mappedPort string) string
 	)
 	dbName := "testdb"
 	userName := "tc_user"
@@ -239,11 +308,9 @@ func startContainerDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, fu
 			),
 		}
 		port = "5432/tcp"
-		driverName = "pgx"
 		dsn = func(host, mappedPort string) string {
 			return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, mappedPort, userName, userPass, dbName)
 		}
-		d = dialect.PostgresDialect{}
 	case "mysql":
 		request = testcontainers.ContainerRequest{
 			Image:        "mysql:8.0",
@@ -260,11 +327,9 @@ func startContainerDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, fu
 			),
 		}
 		port = "3306/tcp"
-		driverName = "mysql"
 		dsn = func(host, mappedPort string) string {
 			return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", userName, userPass, host, mappedPort, dbName)
 		}
-		d = dialect.MySQLDialect{}
 	case "mariadb":
 		request = testcontainers.ContainerRequest{
 			Image:        "mariadb:11",
@@ -281,14 +346,14 @@ func startContainerDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, fu
 			),
 		}
 		port = "3306/tcp"
-		driverName = "mysql"
 		dsn = func(host, mappedPort string) string {
 			return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", userName, userPass, host, mappedPort, dbName)
 		}
-		d = dialect.MariaDBDialect{}
 	default:
 		t.Fatalf("unsupported flavor: %s", flavor)
 	}
+
+	driverName := requireDriver(t, flavor, false, d.DriverName())
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: request,
@@ -313,26 +378,143 @@ func startContainerDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, fu
 		_ = container.Terminate(ctx)
 		t.Fatalf("open db: %v", err)
 	}
-
-	deadline := time.Now().Add(60 * time.Second)
-	for {
-		err = db.PingContext(ctx)
-		if err == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			_ = db.Close()
-			_ = container.Terminate(ctx)
-			t.Fatalf("ping db timeout: %v", err)
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
 
 	cleanup := func() {
 		_ = db.Close()
 		_ = container.Terminate(ctx)
 	}
-	return db, d, cleanup
+	return db, cleanup
+}
+
+func startSQLiteDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {
+	t.Helper()
+
+	driverName := requireDriver(t, "sqlite", true, d.DriverName(), "sqlite3")
+	dsn := strings.TrimSpace(os.Getenv(envIntegrationSQLite))
+	if dsn == "" {
+		dsn = filepath.Join(t.TempDir(), "integration.sqlite")
+	}
+
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	waitForPing(t, db, 10*time.Second)
+	return db, func() {
+		_ = db.Close()
+	}
+}
+
+func startOracleDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {
+	t.Helper()
+
+	dsn := strings.TrimSpace(os.Getenv(envIntegrationOracle))
+	if dsn == "" {
+		t.Skipf("oracle integration skipped: %s is not set", envIntegrationOracle)
+	}
+
+	driverName := requireDriver(t, "oracle", true, d.DriverName(), "godror")
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		t.Fatalf("open oracle db: %v", err)
+	}
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
+	cleanupOracleAccountsTable(t, db)
+	return db, func() {
+		_ = db.Close()
+	}
+}
+
+func cleanupOracleAccountsTable(t *testing.T, db *sql.DB) {
+	t.Helper()
+	const stmt = `
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE accounts';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -942 THEN
+            RAISE;
+        END IF;
+END;
+`
+	if _, err := db.ExecContext(context.Background(), stmt); err != nil {
+		t.Fatalf("oracle pre-clean failed: %v", err)
+	}
+}
+
+func waitForPing(t *testing.T, db *sql.DB, timeout time.Duration) {
+	t.Helper()
+	ctx := context.Background()
+	deadline := time.Now().Add(timeout)
+	var err error
+	for {
+		err = db.PingContext(ctx)
+		if err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("ping db timeout: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func requireDriver(t *testing.T, flavor string, allowSkip bool, names ...string) string {
+	t.Helper()
+	driver := firstRegisteredDriver(names...)
+	if driver != "" {
+		return driver
+	}
+
+	checked := strings.Join(uniqueNonEmpty(names), ", ")
+	if allowSkip {
+		t.Skipf("%s integration skipped: SQL driver not registered (checked: %s)", flavor, checked)
+	}
+	t.Fatalf("%s integration setup failed: SQL driver not registered (checked: %s)", flavor, checked)
+	return ""
+}
+
+func firstRegisteredDriver(names ...string) string {
+	drivers := sql.Drivers()
+	for _, candidate := range names {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		for _, registered := range drivers {
+			if registered == candidate {
+				return candidate
+			}
+		}
+	}
+	return ""
+}
+
+func uniqueNonEmpty(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+func isOptionalFlavor(flavor string) bool {
+	switch flavor {
+	case "sqlite", "oracle":
+		return true
+	default:
+		return false
+	}
 }
 
 func randomName(prefix string) string {
