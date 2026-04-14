@@ -24,6 +24,19 @@ go test ./...
 go test -tags=integration ./...
 ```
 
+Run a specific integration dialect:
+
+```bash
+INTEGRATION_DB=sqlite go test -tags=integration ./integrationtest/...
+INTEGRATION_DB=postgres,mysql,mariadb go test -tags=integration ./integrationtest/...
+```
+
+Run Oracle integration (requires reachable Oracle DSN):
+
+```bash
+INTEGRATION_DB=oracle INTEGRATION_ORACLE_DSN='<oracle dsn>' go test -tags=integration ./integrationtest/...
+```
+
 ## Enable Pre-commit Security Scan
 
 ```bash
