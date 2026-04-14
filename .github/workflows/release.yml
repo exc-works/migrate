@@ -29,10 +29,10 @@ jobs:
             arch_label: amd64
           - goos: linux
             goarch: amd64
-            arch_label: x86
+            arch_label: x64
           - goos: linux
             goarch: 386
-            arch_label: x32
+            arch_label: x86
           - goos: windows
             goarch: amd64
             arch_label: x64
