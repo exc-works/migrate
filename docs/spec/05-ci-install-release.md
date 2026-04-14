@@ -4,18 +4,23 @@
 
 新增：`.github/workflows/ci.yml`。
 
-至少包含 3 个 job：
+至少包含 3 个常驻 job：
 
 1. `unit`
 - `go test ./...`
 - `go vet ./...`
 
-2. `integration`（matrix: postgres/mysql/mariadb）
+2. `integration`（matrix: postgres/mysql/mariadb/sqlite）
 - `go test -tags=integration ./...`
 
 3. `build`
 - `go build ./...`
 - `go build ./cmd/sql-migrate`
+
+可选扩展：
+
+- `integration-oracle`（当配置 `INTEGRATION_ORACLE_DSN` secret 时执行）
+- `INTEGRATION_DB=oracle` + `go test -tags=integration ./integrationtest/...`
 
 触发：
 
