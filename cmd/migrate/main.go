@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,8 +29,9 @@ import (
 )
 
 var (
-	openDB = sql.Open
-	pingDB = func(ctx context.Context, db *sql.DB) error {
+	buildVersion = "dev"
+	openDB       = sql.Open
+	pingDB       = func(ctx context.Context, db *sql.DB) error {
 		return db.PingContext(ctx)
 	}
 	newMigrateService  = migrate.NewService
@@ -39,7 +41,17 @@ var (
 )
 
 func main() {
+	root := newRootCommand(os.Stdout, os.Stderr)
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(root.ErrOrStderr(), err.Error())
+		os.Exit(1)
+	}
+}
+
+func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root := &cobra.Command{Use: "migrate"}
+	root.SetOut(stdout)
+	root.SetErr(stderr)
 	cfgPath := root.PersistentFlags().StringP("config", "c", "migration_config.json", "config file path")
 	workingDir := root.PersistentFlags().StringP("working-dir", "w", "", "working directory")
 
@@ -56,6 +68,16 @@ func main() {
 		svc = s
 		return nil
 	}
+
+	root.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print CLI version",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), effectiveBuildVersion())
+			return err
+		},
+	})
 
 	root.AddCommand(&cobra.Command{
 		Use:     "create",
@@ -220,10 +242,7 @@ func main() {
 	newConfigCmd.Flags().Bool("force", false, "overwrite existing config file")
 	newCmd.AddCommand(newConfigCmd)
 
-	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
+	return root
 }
 
 func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
@@ -279,6 +298,14 @@ func readConfigOrDefault(path, workingDir string) (*config.FileConfig, error) {
 		fallback.WorkingDirectory = workingDir
 	}
 	return &fallback, nil
+}
+
+func effectiveBuildVersion() string {
+	version := strings.TrimSpace(buildVersion)
+	if version == "" {
+		return "dev"
+	}
+	return version
 }
 
 func printStatusTable(items []migrate.MigrationStatus) {

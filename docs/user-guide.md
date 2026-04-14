@@ -213,6 +213,14 @@ go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
 go install ./cmd/migrate
 ```
 
+### 7.3 查看当前工具版本
+
+```bash
+migrate version
+```
+
+说明：发布产物会输出发布版本号；本地源码直接 `go install ./cmd/migrate` 构建通常输出 `dev`。
+
 ## 8. 环境变量使用
 
 `data_source_name` 支持以下模板：

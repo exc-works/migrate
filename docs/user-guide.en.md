@@ -212,6 +212,14 @@ and run:
 go install ./cmd/migrate
 ```
 
+### 7.3 Check current tool version
+
+```bash
+migrate version
+```
+
+Note: release artifacts print the release version; local source builds from `go install ./cmd/migrate` usually print `dev`.
+
 ## 8. Environment variable templates
 
 `data_source_name` supports:

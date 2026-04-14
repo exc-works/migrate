@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -13,6 +14,75 @@ import (
 	"github.com/exc-works/migrate/internal/config"
 	"github.com/exc-works/migrate/internal/migrate"
 )
+
+func TestEffectiveBuildVersion(t *testing.T) {
+	origBuildVersion := buildVersion
+	defer func() {
+		buildVersion = origBuildVersion
+	}()
+
+	buildVersion = ""
+	if got := effectiveBuildVersion(); got != "dev" {
+		t.Fatalf("expected dev fallback, got %q", got)
+	}
+
+	buildVersion = "v1.2.3"
+	if got := effectiveBuildVersion(); got != "v1.2.3" {
+		t.Fatalf("expected explicit version, got %q", got)
+	}
+}
+
+func TestVersionCommand(t *testing.T) {
+	origBuildVersion := buildVersion
+	origOpenDB := openDB
+	defer func() {
+		buildVersion = origBuildVersion
+		openDB = origOpenDB
+	}()
+
+	buildVersion = "v9.9.9"
+	openDB = func(driverName, dsn string) (*sql.DB, error) {
+		t.Fatalf("version command should not open a database")
+		return nil, nil
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"version"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := stdout.String(); got != "v9.9.9\n" {
+		t.Fatalf("unexpected stdout: %q", got)
+	}
+	if got := stderr.String(); got != "" {
+		t.Fatalf("expected empty stderr, got %q", got)
+	}
+}
+
+func TestVersionCommandRejectsArgs(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{"version", "extra"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error for extra args")
+	}
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := stdout.String(); got != "" {
+		t.Fatalf("expected empty stdout, got %q", got)
+	}
+}
 
 func TestSanitizeDescription(t *testing.T) {
 	t.Run("accepts safe description", func(t *testing.T) {

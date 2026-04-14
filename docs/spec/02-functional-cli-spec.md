@@ -5,6 +5,7 @@
 - `create`：创建迁移记录表。
 - `baseline`：将当前 migration 文件标记为 baseline。
 - `status`：输出 migration 文件与 DB 状态对比。
+- `version`：输出 CLI 工具版本，不读取配置、不连接数据库。
 - `up`：迁移到最新版本。
 - `down [to-version] --all`：回滚到目标版本（不含）或回滚全部。
 - `new version <desc> [-v version]`：创建迁移文件。
