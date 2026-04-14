@@ -15,7 +15,7 @@
 
 3. `build`
 - `go build ./...`
-- `go build ./cmd/sql-migrate`
+- `go build ./cmd/migrate`
 
 可选扩展：
 
@@ -33,10 +33,10 @@
 
 ## go install 支持
 
-- CLI 入口：`cmd/sql-migrate`。
+- CLI 入口：`cmd/migrate`。
 - 安装命令必须可用：
-  - `go install <module>/cmd/sql-migrate@latest`
-  - `go install <module>/cmd/sql-migrate@vX.Y.Z`
+  - `go install <module>/cmd/migrate@latest`
+  - `go install <module>/cmd/migrate@vX.Y.Z`
 
 ## 发布约束
 

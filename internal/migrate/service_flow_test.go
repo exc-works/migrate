@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/exc-works/sql-migrate/internal/dialect"
-	"github.com/exc-works/sql-migrate/internal/logger"
-	"github.com/exc-works/sql-migrate/internal/source"
+	"github.com/exc-works/migrate/internal/dialect"
+	"github.com/exc-works/migrate/internal/logger"
+	"github.com/exc-works/migrate/internal/source"
 )
 
 func TestUpSkipsOutOfOrderWhenDisabled(t *testing.T) {

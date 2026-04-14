@@ -1,4 +1,4 @@
-# SQL Migrate Harness 规范索引
+# Migrate Harness 规范索引
 
 该文件作为总入口，详细规范已拆分到 `docs/spec/`，用于降低单文档上下文负担，方便 AI Agent 分步执行。
 

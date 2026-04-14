@@ -4,7 +4,7 @@ This file is a minimal entrypoint for AI agents.
 
 ## Source of Truth
 
-- Start from `docs/sql-migrate-harness-spec.md`.
+- Start from `docs/migrate-harness-spec.md`.
 - Detailed requirements live only under `docs/spec/`.
 - Do not duplicate or reinterpret spec details in this file.
 
@@ -20,4 +20,4 @@ This file is a minimal entrypoint for AI agents.
 2. `go test -tags=integration ./...`
 3. `go vet ./...`
 4. `go build ./...`
-5. `go build ./cmd/sql-migrate`
+5. `go build ./cmd/migrate`

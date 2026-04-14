@@ -1,4 +1,4 @@
-module github.com/exc-works/sql-migrate
+module github.com/exc-works/migrate
 
 go 1.25.0
 

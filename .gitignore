@@ -2,4 +2,4 @@
 .cache
 .gocache
 build
-/sql-migrate
+migrate

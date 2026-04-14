@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/exc-works/sql-migrate/internal/dialect"
-	"github.com/exc-works/sql-migrate/internal/logger"
-	"github.com/exc-works/sql-migrate/internal/parser"
-	"github.com/exc-works/sql-migrate/internal/source"
+	"github.com/exc-works/migrate/internal/dialect"
+	"github.com/exc-works/migrate/internal/logger"
+	"github.com/exc-works/migrate/internal/parser"
+	"github.com/exc-works/migrate/internal/source"
 )
 
 type Config struct {

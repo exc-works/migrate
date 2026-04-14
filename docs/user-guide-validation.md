@@ -26,18 +26,18 @@
 
 - 在临时目录实际执行 SQLite 流程，主链路可跑通。
 - 发现问题：
-- `High`：`go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest` 在当前环境报 `Repository not found`。
-- `Medium`：第 9 节缺少 `sql-migrate --help` 前置检查。
+- `High`：`go install github.com/exc-works/migrate/cmd/migrate@latest` 在当前环境报 `Repository not found`。
+- `Medium`：第 9 节缺少 `migrate --help` 前置检查。
 - `Medium`：`create/up/down` 成功时常无输出，需补“如何验证成功”。
 - `Low`：no-op 回退示例应更明确或替换为可逆 SQL。
 
 ### 主代理修订
 
 - 安装章节改为双路径：
-- 模块安装（公开仓库）`go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest`
-- 本地源码安装（私有仓库）`go install ./cmd/sql-migrate`
+- 模块安装（公开仓库）`go install github.com/exc-works/migrate/cmd/migrate@latest`
+- 本地源码安装（私有仓库）`go install ./cmd/migrate`
 - 工具版本安装/回退示例由固定 tag 改为 `@<version>` 参数化。
-- SQLite 演练新增前置检查：`sql-migrate --help`。
+- SQLite 演练新增前置检查：`migrate --help`。
 - 在 `create/up/down` 章节补充“成功可能无输出，使用 status 验证”。
 - SQLite 第二个迁移的 `Down` 改为真实可逆 SQL（重建表回退列）。
 - 演练目录增加 Windows PowerShell 示例。
@@ -69,9 +69,9 @@
 
 ### 主代理修订
 
-- 补第 7 章私有仓库升级/回退路径：`go install ./cmd/sql-migrate`。
+- 补第 7 章私有仓库升级/回退路径：`go install ./cmd/migrate`。
 - 将 `@<version>` 全部替换为 `@vX.Y.Z`，并增加“替换为真实版本号”说明。
-- 修正 Windows PowerShell 演练路径示例为相对路径 `.\sql-migrate-demo` 形式。
+- 修正 Windows PowerShell 演练路径示例为相对路径 `.\migrate-demo` 形式。
 
 ### 结果
 
@@ -93,7 +93,7 @@
 ### 主代理修订
 
 - 在“工具回退”补充可直接复制示例：
-- `go install github.com/exc-works/sql-migrate/cmd/sql-migrate@v0.2.3`
+- `go install github.com/exc-works/migrate/cmd/migrate@v0.2.3`
 
 ### 结果
 

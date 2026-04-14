@@ -1,4 +1,4 @@
-# sql-migrate
+# migrate
 
 SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/TiDB/Redshift support.
 
@@ -10,16 +10,16 @@ SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/
 ## Install
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
 ## Quick Start
 
 ```bash
-sql-migrate new config
-sql-migrate create
-sql-migrate up
-sql-migrate status
+migrate new config
+migrate create
+migrate up
+migrate status
 ```
 
 ## Test

@@ -3,7 +3,7 @@
 ## 推荐目录
 
 ```text
-cmd/sql-migrate/main.go
+cmd/migrate/main.go
 internal/config/
 internal/migrate/
 internal/parser/

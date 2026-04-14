@@ -91,4 +91,4 @@ jobs:
       - name: Build all
         run: go build ./...
       - name: Build CLI
-        run: go build ./cmd/sql-migrate
+        run: go build ./cmd/migrate

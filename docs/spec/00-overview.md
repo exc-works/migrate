@@ -2,7 +2,7 @@
 
 ## 目标
 
-在当前项目实现独立的 `sql-migrate` 工具，并满足：
+在当前项目实现独立的 `migrate` 工具，并满足：
 
 - 保留核心命令能力（create/baseline/status/up/down/new）。
 - 支持常见数据库（V1: PostgreSQL/MySQL/MariaDB；扩展支持 Oracle/SQLite）。
@@ -12,7 +12,7 @@
 
 ## 交付物
 
-- 可构建的 CLI：`cmd/sql-migrate`。
+- 可构建的 CLI：`cmd/migrate`。
 - 结构化实现：`internal/*`。
 - 单测与集成测试。
 - CI 工作流。

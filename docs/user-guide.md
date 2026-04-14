@@ -1,19 +1,19 @@
-# sql-migrate 用户指南
+# migrate 用户指南
 
-本文档面向首次使用者，命令与参数基于当前实现（`cmd/sql-migrate`）。
+本文档面向首次使用者，命令与参数基于当前实现（`cmd/migrate`）。
 
 ## 1. 安装
 
-### 1.1 从模块安装（仓库可公开访问时）
+### 1.1 从模块安装
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
 安装指定版本：
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@vX.Y.Z
+go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
 ```
 
 把 `vX.Y.Z` 替换成真实版本号（例如 `v0.2.3`）。
@@ -23,13 +23,13 @@ go install github.com/exc-works/sql-migrate/cmd/sql-migrate@vX.Y.Z
 在仓库根目录执行：
 
 ```bash
-go install ./cmd/sql-migrate
+go install ./cmd/migrate
 ```
 
 ### 1.3 验证安装
 
 ```bash
-sql-migrate --help
+migrate --help
 ```
 
 如果提示命令不存在：
@@ -45,14 +45,14 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 ### 2.1 生成配置文件
 
 ```bash
-sql-migrate new config
+migrate new config
 ```
 
 可选：
 
 ```bash
-sql-migrate new config dev.json
-sql-migrate new config --force
+migrate new config dev.json
+migrate new config --force
 ```
 
 默认配置模板：
@@ -78,19 +78,19 @@ sql-migrate new config --force
 ### 2.3 初始化迁移记录表
 
 ```bash
-sql-migrate create
+migrate create
 ```
 
 `create` 成功时可能无输出，执行以下命令确认：
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 已有历史数据库且不希望重放历史 SQL 时，可用：
 
 ```bash
-sql-migrate baseline
+migrate baseline
 ```
 
 ## 3. 创建版本文件
@@ -98,13 +98,13 @@ sql-migrate baseline
 ### 3.1 自动版本号
 
 ```bash
-sql-migrate new version init_users
+migrate new version init_users
 ```
 
 ### 3.2 指定版本号
 
 ```bash
-sql-migrate new version add_email -v 202604140002
+migrate new version add_email -v 202604140002
 ```
 
 生成文件名格式：
@@ -126,19 +126,19 @@ V<version>__<description>.sql
 先演练：
 
 ```bash
-sql-migrate up --dry-run
+migrate up --dry-run
 ```
 
 正式执行：
 
 ```bash
-sql-migrate up
+migrate up
 ```
 
 执行后查看状态：
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 `up` 成功时可能无输出，请以 `status` 结果为准。
@@ -148,7 +148,7 @@ sql-migrate status
 ### 5.1 回退到目标版本（不含目标版本）
 
 ```bash
-sql-migrate down 202604140001
+migrate down 202604140001
 ```
 
 语义：仅回退版本号大于 `202604140001` 的已应用迁移。
@@ -156,22 +156,22 @@ sql-migrate down 202604140001
 ### 5.2 回退全部
 
 ```bash
-sql-migrate down --all
+migrate down --all
 ```
 
 ### 5.3 回退演练（不落库）
 
 ```bash
-sql-migrate down 202604140001 --dry-run
-sql-migrate down --all --dry-run
+migrate down 202604140001 --dry-run
+migrate down --all --dry-run
 ```
 
-`down` 成功时可能无输出，请执行 `sql-migrate status` 验证。
+`down` 成功时可能无输出，请执行 `migrate status` 验证。
 
 ## 6. 查看状态
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 输出列：`Version`、`Filename`、`Hash`、`Status`。
@@ -190,19 +190,19 @@ sql-migrate status
 ### 7.1 升级工具本身
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
 ### 7.2 回退工具版本
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@vX.Y.Z
+go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
 ```
 
 例如：
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@v0.2.3
+go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
 ```
 
 建议把当前使用版本写入团队文档或 CI，避免本地行为不一致。
@@ -210,7 +210,7 @@ go install github.com/exc-works/sql-migrate/cmd/sql-migrate@v0.2.3
 如果仓库私有且无法直接 `go install github.com/...@...`，请在对应版本源码目录执行：
 
 ```bash
-go install ./cmd/sql-migrate
+go install ./cmd/migrate
 ```
 
 ## 8. 环境变量使用
@@ -232,7 +232,7 @@ go install ./cmd/sql-migrate
 确保运行环境已设置 `DB_PASSWORD` 后执行：
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 ## 9. 新用户 10 分钟演练（SQLite）
@@ -242,23 +242,23 @@ sql-migrate status
 先确认命令可用：
 
 ```bash
-sql-migrate --help
+migrate --help
 ```
 
 创建演练目录（macOS/Linux）：
 
 ```bash
-mkdir -p ./sql-migrate-demo
-cd ./sql-migrate-demo
-sql-migrate new config
+mkdir -p ./migrate-demo
+cd ./migrate-demo
+migrate new config
 ```
 
 Windows PowerShell 可使用：
 
 ```powershell
-mkdir .\sql-migrate-demo
-cd .\sql-migrate-demo
-sql-migrate new config
+mkdir .\migrate-demo
+cd .\migrate-demo
+migrate new config
 ```
 
 把 `migration_config.json` 改为：
@@ -278,18 +278,19 @@ sql-migrate new config
 ### 9.2 初始化与创建迁移文件
 
 ```bash
-sql-migrate create
-sql-migrate new version init_users -v 202604140001
-sql-migrate new version add_email -v 202604140002
+migrate create
+migrate new version init_users -v 202604140001
+migrate new version add_email -v 202604140002
 ```
 
 编辑 `migrations/V202604140001__init_users.sql`：
 
 ```sql
 -- +migrate Up
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL
+CREATE TABLE users
+(
+    id   INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
 );
 
 -- +migrate Down
@@ -300,30 +301,34 @@ DROP TABLE IF EXISTS users;
 
 ```sql
 -- +migrate Up
-ALTER TABLE users ADD COLUMN email TEXT;
+ALTER TABLE users
+    ADD COLUMN email TEXT;
 
 -- +migrate Down
-CREATE TABLE users_tmp (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL
+CREATE TABLE users_tmp
+(
+    id   INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
 );
 INSERT INTO users_tmp (id, name)
-SELECT id, name FROM users;
+SELECT id, name
+FROM users;
 DROP TABLE users;
-ALTER TABLE users_tmp RENAME TO users;
+ALTER TABLE users_tmp
+    RENAME TO users;
 ```
 
 ### 9.3 升级、查看状态、回退
 
 ```bash
-sql-migrate up --dry-run
-sql-migrate up
-sql-migrate status
-sql-migrate down 202604140001 --dry-run
-sql-migrate down 202604140001
-sql-migrate status
-sql-migrate down --all
-sql-migrate status
+migrate up --dry-run
+migrate up
+migrate status
+migrate down 202604140001 --dry-run
+migrate down 202604140001
+migrate status
+migrate down --all
+migrate status
 ```
 
 预期：
@@ -337,14 +342,14 @@ sql-migrate status
 指定配置文件：
 
 ```bash
-sql-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.json status
 ```
 
 指定工作目录：
 
 ```bash
-sql-migrate -w ./deploy create
-sql-migrate -w ./deploy up
+migrate -w ./deploy create
+migrate -w ./deploy up
 ```
 
 ## 11. 常见错误排查
@@ -373,8 +378,8 @@ sql-migrate -w ./deploy up
 
 处理：
 
-- 使用 `sql-migrate down <version>`
-- 或使用 `sql-migrate down --all`
+- 使用 `migrate down <version>`
+- 或使用 `migrate down --all`
 
 ### 11.4 方言不支持
 

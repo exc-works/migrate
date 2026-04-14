@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 
 GO ?= go
-APP_BIN ?= sql-migrate
-APP_PKG ?= ./cmd/sql-migrate
+APP_BIN ?= migrate
+APP_PKG ?= ./cmd/migrate
 
 export GOCACHE ?= $(CURDIR)/.cache/go-build
 export GOMODCACHE ?= $(CURDIR)/.cache/go-mod

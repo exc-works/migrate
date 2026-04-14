@@ -1,19 +1,19 @@
-# sql-migrate User Guide
+# migrate User Guide
 
-This guide is for first-time users. Commands and flags are based on the current implementation (`cmd/sql-migrate`).
+This guide is for first-time users. Commands and flags are based on the current implementation (`cmd/migrate`).
 
 ## 1. Installation
 
-### 1.1 Install from module (when the repository is publicly accessible)
+### 1.1 Install from module
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
 Install a specific version:
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@vX.Y.Z
+go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
 ```
 
 Replace `vX.Y.Z` with a real version, for example `v0.2.3`.
@@ -23,13 +23,13 @@ Replace `vX.Y.Z` with a real version, for example `v0.2.3`.
 Run in the repository root:
 
 ```bash
-go install ./cmd/sql-migrate
+go install ./cmd/migrate
 ```
 
 ### 1.3 Verify installation
 
 ```bash
-sql-migrate --help
+migrate --help
 ```
 
 If the command is not found:
@@ -45,14 +45,14 @@ If you see `Repository not found`, use the local source install path above.
 ### 2.1 Generate config file
 
 ```bash
-sql-migrate new config
+migrate new config
 ```
 
 Optional:
 
 ```bash
-sql-migrate new config dev.json
-sql-migrate new config --force
+migrate new config dev.json
+migrate new config --force
 ```
 
 Default config template:
@@ -78,19 +78,19 @@ Default config template:
 ### 2.3 Initialize migration history table
 
 ```bash
-sql-migrate create
+migrate create
 ```
 
 `create` may succeed without output. Confirm with:
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 If you have an existing schema and do not want to replay old SQL, use:
 
 ```bash
-sql-migrate baseline
+migrate baseline
 ```
 
 ## 3. Create migration version files
@@ -98,13 +98,13 @@ sql-migrate baseline
 ### 3.1 Auto-generated version
 
 ```bash
-sql-migrate new version init_users
+migrate new version init_users
 ```
 
 ### 3.2 Explicit version
 
 ```bash
-sql-migrate new version add_email -v 202604140002
+migrate new version add_email -v 202604140002
 ```
 
 Generated filename format:
@@ -126,19 +126,19 @@ Default file template:
 Dry run first:
 
 ```bash
-sql-migrate up --dry-run
+migrate up --dry-run
 ```
 
 Apply for real:
 
 ```bash
-sql-migrate up
+migrate up
 ```
 
 Then check status:
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 `up` may succeed without output. Use `status` as the source of truth.
@@ -148,7 +148,7 @@ sql-migrate status
 ### 5.1 Roll back to a target version (target version is kept)
 
 ```bash
-sql-migrate down 202604140001
+migrate down 202604140001
 ```
 
 Semantics: only applied versions greater than `202604140001` are rolled back.
@@ -156,22 +156,22 @@ Semantics: only applied versions greater than `202604140001` are rolled back.
 ### 5.2 Roll back all applied versions
 
 ```bash
-sql-migrate down --all
+migrate down --all
 ```
 
 ### 5.3 Dry-run rollback
 
 ```bash
-sql-migrate down 202604140001 --dry-run
-sql-migrate down --all --dry-run
+migrate down 202604140001 --dry-run
+migrate down --all --dry-run
 ```
 
-`down` may succeed without output. Run `sql-migrate status` to verify.
+`down` may succeed without output. Run `migrate status` to verify.
 
 ## 6. Check status
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 Output columns: `Version`, `Filename`, `Hash`, `Status`.
@@ -190,25 +190,26 @@ Common statuses:
 ### 7.1 Upgrade tool version
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
 ### 7.2 Downgrade tool version
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@vX.Y.Z
+go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
 ```
 
 Example:
 
 ```bash
-go install github.com/exc-works/sql-migrate/cmd/sql-migrate@v0.2.3
+go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
 ```
 
-If the repo is private and `go install github.com/...@...` is not available, check out the target version in source code and run:
+If the repo is private and `go install github.com/...@...` is not available, check out the target version in source code
+and run:
 
 ```bash
-go install ./cmd/sql-migrate
+go install ./cmd/migrate
 ```
 
 ## 8. Environment variable templates
@@ -230,7 +231,7 @@ Example:
 Make sure `DB_PASSWORD` is already set in your environment, then run:
 
 ```bash
-sql-migrate status
+migrate status
 ```
 
 ## 9. 10-minute first-run demo (SQLite)
@@ -240,23 +241,23 @@ sql-migrate status
 First verify command availability:
 
 ```bash
-sql-migrate --help
+migrate --help
 ```
 
 Create demo directory (macOS/Linux):
 
 ```bash
-mkdir -p ./sql-migrate-demo
-cd ./sql-migrate-demo
-sql-migrate new config
+mkdir -p ./migrate-demo
+cd ./migrate-demo
+migrate new config
 ```
 
 Windows PowerShell equivalent:
 
 ```powershell
-mkdir .\sql-migrate-demo
-cd .\sql-migrate-demo
-sql-migrate new config
+mkdir .\migrate-demo
+cd .\migrate-demo
+migrate new config
 ```
 
 Update `migration_config.json` to:
@@ -276,18 +277,19 @@ Update `migration_config.json` to:
 ### 9.2 Initialize and create migration files
 
 ```bash
-sql-migrate create
-sql-migrate new version init_users -v 202604140001
-sql-migrate new version add_email -v 202604140002
+migrate create
+migrate new version init_users -v 202604140001
+migrate new version add_email -v 202604140002
 ```
 
 Edit `migrations/V202604140001__init_users.sql`:
 
 ```sql
 -- +migrate Up
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL
+CREATE TABLE users
+(
+    id   INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
 );
 
 -- +migrate Down
@@ -298,30 +300,34 @@ Edit `migrations/V202604140002__add_email.sql`:
 
 ```sql
 -- +migrate Up
-ALTER TABLE users ADD COLUMN email TEXT;
+ALTER TABLE users
+    ADD COLUMN email TEXT;
 
 -- +migrate Down
-CREATE TABLE users_tmp (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL
+CREATE TABLE users_tmp
+(
+    id   INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
 );
 INSERT INTO users_tmp (id, name)
-SELECT id, name FROM users;
+SELECT id, name
+FROM users;
 DROP TABLE users;
-ALTER TABLE users_tmp RENAME TO users;
+ALTER TABLE users_tmp
+    RENAME TO users;
 ```
 
 ### 9.3 Apply, check status, and rollback
 
 ```bash
-sql-migrate up --dry-run
-sql-migrate up
-sql-migrate status
-sql-migrate down 202604140001 --dry-run
-sql-migrate down 202604140001
-sql-migrate status
-sql-migrate down --all
-sql-migrate status
+migrate up --dry-run
+migrate up
+migrate status
+migrate down 202604140001 --dry-run
+migrate down 202604140001
+migrate status
+migrate down --all
+migrate status
 ```
 
 Expected:
@@ -335,14 +341,14 @@ Expected:
 Use specific config file:
 
 ```bash
-sql-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.json status
 ```
 
 Use specific working directory:
 
 ```bash
-sql-migrate -w ./deploy create
-sql-migrate -w ./deploy up
+migrate -w ./deploy create
+migrate -w ./deploy up
 ```
 
 ## 11. Common errors and troubleshooting
@@ -371,8 +377,8 @@ Error: `to-version must be set, or use --all`
 
 Fix:
 
-- use `sql-migrate down <version>`
-- or use `sql-migrate down --all`
+- use `migrate down <version>`
+- or use `migrate down --all`
 
 ### 11.4 Unsupported dialect
 
