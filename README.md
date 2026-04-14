@@ -2,6 +2,11 @@
 
 SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/TiDB/Redshift support.
 
+## Documentation
+
+- [User Guide (中文)](docs/user-guide.md)
+- [User Guide (English)](docs/user-guide.en.md)
+
 ## Install
 
 ```bash
