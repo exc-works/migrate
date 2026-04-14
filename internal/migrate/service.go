@@ -34,6 +34,10 @@ type Service struct {
 	cfg Config
 }
 
+type execContextRunner interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
 func (s *Service) Config() Config {
 	return s.cfg
 }
@@ -113,7 +117,7 @@ func (s *Service) Baseline() error {
 	}
 
 	nextID := maxID
-	err = s.withTx(func(tx *sql.Tx) error {
+	err = s.withTx(func(runner execContextRunner) error {
 		for _, st := range statuses {
 			nextID++
 			record := SchemaRecord{
@@ -124,7 +128,7 @@ func (s *Service) Baseline() error {
 				Status:    StatusBaseline,
 				CreatedAt: time.Now().UTC(),
 			}
-			if _, err := tx.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, record.Status, record.CreatedAt); err != nil {
+			if _, err := runner.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, record.Status, record.CreatedAt); err != nil {
 				return fmt.Errorf("baseline %s: %w", record.Filename, err)
 			}
 		}
@@ -213,7 +217,7 @@ func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
 	if len(m.UpStatements) == 0 {
 		return fmt.Errorf("no up statements found for %s", m.Filename)
 	}
-	return s.withTx(func(tx *sql.Tx) error {
+	return s.withTx(func(runner execContextRunner) error {
 		for _, stmt := range m.UpStatements {
 			if s.cfg.DryRun {
 				if _, err := io.WriteString(s.cfg.DryRunOutput, stmt+"\n"); err != nil {
@@ -221,7 +225,7 @@ func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
 				}
 				continue
 			}
-			if _, err := tx.ExecContext(s.ctx, stmt); err != nil {
+			if _, err := runner.ExecContext(s.ctx, stmt); err != nil {
 				return fmt.Errorf("apply up %s version=%s: %w", m.Filename, m.Version, err)
 			}
 		}
@@ -237,7 +241,7 @@ func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
 			Status:    StatusApplied,
 			CreatedAt: time.Now().UTC(),
 		}
-		if _, err := tx.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, record.Status, record.CreatedAt); err != nil {
+		if _, err := runner.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, record.Status, record.CreatedAt); err != nil {
 			return fmt.Errorf("insert migration history %s: %w", m.Filename, err)
 		}
 		return nil
@@ -248,7 +252,7 @@ func (s *Service) applyDown(m Migration, deleteSQL string) error {
 	if len(m.DownStatements) == 0 {
 		return fmt.Errorf("no down statements found for %s", m.Filename)
 	}
-	return s.withTx(func(tx *sql.Tx) error {
+	return s.withTx(func(runner execContextRunner) error {
 		for _, stmt := range m.DownStatements {
 			if s.cfg.DryRun {
 				if _, err := io.WriteString(s.cfg.DryRunOutput, stmt+"\n"); err != nil {
@@ -256,21 +260,25 @@ func (s *Service) applyDown(m Migration, deleteSQL string) error {
 				}
 				continue
 			}
-			if _, err := tx.ExecContext(s.ctx, stmt); err != nil {
+			if _, err := runner.ExecContext(s.ctx, stmt); err != nil {
 				return fmt.Errorf("apply down %s version=%s: %w", m.Filename, m.Version, err)
 			}
 		}
 		if s.cfg.DryRun {
 			return nil
 		}
-		if _, err := tx.ExecContext(s.ctx, deleteSQL, m.Filename); err != nil {
+		if _, err := runner.ExecContext(s.ctx, deleteSQL, m.Filename); err != nil {
 			return fmt.Errorf("delete migration history %s: %w", m.Filename, err)
 		}
 		return nil
 	})
 }
 
-func (s *Service) withTx(fn func(tx *sql.Tx) error) (err error) {
+func (s *Service) withTx(fn func(runner execContextRunner) error) (err error) {
+	// ClickHouse commonly runs without transaction semantics in database/sql.
+	if s.cfg.Dialect != nil && s.cfg.Dialect.Name() == "clickhouse" {
+		return fn(s.cfg.DB)
+	}
 	tx, err := s.cfg.DB.BeginTx(s.ctx, nil)
 	if err != nil {
 		return err

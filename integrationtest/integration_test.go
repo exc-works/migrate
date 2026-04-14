@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/docker/go-connections/nat"
 	"github.com/exc-works/sql-migrate/internal/dialect"
 	"github.com/exc-works/sql-migrate/internal/logger"
@@ -22,6 +23,7 @@ import (
 	"github.com/exc-works/sql-migrate/internal/source"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/microsoft/go-mssqldb"
 	_ "github.com/sijms/go-ora/v2"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -204,13 +206,19 @@ func queryCount(t *testing.T, db *sql.DB, query string) int {
 }
 
 const (
-	envIntegrationDB      = "INTEGRATION_DB"
-	envIntegrationSQLite  = "INTEGRATION_SQLITE_DSN"
-	envIntegrationOracle  = "INTEGRATION_ORACLE_DSN"
-	defaultPingTimeoutSec = 60
+	envIntegrationDB       = "INTEGRATION_DB"
+	envIntegrationSQLite   = "INTEGRATION_SQLITE_DSN"
+	envIntegrationOracle   = "INTEGRATION_ORACLE_DSN"
+	envIntegrationMSSQL    = "INTEGRATION_MSSQL_DSN"
+	envIntegrationCH       = "INTEGRATION_CLICKHOUSE_DSN"
+	envIntegrationTiDB     = "INTEGRATION_TIDB_DSN"
+	envIntegrationRedshift = "INTEGRATION_REDSHIFT_DSN"
+	defaultPingTimeoutSec  = 60
 )
 
-var defaultIntegrationFlavors = []string{"postgres", "mysql", "mariadb", "sqlite", "oracle"}
+var defaultIntegrationFlavors = []string{
+	"postgres", "mysql", "mariadb", "sqlite", "oracle", "mssql", "clickhouse", "tidb", "redshift",
+}
 
 func selectedFlavors() []string {
 	v := strings.TrimSpace(os.Getenv(envIntegrationDB))
@@ -241,6 +249,10 @@ func selectedFlavors() []string {
 
 func migrationDirForFlavor(flavor string) string {
 	switch flavor {
+	case "clickhouse":
+		return filepath.Join("testdata_clickhouse")
+	case "mssql":
+		return filepath.Join("testdata_mssql")
 	case "oracle":
 		return filepath.Join("testdata_oracle")
 	case "sqlite":
@@ -252,6 +264,7 @@ func migrationDirForFlavor(flavor string) string {
 
 func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
 	t.Helper()
+	explicitlySelected := isFlavorExplicitlySelected(flavor)
 
 	d, err := dialect.FromName(flavor)
 	if err != nil {
@@ -269,7 +282,19 @@ func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
 		db, cleanup := startSQLiteDB(t, d)
 		return db, d, cleanup
 	case "oracle":
-		db, cleanup := startOracleDB(t, d)
+		db, cleanup := startOracleDB(t, d, explicitlySelected)
+		return db, d, cleanup
+	case "mssql":
+		db, cleanup := startMSSQLDB(t, d, explicitlySelected)
+		return db, d, cleanup
+	case "clickhouse":
+		db, cleanup := startClickHouseDB(t, d, explicitlySelected)
+		return db, d, cleanup
+	case "tidb":
+		db, cleanup := startTiDBDB(t, d, explicitlySelected)
+		return db, d, cleanup
+	case "redshift":
+		db, cleanup := startRedshiftDB(t, d, explicitlySelected)
 		return db, d, cleanup
 	default:
 		t.Fatalf("unsupported flavor: %s", flavor)
@@ -406,13 +431,10 @@ func startSQLiteDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {
 	}
 }
 
-func startOracleDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {
+func startOracleDB(t *testing.T, d dialect.Dialect, explicitlySelected bool) (*sql.DB, func()) {
 	t.Helper()
 
-	dsn := strings.TrimSpace(os.Getenv(envIntegrationOracle))
-	if dsn == "" {
-		t.Skipf("oracle integration skipped: %s is not set", envIntegrationOracle)
-	}
+	dsn := requireExternalDSN(t, "oracle", envIntegrationOracle, explicitlySelected)
 
 	driverName := requireDriver(t, "oracle", true, d.DriverName(), "godror")
 	db, err := sql.Open(driverName, dsn)
@@ -420,15 +442,100 @@ func startOracleDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {
 		t.Fatalf("open oracle db: %v", err)
 	}
 	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
-	cleanupOracleAccountsTable(t, db)
+	preCleanAccountsTable(t, db, "oracle")
 	return db, func() {
 		_ = db.Close()
 	}
 }
 
-func cleanupOracleAccountsTable(t *testing.T, db *sql.DB) {
+func startMSSQLDB(t *testing.T, d dialect.Dialect, explicitlySelected bool) (*sql.DB, func()) {
 	t.Helper()
-	const stmt = `
+
+	dsn := requireExternalDSN(t, "mssql", envIntegrationMSSQL, explicitlySelected)
+
+	driverName := requireDriver(t, "mssql", true, d.DriverName())
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		t.Fatalf("open mssql db: %v", err)
+	}
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
+	preCleanAccountsTable(t, db, "mssql")
+	return db, func() {
+		_ = db.Close()
+	}
+}
+
+func startClickHouseDB(t *testing.T, d dialect.Dialect, explicitlySelected bool) (*sql.DB, func()) {
+	t.Helper()
+
+	dsn := requireExternalDSN(t, "clickhouse", envIntegrationCH, explicitlySelected)
+
+	driverName := requireDriver(t, "clickhouse", true, d.DriverName())
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		t.Fatalf("open clickhouse db: %v", err)
+	}
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
+	preCleanAccountsTable(t, db, "clickhouse")
+	return db, func() {
+		_ = db.Close()
+	}
+}
+
+func startTiDBDB(t *testing.T, d dialect.Dialect, explicitlySelected bool) (*sql.DB, func()) {
+	t.Helper()
+
+	dsn := requireExternalDSN(t, "tidb", envIntegrationTiDB, explicitlySelected)
+
+	driverName := requireDriver(t, "tidb", true, d.DriverName())
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		t.Fatalf("open tidb db: %v", err)
+	}
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
+	preCleanAccountsTable(t, db, "tidb")
+	return db, func() {
+		_ = db.Close()
+	}
+}
+
+func startRedshiftDB(t *testing.T, d dialect.Dialect, explicitlySelected bool) (*sql.DB, func()) {
+	t.Helper()
+
+	dsn := requireExternalDSN(t, "redshift", envIntegrationRedshift, explicitlySelected)
+
+	driverName := requireDriver(t, "redshift", true, d.DriverName())
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		t.Fatalf("open redshift db: %v", err)
+	}
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
+	preCleanAccountsTable(t, db, "redshift")
+	return db, func() {
+		_ = db.Close()
+	}
+}
+
+func requireExternalDSN(t *testing.T, flavor, envName string, explicitlySelected bool) string {
+	t.Helper()
+
+	dsn := strings.TrimSpace(os.Getenv(envName))
+	if dsn != "" {
+		return dsn
+	}
+	if explicitlySelected {
+		t.Fatalf("%s integration setup failed: %s is not set (explicitly selected via %s)", flavor, envName, envIntegrationDB)
+	}
+	t.Skipf("%s integration skipped: %s is not set", flavor, envName)
+	return ""
+}
+
+func preCleanAccountsTable(t *testing.T, db *sql.DB, flavor string) {
+	t.Helper()
+	stmt := ""
+	switch flavor {
+	case "oracle":
+		stmt = `
 BEGIN
     EXECUTE IMMEDIATE 'DROP TABLE accounts';
 EXCEPTION
@@ -438,8 +545,17 @@ EXCEPTION
         END IF;
 END;
 `
+	case "mssql":
+		stmt = `IF OBJECT_ID(N'accounts', N'U') IS NOT NULL DROP TABLE accounts;`
+	case "clickhouse", "postgres", "redshift":
+		stmt = `DROP TABLE IF EXISTS accounts;`
+	case "mysql", "mariadb", "tidb", "sqlite":
+		stmt = `DROP TABLE IF EXISTS accounts;`
+	default:
+		return
+	}
 	if _, err := db.ExecContext(context.Background(), stmt); err != nil {
-		t.Fatalf("oracle pre-clean failed: %v", err)
+		t.Fatalf("%s pre-clean failed: %v", flavor, err)
 	}
 }
 
@@ -510,11 +626,25 @@ func uniqueNonEmpty(values []string) []string {
 
 func isOptionalFlavor(flavor string) bool {
 	switch flavor {
-	case "sqlite", "oracle":
+	case "sqlite", "oracle", "mssql", "clickhouse", "tidb", "redshift":
 		return true
 	default:
 		return false
 	}
+}
+
+func isFlavorExplicitlySelected(flavor string) bool {
+	v := strings.TrimSpace(os.Getenv(envIntegrationDB))
+	if v == "" {
+		return false
+	}
+	for _, part := range strings.Split(v, ",") {
+		candidate := strings.ToLower(strings.TrimSpace(part))
+		if candidate == "all" || candidate == flavor {
+			return true
+		}
+	}
+	return false
 }
 
 func randomName(prefix string) string {

@@ -51,6 +51,24 @@ func TestFromName(t *testing.T) {
 			wantDriver: "oracle",
 		},
 		{
+			name:       "mssql",
+			input:      "mssql",
+			wantName:   "mssql",
+			wantDriver: "sqlserver",
+		},
+		{
+			name:       "mssql alias",
+			input:      "sqlserver",
+			wantName:   "mssql",
+			wantDriver: "sqlserver",
+		},
+		{
+			name:       "clickhouse",
+			input:      "clickhouse",
+			wantName:   "clickhouse",
+			wantDriver: "clickhouse",
+		},
+		{
 			name:       "oracle alias with spaces",
 			input:      " ORCL ",
 			wantName:   "oracle",
@@ -73,6 +91,18 @@ func TestFromName(t *testing.T) {
 			input:      "sqlite3",
 			wantName:   "sqlite",
 			wantDriver: "sqlite",
+		},
+		{
+			name:       "tidb",
+			input:      "tidb",
+			wantName:   "tidb",
+			wantDriver: "mysql",
+		},
+		{
+			name:       "redshift",
+			input:      "redshift",
+			wantName:   "redshift",
+			wantDriver: "pgx",
 		},
 	}
 
@@ -97,7 +127,7 @@ func TestFromName(t *testing.T) {
 func TestFromNameUnsupported(t *testing.T) {
 	t.Parallel()
 
-	_, err := FromName("sqlserver")
+	_, err := FromName("db2")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -215,6 +245,100 @@ func TestSQLiteDialectSQL(t *testing.T) {
 	}
 }
 
+func TestMSSQLDialectSQL(t *testing.T) {
+	t.Parallel()
+
+	const schema = "migration_schema"
+	d := MSSQLDialect{}
+
+	createSQL, err := d.CreateSchemaSQL(schema)
+	if err != nil {
+		t.Fatalf("create sql error: %v", err)
+	}
+	if !strings.Contains(createSQL, "OBJECT_ID") || !strings.Contains(createSQL, "SYSUTCDATETIME()") {
+		t.Fatalf("unexpected mssql create sql: %s", createSQL)
+	}
+
+	insertSQL, err := d.InsertSchemaSQL(schema)
+	if err != nil {
+		t.Fatalf("insert sql error: %v", err)
+	}
+	if !strings.Contains(insertSQL, "VALUES (@p1, @p2, @p3, @p4, @p5, @p6)") {
+		t.Fatalf("unexpected mssql insert sql: %s", insertSQL)
+	}
+
+	deleteSQL, err := d.DeleteSchemaSQL(schema)
+	if err != nil {
+		t.Fatalf("delete sql error: %v", err)
+	}
+	if deleteSQL != "DELETE FROM migration_schema WHERE filename = @p1" {
+		t.Fatalf("unexpected mssql delete sql: %s", deleteSQL)
+	}
+}
+
+func TestClickHouseDialectSQL(t *testing.T) {
+	t.Parallel()
+
+	const schema = "migration_schema"
+	d := ClickHouseDialect{}
+
+	createSQL, err := d.CreateSchemaSQL(schema)
+	if err != nil {
+		t.Fatalf("create sql error: %v", err)
+	}
+	if !strings.Contains(createSQL, "ENGINE = MergeTree()") || !strings.Contains(createSQL, "DateTime64") {
+		t.Fatalf("unexpected clickhouse create sql: %s", createSQL)
+	}
+
+	insertSQL, err := d.InsertSchemaSQL(schema)
+	if err != nil {
+		t.Fatalf("insert sql error: %v", err)
+	}
+	if !strings.Contains(insertSQL, "VALUES (?, ?, ?, ?, ?, ?)") {
+		t.Fatalf("unexpected clickhouse insert sql: %s", insertSQL)
+	}
+
+	deleteSQL, err := d.DeleteSchemaSQL(schema)
+	if err != nil {
+		t.Fatalf("delete sql error: %v", err)
+	}
+	if deleteSQL != "DELETE FROM migration_schema WHERE filename = ? SETTINGS mutations_sync = 2" {
+		t.Fatalf("unexpected clickhouse delete sql: %s", deleteSQL)
+	}
+}
+
+func TestTiDBAndRedshiftDialectSQL(t *testing.T) {
+	t.Parallel()
+
+	tidbInsert, err := TiDBDialect{}.InsertSchemaSQL("migration_schema")
+	if err != nil {
+		t.Fatalf("tidb insert sql error: %v", err)
+	}
+	mysqlInsert, err := MySQLDialect{}.InsertSchemaSQL("migration_schema")
+	if err != nil {
+		t.Fatalf("mysql insert sql error: %v", err)
+	}
+	if tidbInsert != mysqlInsert {
+		t.Fatalf("tidb insert should match mysql insert, got %q vs %q", tidbInsert, mysqlInsert)
+	}
+
+	redshiftCreate, err := RedshiftDialect{}.CreateSchemaSQL("migration_schema")
+	if err != nil {
+		t.Fatalf("redshift create sql error: %v", err)
+	}
+	if !strings.Contains(redshiftCreate, "DEFAULT GETDATE()") {
+		t.Fatalf("unexpected redshift create sql: %s", redshiftCreate)
+	}
+
+	redshiftInsert, err := RedshiftDialect{}.InsertSchemaSQL("migration_schema")
+	if err != nil {
+		t.Fatalf("redshift insert sql error: %v", err)
+	}
+	if !strings.Contains(redshiftInsert, "VALUES ($1, $2, $3, $4, $5, $6)") {
+		t.Fatalf("unexpected redshift insert sql: %s", redshiftInsert)
+	}
+}
+
 func TestDialectIdentifierValidation(t *testing.T) {
 	t.Parallel()
 
@@ -222,8 +346,12 @@ func TestDialectIdentifierValidation(t *testing.T) {
 		PostgresDialect{},
 		MySQLDialect{},
 		MariaDBDialect{},
+		MSSQLDialect{},
 		OracleDialect{},
+		ClickHouseDialect{},
 		SQLiteDialect{},
+		TiDBDialect{},
+		RedshiftDialect{},
 	}
 	for _, d := range dialects {
 		_, err := d.CreateSchemaSQL("invalid-name")

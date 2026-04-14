@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/exc-works/sql-migrate/internal/config"
 	"github.com/exc-works/sql-migrate/internal/dialect"
 	"github.com/exc-works/sql-migrate/internal/logger"
@@ -20,6 +21,7 @@ import (
 	"github.com/exc-works/sql-migrate/internal/source"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/microsoft/go-mssqldb"
 	_ "github.com/sijms/go-ora/v2"
 	"github.com/spf13/cobra"
 	_ "modernc.org/sqlite"

@@ -108,6 +108,45 @@ func TestUpDryRunPrintsSQLWithoutExecution(t *testing.T) {
 	}
 }
 
+func TestUpClickHouseRunsWithoutTransaction(t *testing.T) {
+	mig := source.Migration{Filename: "V1__init.sql", Source: migrationSQL("SELECT 1;", "SELECT 1;")}
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock new: %v", err)
+	}
+	defer db.Close()
+
+	cfg := Config{
+		Dialect:         dialect.ClickHouseDialect{},
+		DB:              db,
+		Logger:          logger.NoopLogger{},
+		SchemaName:      "migration_schema",
+		MigrationSource: source.StringSource{Migrations: []source.Migration{mig}},
+	}
+	svc, err := NewService(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	selectSQL, _ := dialect.ClickHouseDialect{}.SelectSchemaSQL("migration_schema")
+	mock.ExpectQuery(regexp.QuoteMeta(selectSQL)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "version", "filename", "hash", "status", "created_at"}))
+
+	insertSQL, _ := dialect.ClickHouseDialect{}.InsertSchemaSQL("migration_schema")
+	mock.ExpectExec(regexp.QuoteMeta("SELECT 1;")).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(insertSQL)).
+		WithArgs(sqlmock.AnyArg(), "1", "V1__init.sql", hashString(mig.Source), string(StatusApplied), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := svc.Up(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+}
+
 func newServiceWithMock(t *testing.T, migrations []source.Migration, dryRun bool, outOfOrder bool, dryOut *bytes.Buffer) (*Service, sqlmock.Sqlmock, func()) {
 	t.Helper()
 	db, mock, err := sqlmock.New()
