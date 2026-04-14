@@ -5,7 +5,7 @@
 在当前项目实现独立的 `sql-migrate` 工具，并满足：
 
 - 保留核心命令能力（create/baseline/status/up/down/new）。
-- 支持常见数据库（V1: PostgreSQL/MySQL/MariaDB）。
+- 支持常见数据库（V1: PostgreSQL/MySQL/MariaDB；扩展支持 Oracle/SQLite）。
 - 使用 `testcontainers-go` 完成集成测试。
 - 支持 `go install` 安装。
 - 增加 GitHub Actions CI。

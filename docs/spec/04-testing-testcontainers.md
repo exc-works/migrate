@@ -16,7 +16,9 @@
 
 ## 集成测试（必须）
 
-- 使用 `testcontainers-go`，禁止依赖本地固定数据库。
+- `postgres/mysql/mariadb` 使用 `testcontainers-go`，禁止依赖本地固定数据库。
+- `sqlite` 使用临时本地 DB 文件执行同一套场景。
+- `oracle` 通过外部 `INTEGRATION_ORACLE_DSN` 执行（未配置时跳过）。
 - 每个测试使用独立 schema 或数据库名。
 - 统一命令：`go test -tags=integration ./...`。
 
@@ -33,3 +35,5 @@
 - PostgreSQL: `postgres:16-alpine`
 - MySQL: `mysql:8.0`
 - MariaDB: `mariadb:11`
+- SQLite: 无需容器镜像
+- Oracle: 依赖外部可访问实例（DSN 由 CI secret 提供）

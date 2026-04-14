@@ -38,6 +38,10 @@ V1.1 可选：
 
 - SQLite（3.x）
 
+实现扩展：
+
+- Oracle（通过 `INTEGRATION_ORACLE_DSN` 执行集成测试）
+
 ## Schema 约束
 
 - `version` 统一文本语义。
