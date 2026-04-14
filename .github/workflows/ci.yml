@@ -52,6 +52,22 @@ jobs:
           INTEGRATION_DB: ${{ matrix.db }}
         run: go test -tags=integration ./integrationtest/...
 
+  integration-oracle:
+    if: ${{ secrets.INTEGRATION_ORACLE_DSN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Download dependencies
+        run: go mod download
+      - name: Integration tests (oracle)
+        env:
+          INTEGRATION_DB: oracle
+          INTEGRATION_ORACLE_DSN: ${{ secrets.INTEGRATION_ORACLE_DSN }}
+        run: go test -tags=integration ./integrationtest/...
+
   build:
     runs-on: ubuntu-latest
     steps:
