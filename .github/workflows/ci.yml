@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        db: [postgres, mysql, mariadb]
+        db: [postgres, mysql, mariadb, sqlite]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -45,6 +45,7 @@ jobs:
       - name: Download dependencies
         run: go mod download
       - name: Ensure Docker Is Healthy
+        if: ${{ matrix.db != 'sqlite' }}
         run: docker info
       - name: Integration tests
         env:
