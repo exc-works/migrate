@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -81,6 +83,114 @@ func TestVersionCommandRejectsArgs(t *testing.T) {
 	}
 	if got := stdout.String(); got != "" {
 		t.Fatalf("expected empty stdout, got %q", got)
+	}
+}
+
+func TestRootCommandSilenceSettings(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	if !cmd.SilenceErrors {
+		t.Fatalf("expected SilenceErrors enabled")
+	}
+	if !cmd.SilenceUsage {
+		t.Fatalf("expected SilenceUsage enabled")
+	}
+}
+
+func TestCreateCommandDoesNotAutoPrintErrorOrUsage(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	cmd.SetArgs([]string{"create"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "migration_config.json") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := stdout.String(); got != "" {
+		t.Fatalf("expected empty stdout, got %q", got)
+	}
+	if got := stderr.String(); got != "" {
+		t.Fatalf("expected empty stderr, got %q", got)
+	}
+}
+
+func TestDownCommandRejectsMissingTargetBeforeConfigRead(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	cmd.SetArgs([]string{"down"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if got := err.Error(); got != "to-version must be set, or use --all" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(err.Error(), "migration_config.json") {
+		t.Fatalf("expected argument error before config read, got: %v", err)
+	}
+}
+
+func TestDownCommandRejectsToVersionWithAll(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	cmd.SetArgs([]string{"down", "20260417090100", "--all"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(err.Error(), "migration_config.json") {
+		t.Fatalf("expected argument validation error before config read, got: %v", err)
+	}
+}
+
+func TestPrintStatusJSON(t *testing.T) {
+	items := []migrate.MigrationStatus{
+		{
+			Migration: migrate.Migration{
+				Version:  "20260417090000",
+				Filename: "V20260417090000__init.sql",
+				Hash:     "abc123",
+			},
+			Status: migrate.StatusPending,
+		},
+	}
+
+	var out bytes.Buffer
+	if err := printStatus(&out, items, "json"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var got []statusOutputItem
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(got))
+	}
+	if got[0].Version != "20260417090000" || got[0].Filename != "V20260417090000__init.sql" || got[0].Hash != "abc123" || got[0].Status != migrate.StatusPending {
+		t.Fatalf("unexpected row: %#v", got[0])
+	}
+}
+
+func TestPrintStatusRejectsUnknownOutputFormat(t *testing.T) {
+	err := printStatus(io.Discard, nil, "yaml")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "unsupported output format") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

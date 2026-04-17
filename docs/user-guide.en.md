@@ -159,6 +159,8 @@ Semantics: only applied versions greater than `202604140001` are rolled back.
 migrate down --all
 ```
 
+Note: `migrate down <to-version>` and `migrate down --all` are mutually exclusive.
+
 ### 5.3 Dry-run rollback
 
 ```bash
@@ -172,6 +174,12 @@ migrate down --all --dry-run
 
 ```bash
 migrate status
+```
+
+Machine-readable output (recommended for scripts and AI agents):
+
+```bash
+migrate status --output json
 ```
 
 Output columns: `Version`, `Filename`, `Hash`, `Status`.

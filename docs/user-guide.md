@@ -159,6 +159,8 @@ migrate down 202604140001
 migrate down --all
 ```
 
+说明：`migrate down <to-version>` 与 `migrate down --all` 互斥，不能同时使用。
+
 ### 5.3 回退演练（不落库）
 
 ```bash
@@ -172,6 +174,12 @@ migrate down --all --dry-run
 
 ```bash
 migrate status
+```
+
+机器可读输出（适合脚本与 AI Agent）：
+
+```bash
+migrate status --output json
 ```
 
 输出列：`Version`、`Filename`、`Hash`、`Status`。

@@ -17,9 +17,11 @@ go install github.com/exc-works/migrate/cmd/migrate@latest
 
 ```bash
 migrate new config
+migrate new version init_users
 migrate create
 migrate up
 migrate status
+migrate status --output json
 ```
 
 ## Test
