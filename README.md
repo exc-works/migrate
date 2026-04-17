@@ -6,6 +6,16 @@ SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/
 
 - [User Guide (中文)](docs/user-guide.md)
 - [User Guide (English)](docs/user-guide.en.md)
+- [User Guide (繁體中文)](docs/user-guide.zh-Hant.md)
+- [User Guide (日本語)](docs/user-guide.ja.md)
+- [User Guide (한국어)](docs/user-guide.ko.md)
+- [User Guide (Español)](docs/user-guide.es.md)
+- [User Guide (Français)](docs/user-guide.fr.md)
+- [User Guide (Deutsch)](docs/user-guide.de.md)
+- [User Guide (Português do Brasil)](docs/user-guide.pt-BR.md)
+- [User Guide (Русский)](docs/user-guide.ru.md)
+- [User Guide (العربية)](docs/user-guide.ar.md)
+- [User Guide (हिन्दी)](docs/user-guide.hi.md)
 
 ## Install
 
