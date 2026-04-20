@@ -485,7 +485,7 @@ func main() {
 Часто используемые типы:
 
 - Диалекты (предпочитайте конструкторы — возвращают интерфейс `Dialect`): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, либо `migrate.DialectFromName("postgres")` для поиска по имени
-- Источники: `DirectorySource` (файловая система), `StringSource` (срез в памяти, удобен для тестов), `CombinedSource` (объединяет несколько источников)
+- Источники: `DirectorySource` (файловая система), `StringSource` (срез в памяти), `FSSource` (любой `fs.FS`, например `//go:embed` или `os.DirFS`), `CombinedSource` (объединяет несколько источников)
 - Логгеры: `migrate.NoopLogger{}` (по умолчанию), `migrate.NewStdLogger("info", os.Stdout)` или любой тип, реализующий `migrate.Logger`
 
 ### 12.4 Удобно для тестов: StringSource + SQLite в памяти
@@ -506,7 +506,23 @@ svc, _ := migrate.NewService(ctx, migrate.Config{
 
 Без зависимости от файловой системы — запускается прямо из модульного теста.
 
-### 12.5 Предпросмотр SQL (DryRun)
+### 12.5 Встраивание миграций через //go:embed
+
+Вкладывайте SQL миграций прямо в бинарник с помощью возможности embed в Go:
+
+```go
+import "embed"
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// и подключите в сервисе:
+// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
+```
+
+`FSSource` принимает любую `fs.FS`, поэтому `os.DirFS` и `fstest.MapFS` работают так же — тесты могут подменять файловую систему на синтетическую.
+
+### 12.6 Предпросмотр SQL (DryRun)
 
 ```go
 var buf bytes.Buffer
@@ -521,7 +537,7 @@ _ = svc.Create() // Create() не подчиняется DryRun; создаёт 
 _ = svc.Up()     // SQL миграций пишется только в buf; пользовательские таблицы не создаются
 ```
 
-### 12.6 Контракт стабильности
+### 12.7 Контракт стабильности
 
 - `github.com/exc-works/migrate` (корневой пакет) — публичный API, следует SemVer
 - `internal/*` не покрывается контрактом стабильности — не импортируйте напрямую

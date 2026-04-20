@@ -485,7 +485,7 @@ func main() {
 Common types:
 
 - Dialects (prefer the constructors — they return the `Dialect` interface): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, or `migrate.DialectFromName("postgres")` for name-based lookup
-- Sources: `DirectorySource` (filesystem), `StringSource` (in-memory slice, handy for tests), `CombinedSource` (merges several sources)
+- Sources: `DirectorySource` (filesystem), `StringSource` (in-memory slice), `FSSource` (any `fs.FS`, e.g. `//go:embed` or `os.DirFS`), `CombinedSource` (merges several sources)
 - Loggers: `migrate.NoopLogger{}` (default), `migrate.NewStdLogger("info", os.Stdout)`, or any type implementing `migrate.Logger`
 
 ### 12.4 Test-friendly: StringSource + in-memory SQLite
@@ -506,7 +506,23 @@ svc, _ := migrate.NewService(ctx, migrate.Config{
 
 No filesystem dependency — runs straight from a unit test.
 
-### 12.5 Previewing SQL (DryRun)
+### 12.5 Embedding migrations with //go:embed
+
+Ship migration SQL inside your binary using Go's embed feature:
+
+```go
+import "embed"
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// then wire it into your service:
+// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
+```
+
+`FSSource` accepts any `fs.FS`, so `os.DirFS` and `fstest.MapFS` work the same way — tests can swap in a synthetic filesystem.
+
+### 12.6 Previewing SQL (DryRun)
 
 ```go
 var buf bytes.Buffer
@@ -521,7 +537,7 @@ _ = svc.Create() // Create() is not affected by DryRun; sets up the history tabl
 _ = svc.Up()     // user-migration SQL goes to buf; no user tables are created
 ```
 
-### 12.6 Stability contract
+### 12.7 Stability contract
 
 - `github.com/exc-works/migrate` (root package) is the public API and follows SemVer
 - `internal/*` is not covered by the stability contract — do not import it directly

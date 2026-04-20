@@ -22,6 +22,7 @@ var (
 	_ *source.Migration       = (*SourceFile)(nil)
 	_ *source.DirectorySource = (*DirectorySource)(nil)
 	_ *source.StringSource    = (*StringSource)(nil)
+	_ *source.FSSource        = (*FSSource)(nil)
 	_ *source.CombinedSource  = (*CombinedSource)(nil)
 
 	_ *dialect.PostgresDialect   = (*PostgresDialect)(nil)

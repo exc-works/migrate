@@ -485,7 +485,7 @@ func main() {
 Häufige Typen:
 
 - Dialekte (Konstruktoren bevorzugen — sie liefern das `Dialect`-Interface): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, oder `migrate.DialectFromName("postgres")` für namensbasierte Auflösung
-- Quellen: `DirectorySource` (Dateisystem), `StringSource` (In-Memory-Slice, praktisch in Tests), `CombinedSource` (fasst mehrere Quellen zusammen)
+- Quellen: `DirectorySource` (Dateisystem), `StringSource` (In-Memory-Slice), `FSSource` (beliebiges `fs.FS`, z. B. `//go:embed` oder `os.DirFS`), `CombinedSource` (fasst mehrere Quellen zusammen)
 - Logger: `migrate.NoopLogger{}` (Standard), `migrate.NewStdLogger("info", os.Stdout)` oder ein beliebiger Typ, der `migrate.Logger` implementiert
 
 ### 12.4 Testfreundlich: StringSource + In-Memory-SQLite
@@ -506,7 +506,23 @@ svc, _ := migrate.NewService(ctx, migrate.Config{
 
 Keine Dateisystem-Abhängigkeit — läuft direkt aus einem Unit-Test.
 
-### 12.5 SQL-Vorschau (DryRun)
+### 12.5 Migrationen per //go:embed ins Binary einbetten
+
+Binde die Migrations-SQL direkt in dein Binary ein mit Gos embed-Feature:
+
+```go
+import "embed"
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// und dann im Service verdrahten:
+// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
+```
+
+`FSSource` akzeptiert jedes `fs.FS`, entsprechend funktionieren `os.DirFS` und `fstest.MapFS` genauso — in Tests lässt sich ein synthetisches Dateisystem einsetzen.
+
+### 12.6 SQL-Vorschau (DryRun)
 
 ```go
 var buf bytes.Buffer
@@ -521,7 +537,7 @@ _ = svc.Create() // Create() wird von DryRun nicht beeinflusst; legt die History
 _ = svc.Up()     // Migrations-SQL geht nur in buf; keine User-Tabellen werden angelegt
 ```
 
-### 12.6 Stabilitätszusage
+### 12.7 Stabilitätszusage
 
 - `github.com/exc-works/migrate` (Root-Paket) ist die öffentliche API und folgt SemVer
 - `internal/*` ist nicht von der Stabilitätszusage abgedeckt — nicht direkt importieren

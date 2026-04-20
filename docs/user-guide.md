@@ -486,7 +486,7 @@ func main() {
 常用类型：
 
 - 方言（推荐使用构造函数，返回 `Dialect` 接口）：`migrate.NewPostgresDialect()`、`NewMySQLDialect()`、`NewSQLiteDialect()`、`NewMSSQLDialect()`、`NewOracleDialect()`、`NewClickHouseDialect()`、`NewMariaDBDialect()`、`NewTiDBDialect()`、`NewRedshiftDialect()`，或 `migrate.DialectFromName("postgres")` 按名字动态解析
-- 迁移源：`DirectorySource`（读文件系统）、`StringSource`（内存数组，常用于测试）、`CombinedSource`（合并多个源）
+- 迁移源：`DirectorySource`（读文件系统）、`StringSource`（内存数组）、`FSSource`（任意 `fs.FS`，例如 `//go:embed` 或 `os.DirFS`）、`CombinedSource`（合并多个源）
 - 日志：`migrate.NoopLogger{}`（默认）、`migrate.NewStdLogger("info", os.Stdout)`，或自己实现 `migrate.Logger` 接口
 
 ### 12.4 测试友好：用 StringSource + 内存 SQLite
@@ -507,7 +507,23 @@ svc, _ := migrate.NewService(ctx, migrate.Config{
 
 这样整个用例不依赖磁盘，可直接在单元测试里运行。
 
-### 12.5 预览 SQL（DryRun）
+### 12.5 用 //go:embed 将迁移打包进二进制
+
+借助 Go 的 embed 能力，把迁移 SQL 直接打进程序二进制：
+
+```go
+import "embed"
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// 然后在服务里这样接入：
+// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
+```
+
+`FSSource` 接收任意 `fs.FS`，所以 `os.DirFS` 和 `fstest.MapFS` 也能用同样写法——测试里可以换成合成的文件系统。
+
+### 12.6 预览 SQL（DryRun）
 
 ```go
 var buf bytes.Buffer
@@ -522,7 +538,7 @@ _ = svc.Create() // Create() 不受 DryRun 影响，用于建立历史表
 _ = svc.Up()     // 用户迁移 SQL 只写入 buf，不会实际建表
 ```
 
-### 12.6 稳定性约定
+### 12.7 稳定性约定
 
 - `github.com/exc-works/migrate` 根包是对外公开 API，按 SemVer 维护
 - `internal/*` 不在稳定性承诺内，请勿直接 import

@@ -485,7 +485,7 @@ func main() {
 Tipos comuns:
 
 - Dialetos (prefira os construtores — retornam a interface `Dialect`): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, ou `migrate.DialectFromName("postgres")` para busca por nome
-- Fontes: `DirectorySource` (sistema de arquivos), `StringSource` (slice em memória, prático em testes), `CombinedSource` (combina várias fontes)
+- Fontes: `DirectorySource` (sistema de arquivos), `StringSource` (slice em memória), `FSSource` (qualquer `fs.FS`, como `//go:embed` ou `os.DirFS`), `CombinedSource` (combina várias fontes)
 - Loggers: `migrate.NoopLogger{}` (padrão), `migrate.NewStdLogger("info", os.Stdout)` ou qualquer tipo que implemente `migrate.Logger`
 
 ### 12.4 Amigável para testes: StringSource + SQLite em memória
@@ -506,7 +506,23 @@ svc, _ := migrate.NewService(ctx, migrate.Config{
 
 Sem dependência do sistema de arquivos — roda direto de um teste unitário.
 
-### 12.5 Pré-visualizar SQL (DryRun)
+### 12.5 Embutir migrações com //go:embed
+
+Inclua o SQL das migrações dentro do seu binário usando o recurso embed do Go:
+
+```go
+import "embed"
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// depois conecte no seu serviço:
+// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
+```
+
+`FSSource` aceita qualquer `fs.FS`, então `os.DirFS` e `fstest.MapFS` funcionam da mesma forma — útil em testes que injetam um sistema de arquivos sintético.
+
+### 12.6 Pré-visualizar SQL (DryRun)
 
 ```go
 var buf bytes.Buffer
@@ -521,7 +537,7 @@ _ = svc.Create() // Create() não é afetado por DryRun; prepara a tabela de his
 _ = svc.Up()     // o SQL das migrações vai para buf; nenhuma tabela de usuário é criada
 ```
 
-### 12.6 Contrato de estabilidade
+### 12.7 Contrato de estabilidade
 
 - `github.com/exc-works/migrate` (pacote raiz) é a API pública e segue SemVer
 - `internal/*` não está coberto pelo contrato de estabilidade — não importe diretamente

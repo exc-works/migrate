@@ -485,7 +485,7 @@ func main() {
 Tipos comunes:
 
 - Dialectos (prefiere los constructores — devuelven la interfaz `Dialect`): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, o `migrate.DialectFromName("postgres")` para resolución por nombre
-- Fuentes: `DirectorySource` (sistema de archivos), `StringSource` (slice en memoria, útil en pruebas), `CombinedSource` (combina varias fuentes)
+- Fuentes: `DirectorySource` (sistema de archivos), `StringSource` (slice en memoria), `FSSource` (cualquier `fs.FS`, p. ej. `//go:embed` o `os.DirFS`), `CombinedSource` (combina varias fuentes)
 - Loggers: `migrate.NoopLogger{}` (por defecto), `migrate.NewStdLogger("info", os.Stdout)` o cualquier tipo que implemente `migrate.Logger`
 
 ### 12.4 Amigable para pruebas: StringSource + SQLite en memoria
@@ -506,7 +506,23 @@ svc, _ := migrate.NewService(ctx, migrate.Config{
 
 Sin dependencia del sistema de archivos — se ejecuta directamente desde una prueba unitaria.
 
-### 12.5 Previsualizar SQL (DryRun)
+### 12.5 Incluir migraciones con //go:embed
+
+Incrusta el SQL de las migraciones dentro de tu binario usando el soporte embed de Go:
+
+```go
+import "embed"
+
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+// luego conéctalo en tu servicio:
+// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
+```
+
+`FSSource` acepta cualquier `fs.FS`, así que `os.DirFS` y `fstest.MapFS` funcionan igual — útil para pruebas que sustituyen un sistema de archivos sintético.
+
+### 12.6 Previsualizar SQL (DryRun)
 
 ```go
 var buf bytes.Buffer
@@ -521,7 +537,7 @@ _ = svc.Create() // Create() no se ve afectado por DryRun; prepara la tabla de h
 _ = svc.Up()     // el SQL de las migraciones va a buf; no se crean tablas de usuario
 ```
 
-### 12.6 Contrato de estabilidad
+### 12.7 Contrato de estabilidad
 
 - `github.com/exc-works/migrate` (paquete raíz) es la API pública y sigue SemVer
 - `internal/*` no está cubierto por el contrato de estabilidad — no lo importes directamente

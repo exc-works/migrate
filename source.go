@@ -14,8 +14,13 @@ type SourceFile = source.Migration
 // DirectorySource loads migrations from files on disk under Directory.
 type DirectorySource = source.DirectorySource
 
-// StringSource serves a caller-supplied slice of migrations (useful with //go:embed or tests).
+// StringSource serves a caller-supplied slice of migrations (useful for tests).
 type StringSource = source.StringSource
+
+// FSSource loads migrations from an fs.FS (e.g. a //go:embed embed.FS,
+// os.DirFS, or fstest.MapFS). Set Root to the subdirectory that holds
+// the migration files, or leave empty for the FS root.
+type FSSource = source.FSSource
 
 // CombinedSource concatenates multiple MigrationSources into one.
 type CombinedSource = source.CombinedSource
