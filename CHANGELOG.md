@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-20
+
 ### Added
 - Public root-package facade (`github.com/exc-works/migrate`) so other Go
   services can embed migration execution in-process alongside the existing
