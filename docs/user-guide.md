@@ -413,3 +413,117 @@ migrate -w ./deploy up
 
 - 不要修改已应用迁移文件
 - 需要变更时新增更高版本迁移文件
+
+## 12. 作为 Go 库嵌入使用
+
+除了 CLI，`github.com/exc-works/migrate` 也可以作为库直接在你的服务代码里触发迁移，便于写单元测试、集成到启动流程或嵌入管理后台。
+
+### 12.1 安装
+
+```bash
+go get github.com/exc-works/migrate
+```
+
+同时按需引入数据库驱动（库本身不强绑定驱动）：
+
+```go
+import (
+    _ "modernc.org/sqlite"           // sqlite
+    _ "github.com/jackc/pgx/v5/stdlib" // postgres
+    _ "github.com/go-sql-driver/mysql" // mysql / mariadb / tidb
+    // ...
+)
+```
+
+### 12.2 最小示例
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    "github.com/exc-works/migrate"
+)
+
+func main() {
+    db, err := sql.Open("sqlite", "./app.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    svc, err := migrate.NewService(context.Background(), migrate.Config{
+        Dialect:         migrate.NewSQLiteDialect(),
+        DB:              db,
+        MigrationSource: migrate.DirectorySource{Directory: "./migrations"},
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := svc.Create(); err != nil { // 幂等，历史表不存在时创建
+        panic(err)
+    }
+    if err := svc.Up(); err != nil {
+        panic(err)
+    }
+}
+```
+
+### 12.3 关键 API
+
+- `migrate.NewService(ctx, migrate.Config)` 构造迁移执行器
+- `svc.Create()` 建立 `migration_schema` 历史表（幂等）
+- `svc.Up()` 应用所有未执行的迁移
+- `svc.Down(toVersion, all)` 回退到指定版本或全部回退
+- `svc.Status()` 返回 `[]migrate.MigrationStatus`
+- `svc.Baseline()` 把当前已存在的 pending 文件标记为 `baseline`
+
+常用类型：
+
+- 方言（推荐使用构造函数，返回 `Dialect` 接口）：`migrate.NewPostgresDialect()`、`NewMySQLDialect()`、`NewSQLiteDialect()`、`NewMSSQLDialect()`、`NewOracleDialect()`、`NewClickHouseDialect()`、`NewMariaDBDialect()`、`NewTiDBDialect()`、`NewRedshiftDialect()`，或 `migrate.DialectFromName("postgres")` 按名字动态解析
+- 迁移源：`DirectorySource`（读文件系统）、`StringSource`（内存数组，常用于测试）、`CombinedSource`（合并多个源）
+- 日志：`migrate.NoopLogger{}`（默认）、`migrate.NewStdLogger("info", os.Stdout)`，或自己实现 `migrate.Logger` 接口
+
+### 12.4 测试友好：用 StringSource + 内存 SQLite
+
+```go
+src := migrate.StringSource{Migrations: []migrate.SourceFile{{
+    Filename: "V1__init.sql",
+    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
+}}}
+
+db, _ := sql.Open("sqlite", ":memory:")
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewSQLiteDialect(),
+    DB:              db,
+    MigrationSource: src,
+})
+```
+
+这样整个用例不依赖磁盘，可直接在单元测试里运行。
+
+### 12.5 预览 SQL（DryRun）
+
+```go
+var buf bytes.Buffer
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewPostgresDialect(),
+    DB:              db,
+    MigrationSource: src,
+    DryRun:          true,
+    DryRunOutput:    &buf,
+})
+_ = svc.Create() // Create() 不受 DryRun 影响，用于建立历史表
+_ = svc.Up()     // 用户迁移 SQL 只写入 buf，不会实际建表
+```
+
+### 12.6 稳定性约定
+
+- `github.com/exc-works/migrate` 根包是对外公开 API，按 SemVer 维护
+- `internal/*` 不在稳定性承诺内，请勿直接 import
+- 完整可运行示例见仓库根目录 `example_test.go`

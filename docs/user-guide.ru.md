@@ -412,3 +412,117 @@ migrate -w ./deploy up
 
 - не редактируйте уже примененные файлы миграций
 - создайте новую миграцию с более высокой версией для изменений
+
+## 12. Встраивание migrate как Go-библиотеки
+
+Помимо CLI, `github.com/exc-works/migrate` можно импортировать прямо из кода вашего сервиса для запуска миграций — удобно для модульных тестов, хуков запуска или админ-панелей.
+
+### 12.1 Установка
+
+```bash
+go get github.com/exc-works/migrate
+```
+
+Импортируйте нужный драйвер базы данных (библиотека не привязана к конкретному):
+
+```go
+import (
+    _ "modernc.org/sqlite"             // sqlite
+    _ "github.com/jackc/pgx/v5/stdlib" // postgres
+    _ "github.com/go-sql-driver/mysql" // mysql / mariadb / tidb
+    // ...
+)
+```
+
+### 12.2 Минимальный пример
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    "github.com/exc-works/migrate"
+)
+
+func main() {
+    db, err := sql.Open("sqlite", "./app.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    svc, err := migrate.NewService(context.Background(), migrate.Config{
+        Dialect:         migrate.NewSQLiteDialect(),
+        DB:              db,
+        MigrationSource: migrate.DirectorySource{Directory: "./migrations"},
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := svc.Create(); err != nil { // идемпотентно: создаёт таблицу истории, если её нет
+        panic(err)
+    }
+    if err := svc.Up(); err != nil {
+        panic(err)
+    }
+}
+```
+
+### 12.3 Ключевой API
+
+- `migrate.NewService(ctx, migrate.Config)` создаёт исполнитель миграций
+- `svc.Create()` создаёт таблицу истории `migration_schema` (идемпотентно)
+- `svc.Up()` применяет все ожидающие миграции
+- `svc.Down(toVersion, all)` откатывает до целевой версии или полностью
+- `svc.Status()` возвращает `[]migrate.MigrationStatus`
+- `svc.Baseline()` помечает существующие pending-файлы как `baseline`
+
+Часто используемые типы:
+
+- Диалекты (предпочитайте конструкторы — возвращают интерфейс `Dialect`): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, либо `migrate.DialectFromName("postgres")` для поиска по имени
+- Источники: `DirectorySource` (файловая система), `StringSource` (срез в памяти, удобен для тестов), `CombinedSource` (объединяет несколько источников)
+- Логгеры: `migrate.NoopLogger{}` (по умолчанию), `migrate.NewStdLogger("info", os.Stdout)` или любой тип, реализующий `migrate.Logger`
+
+### 12.4 Удобно для тестов: StringSource + SQLite в памяти
+
+```go
+src := migrate.StringSource{Migrations: []migrate.SourceFile{{
+    Filename: "V1__init.sql",
+    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
+}}}
+
+db, _ := sql.Open("sqlite", ":memory:")
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewSQLiteDialect(),
+    DB:              db,
+    MigrationSource: src,
+})
+```
+
+Без зависимости от файловой системы — запускается прямо из модульного теста.
+
+### 12.5 Предпросмотр SQL (DryRun)
+
+```go
+var buf bytes.Buffer
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewPostgresDialect(),
+    DB:              db,
+    MigrationSource: src,
+    DryRun:          true,
+    DryRunOutput:    &buf,
+})
+_ = svc.Create() // Create() не подчиняется DryRun; создаёт таблицу истории
+_ = svc.Up()     // SQL миграций пишется только в buf; пользовательские таблицы не создаются
+```
+
+### 12.6 Контракт стабильности
+
+- `github.com/exc-works/migrate` (корневой пакет) — публичный API, следует SemVer
+- `internal/*` не покрывается контрактом стабильности — не импортируйте напрямую
+- Полный рабочий пример — в файле `example_test.go` в корне репозитория

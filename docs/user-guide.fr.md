@@ -412,3 +412,117 @@ Correction :
 
 - ne modifiez pas les fichiers de migration déjà appliqués
 - créez une nouvelle migration avec un numéro de version supérieur pour vos changements
+
+## 12. Utiliser migrate comme bibliothèque Go
+
+En plus du CLI, `github.com/exc-works/migrate` peut être importé directement depuis le code de votre service pour exécuter les migrations — pratique pour les tests unitaires, les hooks de démarrage ou les panneaux d’administration.
+
+### 12.1 Installation
+
+```bash
+go get github.com/exc-works/migrate
+```
+
+Importez le pilote de base de données dont vous avez besoin (la bibliothèque n’en fige aucun) :
+
+```go
+import (
+    _ "modernc.org/sqlite"             // sqlite
+    _ "github.com/jackc/pgx/v5/stdlib" // postgres
+    _ "github.com/go-sql-driver/mysql" // mysql / mariadb / tidb
+    // ...
+)
+```
+
+### 12.2 Exemple minimal
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    "github.com/exc-works/migrate"
+)
+
+func main() {
+    db, err := sql.Open("sqlite", "./app.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    svc, err := migrate.NewService(context.Background(), migrate.Config{
+        Dialect:         migrate.NewSQLiteDialect(),
+        DB:              db,
+        MigrationSource: migrate.DirectorySource{Directory: "./migrations"},
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := svc.Create(); err != nil { // idempotent : crée la table d’historique si absente
+        panic(err)
+    }
+    if err := svc.Up(); err != nil {
+        panic(err)
+    }
+}
+```
+
+### 12.3 API clé
+
+- `migrate.NewService(ctx, migrate.Config)` construit un exécuteur de migrations
+- `svc.Create()` crée la table d’historique `migration_schema` (idempotent)
+- `svc.Up()` applique toutes les migrations en attente
+- `svc.Down(toVersion, all)` revient à une version cible ou à tout
+- `svc.Status()` retourne `[]migrate.MigrationStatus`
+- `svc.Baseline()` marque les fichiers en attente existants comme `baseline`
+
+Types courants :
+
+- Dialectes (préférez les constructeurs — ils renvoient l’interface `Dialect`) : `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, ou `migrate.DialectFromName("postgres")` pour une résolution par nom
+- Sources : `DirectorySource` (système de fichiers), `StringSource` (slice en mémoire, pratique pour les tests), `CombinedSource` (fusionne plusieurs sources)
+- Loggers : `migrate.NoopLogger{}` (par défaut), `migrate.NewStdLogger("info", os.Stdout)`, ou tout type implémentant `migrate.Logger`
+
+### 12.4 Adapté aux tests : StringSource + SQLite en mémoire
+
+```go
+src := migrate.StringSource{Migrations: []migrate.SourceFile{{
+    Filename: "V1__init.sql",
+    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
+}}}
+
+db, _ := sql.Open("sqlite", ":memory:")
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewSQLiteDialect(),
+    DB:              db,
+    MigrationSource: src,
+})
+```
+
+Aucune dépendance au système de fichiers — s’exécute directement depuis un test unitaire.
+
+### 12.5 Aperçu du SQL (DryRun)
+
+```go
+var buf bytes.Buffer
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewPostgresDialect(),
+    DB:              db,
+    MigrationSource: src,
+    DryRun:          true,
+    DryRunOutput:    &buf,
+})
+_ = svc.Create() // Create() n’est pas affecté par DryRun ; crée la table d’historique
+_ = svc.Up()     // le SQL des migrations va dans buf ; aucune table utilisateur n’est créée
+```
+
+### 12.6 Contrat de stabilité
+
+- `github.com/exc-works/migrate` (paquet racine) est l’API publique et suit SemVer
+- `internal/*` n’est pas couvert par le contrat de stabilité — ne pas importer directement
+- Un exemple complet et exécutable se trouve dans `example_test.go` à la racine du dépôt

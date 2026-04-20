@@ -412,3 +412,117 @@ Error: `hash mismatch` or `filename mismatch`
 
 - 既に適用済みのマイグレーションファイルを編集しない
 - 変更にはより高いバージョンの新しいマイグレーションを作成
+
+## 12. migrate を Go ライブラリとして組み込む
+
+CLI に加えて、`github.com/exc-works/migrate` はサービスコードから直接 import してマイグレーションを実行できます。ユニットテスト、起動フック、管理画面への組み込みに便利です。
+
+### 12.1 インストール
+
+```bash
+go get github.com/exc-works/migrate
+```
+
+必要なデータベースドライバを import してください（ライブラリは特定のドライバに依存しません）:
+
+```go
+import (
+    _ "modernc.org/sqlite"             // sqlite
+    _ "github.com/jackc/pgx/v5/stdlib" // postgres
+    _ "github.com/go-sql-driver/mysql" // mysql / mariadb / tidb
+    // ...
+)
+```
+
+### 12.2 最小例
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    "github.com/exc-works/migrate"
+)
+
+func main() {
+    db, err := sql.Open("sqlite", "./app.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    svc, err := migrate.NewService(context.Background(), migrate.Config{
+        Dialect:         migrate.NewSQLiteDialect(),
+        DB:              db,
+        MigrationSource: migrate.DirectorySource{Directory: "./migrations"},
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := svc.Create(); err != nil { // idempotent: 履歴テーブルが無ければ作成
+        panic(err)
+    }
+    if err := svc.Up(); err != nil {
+        panic(err)
+    }
+}
+```
+
+### 12.3 主要 API
+
+- `migrate.NewService(ctx, migrate.Config)` はマイグレーション実行器を構築します
+- `svc.Create()` は履歴テーブル `migration_schema` を作成します（idempotent）
+- `svc.Up()` は未適用のマイグレーションをすべて適用します
+- `svc.Down(toVersion, all)` は指定バージョンまたはすべてをロールバックします
+- `svc.Status()` は `[]migrate.MigrationStatus` を返します
+- `svc.Baseline()` は既存の pending ファイルを `baseline` としてマークします
+
+よく使う型:
+
+- Dialect（コンストラクタを推奨 — `Dialect` インターフェースを返します）: `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`、または名前解決用の `migrate.DialectFromName("postgres")`
+- Source: `DirectorySource`（ファイルシステム）、`StringSource`（インメモリ、テストに便利）、`CombinedSource`（複数ソースの結合）
+- Logger: `migrate.NoopLogger{}`（デフォルト）、`migrate.NewStdLogger("info", os.Stdout)`、または `migrate.Logger` を実装した任意の型
+
+### 12.4 テストフレンドリー: StringSource + インメモリ SQLite
+
+```go
+src := migrate.StringSource{Migrations: []migrate.SourceFile{{
+    Filename: "V1__init.sql",
+    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
+}}}
+
+db, _ := sql.Open("sqlite", ":memory:")
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewSQLiteDialect(),
+    DB:              db,
+    MigrationSource: src,
+})
+```
+
+ファイルシステムに依存せず、ユニットテストから直接実行できます。
+
+### 12.5 SQL のプレビュー（DryRun）
+
+```go
+var buf bytes.Buffer
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewPostgresDialect(),
+    DB:              db,
+    MigrationSource: src,
+    DryRun:          true,
+    DryRunOutput:    &buf,
+})
+_ = svc.Create() // Create() は DryRun の影響を受けず、履歴テーブルを作成します
+_ = svc.Up()     // マイグレーション SQL は buf に書き込むのみで、ユーザーテーブルは作成されません
+```
+
+### 12.6 安定性の約束
+
+- `github.com/exc-works/migrate`（ルートパッケージ）は公開 API であり SemVer に従います
+- `internal/*` は安定性の約束対象外です — 直接 import しないでください
+- 完全に動作するサンプルはリポジトリルートの `example_test.go` を参照してください

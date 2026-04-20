@@ -412,3 +412,117 @@ Lösung:
 
 - bereits angewendete Migrationsdateien nicht bearbeiten
 - für Änderungen eine neue Migration mit höherer Version erstellen
+
+## 12. migrate als Go-Bibliothek einbetten
+
+Zusätzlich zur CLI kann `github.com/exc-works/migrate` direkt aus deinem Servicecode importiert werden, um Migrationen auszuführen — nützlich für Unit-Tests, Startup-Hooks oder Admin-Panels.
+
+### 12.1 Installation
+
+```bash
+go get github.com/exc-works/migrate
+```
+
+Importiere den benötigten Datenbanktreiber (die Bibliothek bindet keinen spezifischen Treiber):
+
+```go
+import (
+    _ "modernc.org/sqlite"             // sqlite
+    _ "github.com/jackc/pgx/v5/stdlib" // postgres
+    _ "github.com/go-sql-driver/mysql" // mysql / mariadb / tidb
+    // ...
+)
+```
+
+### 12.2 Minimales Beispiel
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    "github.com/exc-works/migrate"
+)
+
+func main() {
+    db, err := sql.Open("sqlite", "./app.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    svc, err := migrate.NewService(context.Background(), migrate.Config{
+        Dialect:         migrate.NewSQLiteDialect(),
+        DB:              db,
+        MigrationSource: migrate.DirectorySource{Directory: "./migrations"},
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := svc.Create(); err != nil { // idempotent: legt die History-Tabelle an, falls sie fehlt
+        panic(err)
+    }
+    if err := svc.Up(); err != nil {
+        panic(err)
+    }
+}
+```
+
+### 12.3 Zentrale API
+
+- `migrate.NewService(ctx, migrate.Config)` baut einen Migration-Executor
+- `svc.Create()` legt die History-Tabelle `migration_schema` an (idempotent)
+- `svc.Up()` wendet alle ausstehenden Migrationen an
+- `svc.Down(toVersion, all)` rollt auf eine Zielversion oder komplett zurück
+- `svc.Status()` liefert `[]migrate.MigrationStatus`
+- `svc.Baseline()` markiert bestehende ausstehende Dateien als `baseline`
+
+Häufige Typen:
+
+- Dialekte (Konstruktoren bevorzugen — sie liefern das `Dialect`-Interface): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`, oder `migrate.DialectFromName("postgres")` für namensbasierte Auflösung
+- Quellen: `DirectorySource` (Dateisystem), `StringSource` (In-Memory-Slice, praktisch in Tests), `CombinedSource` (fasst mehrere Quellen zusammen)
+- Logger: `migrate.NoopLogger{}` (Standard), `migrate.NewStdLogger("info", os.Stdout)` oder ein beliebiger Typ, der `migrate.Logger` implementiert
+
+### 12.4 Testfreundlich: StringSource + In-Memory-SQLite
+
+```go
+src := migrate.StringSource{Migrations: []migrate.SourceFile{{
+    Filename: "V1__init.sql",
+    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
+}}}
+
+db, _ := sql.Open("sqlite", ":memory:")
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewSQLiteDialect(),
+    DB:              db,
+    MigrationSource: src,
+})
+```
+
+Keine Dateisystem-Abhängigkeit — läuft direkt aus einem Unit-Test.
+
+### 12.5 SQL-Vorschau (DryRun)
+
+```go
+var buf bytes.Buffer
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewPostgresDialect(),
+    DB:              db,
+    MigrationSource: src,
+    DryRun:          true,
+    DryRunOutput:    &buf,
+})
+_ = svc.Create() // Create() wird von DryRun nicht beeinflusst; legt die History-Tabelle an
+_ = svc.Up()     // Migrations-SQL geht nur in buf; keine User-Tabellen werden angelegt
+```
+
+### 12.6 Stabilitätszusage
+
+- `github.com/exc-works/migrate` (Root-Paket) ist die öffentliche API und folgt SemVer
+- `internal/*` ist nicht von der Stabilitätszusage abgedeckt — nicht direkt importieren
+- Ein vollständig lauffähiges Beispiel liegt unter `example_test.go` im Repository-Root

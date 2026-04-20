@@ -412,3 +412,117 @@ migrate -w ./deploy up
 
 - لا تعدّل ملفات الترحيل التي طُبّقت بالفعل
 - أنشئ ترحيلًا جديدًا بإصدار أعلى لإجراء التغييرات
+
+## 12. استخدام migrate كمكتبة Go
+
+بالإضافة إلى واجهة CLI، يمكن استيراد `github.com/exc-works/migrate` مباشرةً من كود خدمتك لتشغيل عمليات الترحيل — وهو مفيد لاختبارات الوحدة، وخطوات بدء التشغيل، أو لوحات الإدارة.
+
+### 12.1 التثبيت
+
+```bash
+go get github.com/exc-works/migrate
+```
+
+استورد مشغّل قاعدة البيانات الذي تحتاجه (المكتبة لا تربط واحدًا بعينه):
+
+```go
+import (
+    _ "modernc.org/sqlite"             // sqlite
+    _ "github.com/jackc/pgx/v5/stdlib" // postgres
+    _ "github.com/go-sql-driver/mysql" // mysql / mariadb / tidb
+    // ...
+)
+```
+
+### 12.2 مثال مختصر
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+
+    _ "modernc.org/sqlite"
+
+    "github.com/exc-works/migrate"
+)
+
+func main() {
+    db, err := sql.Open("sqlite", "./app.sqlite")
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    svc, err := migrate.NewService(context.Background(), migrate.Config{
+        Dialect:         migrate.NewSQLiteDialect(),
+        DB:              db,
+        MigrationSource: migrate.DirectorySource{Directory: "./migrations"},
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := svc.Create(); err != nil { // idempotent: ينشئ جدول السجل إن لم يكن موجودًا
+        panic(err)
+    }
+    if err := svc.Up(); err != nil {
+        panic(err)
+    }
+}
+```
+
+### 12.3 واجهات API الرئيسية
+
+- `migrate.NewService(ctx, migrate.Config)` يبني مشغّل الترحيل
+- `svc.Create()` ينشئ جدول السجل `migration_schema` (idempotent)
+- `svc.Up()` يطبّق جميع عمليات الترحيل المعلّقة
+- `svc.Down(toVersion, all)` يتراجع إلى الإصدار المحدد أو كل شيء
+- `svc.Status()` يُعيد `[]migrate.MigrationStatus`
+- `svc.Baseline()` يُعلّم الملفات المعلّقة الحالية بأنها `baseline`
+
+الأنواع الشائعة:
+
+- اللهجات (يُفضَّل استخدام الدوال البانية — فهي تُعيد واجهة `Dialect`): `migrate.NewPostgresDialect()`, `NewMySQLDialect()`, `NewSQLiteDialect()`, `NewMSSQLDialect()`, `NewOracleDialect()`, `NewClickHouseDialect()`, `NewMariaDBDialect()`, `NewTiDBDialect()`, `NewRedshiftDialect()`، أو `migrate.DialectFromName("postgres")` للبحث بالاسم
+- المصادر: `DirectorySource` (نظام الملفات)، `StringSource` (شريحة في الذاكرة، مفيدة للاختبارات)، `CombinedSource` (يجمع عدة مصادر)
+- السجلات: `migrate.NoopLogger{}` (افتراضي)، `migrate.NewStdLogger("info", os.Stdout)`، أو أي نوع يُطبّق `migrate.Logger`
+
+### 12.4 ملائم للاختبار: StringSource + SQLite في الذاكرة
+
+```go
+src := migrate.StringSource{Migrations: []migrate.SourceFile{{
+    Filename: "V1__init.sql",
+    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
+}}}
+
+db, _ := sql.Open("sqlite", ":memory:")
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewSQLiteDialect(),
+    DB:              db,
+    MigrationSource: src,
+})
+```
+
+لا حاجة إلى نظام الملفات — يعمل مباشرةً من اختبار الوحدة.
+
+### 12.5 معاينة SQL (DryRun)
+
+```go
+var buf bytes.Buffer
+svc, _ := migrate.NewService(ctx, migrate.Config{
+    Dialect:         migrate.NewPostgresDialect(),
+    DB:              db,
+    MigrationSource: src,
+    DryRun:          true,
+    DryRunOutput:    &buf,
+})
+_ = svc.Create() // ‏Create() لا يتأثر بـ DryRun؛ يُنشئ جدول السجل
+_ = svc.Up()     // SQL الترحيلات يُكتب في buf فقط؛ لا تُنشأ أي جداول للمستخدم
+```
+
+### 12.6 عقد الاستقرار
+
+- `github.com/exc-works/migrate` (الحزمة الجذرية) هي واجهة API العامة وتتبع SemVer
+- `internal/*` غير مشمولة بعقد الاستقرار — لا تستوردها مباشرةً
+- مثال كامل قابل للتشغيل موجود في `example_test.go` بجذر المستودع
