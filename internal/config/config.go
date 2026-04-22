@@ -2,10 +2,12 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 type FileConfig struct {
@@ -31,7 +33,7 @@ func Read(path, workingDir string) (*FileConfig, error) {
 	}
 	var cfg FileConfig
 	if err := json.Unmarshal(content, &cfg); err != nil {
-		return nil, err
+		return nil, formatJSONConfigError(path, content, err)
 	}
 	if workingDir != "" {
 		cfg.WorkingDirectory = workingDir
@@ -45,6 +47,45 @@ func Read(path, workingDir string) (*FileConfig, error) {
 		return nil, fmt.Errorf("data_source_name must be set")
 	}
 	return &cfg, nil
+}
+
+func formatJSONConfigError(path string, content []byte, err error) error {
+	var syntaxErr *json.SyntaxError
+	if !errors.As(err, &syntaxErr) {
+		return fmt.Errorf("invalid JSON in config file %q: %w", path, err)
+	}
+
+	line, column := jsonErrorLocation(content, syntaxErr.Offset)
+	if strings.Contains(err.Error(), "after top-level value") {
+		return fmt.Errorf(
+			"invalid JSON in config file %q at line %d, column %d: extra content after the JSON object; remove non-JSON text after the closing brace: %w",
+			path, line, column, err,
+		)
+	}
+	return fmt.Errorf(
+		"invalid JSON in config file %q at line %d, column %d: %w",
+		path, line, column, err,
+	)
+}
+
+func jsonErrorLocation(content []byte, offset int64) (int, int) {
+	if offset < 1 {
+		offset = 1
+	}
+	if max := int64(len(content)); offset > max {
+		offset = max
+	}
+
+	line, column := 1, 1
+	for i := int64(0); i < offset-1; i++ {
+		if content[i] == '\n' {
+			line++
+			column = 1
+			continue
+		}
+		column++
+	}
+	return line, column
 }
 
 func applyDefaults(cfg *FileConfig) {

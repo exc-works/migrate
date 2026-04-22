@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -116,6 +117,41 @@ func TestCreateCommandDoesNotAutoPrintErrorOrUsage(t *testing.T) {
 	}
 	if got := stderr.String(); got != "" {
 		t.Fatalf("expected empty stderr, got %q", got)
+	}
+}
+
+func TestStatusWorkingDirReportsInvalidConfigJSON(t *testing.T) {
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.Mkdir(repoDir, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	content := []byte("{\"data_source_name\":\"ignored\"}\nLog line that is not JSON\n")
+	if err := os.WriteFile(filepath.Join(repoDir, "migration_config.json"), content, 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := newRootCommand(&stdout, &stderr)
+	cmd.SetArgs([]string{"status", "-w", repoDir})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	got := err.Error()
+	for _, want := range []string{
+		filepath.Join("repo", "migration_config.json"),
+		"line 2, column 1",
+		"extra content after the JSON object",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected %q in error %q", want, got)
+		}
+	}
+	if stdout.String() != "" || stderr.String() != "" {
+		t.Fatalf("expected empty command output before main handles error, stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
 }
 

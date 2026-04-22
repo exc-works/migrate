@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-04-22
+
+### Fixed
+- Configuration JSON parse errors now include the config file path, line, and
+  column. Extra non-JSON content after the config object is reported with a
+  clear remediation hint instead of only the raw Go parser message.
+
+### Added
+- Regression coverage for `migrate status -w <dir>` when
+  `<dir>/migration_config.json` contains trailing non-JSON content.
+- Configuration parsing coverage for DSNs that use environment defaults and
+  passwords containing special characters such as `$`, `,`, and `>`.
+
 ## [1.3.0] - 2026-04-20
 
 ### Added
