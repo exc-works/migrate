@@ -143,8 +143,7 @@ func singleStatement(query string) (string, error) {
 			for depth > 0 && n+1 < len(prefix) {
 				switch prefix[n : n+2] {
 				case "/*":
-					depth++
-					n += 2
+					return "", errors.New("nested SQL comments are unsupported before a statement")
 				case "*/":
 					depth--
 					n += 2

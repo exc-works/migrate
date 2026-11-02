@@ -72,6 +72,7 @@ func TestBridgeFailuresAreStickyAndRollback(t *testing.T) {
 		{name: "undefined", body: `db.exec('UPDATE users SET profile=?',[undefined])`},
 		{name: "object", body: `db.exec('UPDATE users SET profile=?',[{}])`},
 		{name: "abort alias", body: `db.exec('ABORT')`},
+		{name: "SQLite comment escape", body: `db.exec('/* outer /* inner */ COMMIT -- */ SELECT 1');throw Error("after control")`},
 		{name: "nested comment commit", body: `db.exec('/* outer /* inner */ ignored */ COMMIT')`},
 		{name: "prepare transaction", body: `db.exec("PREPARE TRANSACTION 'example'")`},
 		{name: "throwing parameter", body: `const p=[];Object.defineProperty(p,0,{get(){throw Error("private value")}});try{db.exec('SELECT ?',p)}catch(e){}`},
@@ -152,7 +153,7 @@ func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	for _, query := range []string{"ABORT", "PREPARE TRANSACTION 'example'", "EXECUTE IMMEDIATE 'COMMIT'", "CALL commit_procedure()", "RESET QUERY CACHE", "/* outer /* inner */ ignored */ COMMIT"} {
+	for _, query := range []string{"ABORT", "PREPARE TRANSACTION 'example'", "EXECUTE IMMEDIATE 'COMMIT'", "CALL commit_procedure()", "RESET QUERY CACHE", "/* outer /* inner */ ignored */ COMMIT", "/* outer /* inner */ COMMIT -- */ SELECT 1"} {
 		source := `export function up(db){db.exec(` + strconv.Quote(query) + `)}`
 		p, err := Compile("V1__control.js", source, "up", Options{})
 		if err != nil {
@@ -163,7 +164,11 @@ func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
 			t.Fatal(err)
 		}
 		err = i.Execute(context.Background(), db, "postgres")
-		if err == nil || !strings.Contains(err.Error(), "manual transaction") {
+		want := "manual transaction"
+		if strings.Contains(query, "/*") {
+			want = "nested SQL comments"
+		}
+		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%q: %v", query, err)
 		}
 	}

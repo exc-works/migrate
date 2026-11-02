@@ -48,7 +48,8 @@ WITH, VALUES, TABLE, REPLACE, MERGE, CREATE, ALTER, DROP, TRUNCATE, COMMENT,
 REFRESH, REINDEX, EXPLAIN, SHOW, DESCRIBE or DESC. Reject other leading keywords,
 including dynamic EXECUTE, procedure CALL, transaction/session and administrative
 commands, before calling the driver. Use SQL migration files for those operations.
-This restriction does not make implicitly committing DDL transactional.
+This restriction does not make implicitly committing DDL transactional. Reject nested
+leading block comments: supported databases disagree about comment nesting.
 
 ## Database values
 
