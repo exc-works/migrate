@@ -64,8 +64,9 @@ affinity may store decimals as floats, which the runtime rejects; choose suitabl
 storage types when exact decimal preservation is required.
 
 Each bridge call accepts one statement, with an optional trailing terminator and
-no embedded semicolons. Bind values containing semicolons. Manual transaction or
-session control and MySQL executable comments are rejected. Use SQL migration
+no embedded semicolons. Bind values containing semicolons. Only direct data/schema
+statements listed in the spec are accepted; dynamic SQL, procedure calls, administrative
+commands, manual transaction/session control and executable comments are rejected. Use SQL migration
 files for compound routine definitions. Alias duplicate result column names.
 
 ## Limits and guarantees

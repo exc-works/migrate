@@ -70,7 +70,8 @@ jobs:
           raw_name="${BINARY_NAME}_${GITHUB_REF_NAME}_${GOOS}_${{ matrix.platform.arch_label }}${suffix}${ext}"
           CGO_ENABLED=0 go build -tags="${BUILD_TAGS}" -trimpath -ldflags="-s -w -X main.buildVersion=${GITHUB_REF_NAME}" -o "dist/${raw_name}" ./cmd/migrate
           if [ "${BUILD_FLAVOR}" = "sql" ]; then
-            if go list -deps ./cmd/migrate | grep -Eq 'github.com/(dop251/goja|evanw/esbuild)'; then
+            dependencies=$(go list -deps ./cmd/migrate)
+            if grep -Eq 'github.com/(dop251/goja|evanw/esbuild)' <<< "${dependencies}"; then
               echo "SQL build unexpectedly includes a script runtime" >&2
               exit 1
             fi
