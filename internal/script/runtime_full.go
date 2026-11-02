@@ -53,6 +53,8 @@ func Compile(filename, source, direction string, options Options) (*Program, err
 	result := api.Build(api.BuildOptions{
 		Stdin:  &api.StdinOptions{Contents: source, Sourcefile: filename, Loader: loader},
 		Bundle: true, Write: false, Format: api.FormatIIFE, GlobalName: "migration", Target: api.ES2017,
+		// Preserve async generators so preflight can reject their original kind.
+		Supported: map[string]bool{"async-generator": true},
 		Sourcemap: api.SourceMapInline, SourcesContent: api.SourcesContentExclude, TsconfigRaw: "{}", LogLevel: api.LogLevelSilent,
 		Plugins: []api.Plugin{{Name: "independent-migration", Setup: func(build api.PluginBuild) {
 			build.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(api.OnResolveArgs) (api.OnResolveResult, error) {

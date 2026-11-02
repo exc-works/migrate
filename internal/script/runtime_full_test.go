@@ -147,3 +147,15 @@ func TestTSIsTranspiledWithoutTypeChecking(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAsyncGeneratorRejectedBeforeExecution(t *testing.T) {
+	for _, source := range []string{`export async function* down(db){yield 1}`, `export const down=async function*(db){yield 1}`} {
+		p, err := Compile("V1__generator.ts", source, "down", Options{})
+		if err != nil {
+			continue
+		}
+		if _, err = p.Instantiate(context.Background()); err == nil {
+			t.Fatal("async generator passed preflight")
+		}
+	}
+}
