@@ -45,7 +45,8 @@ export function up(db) {
 仅当能实现真实逆操作时才导出同步 `down(db)`。缺少 down 会阻止整个选定回滚范围；
 不要用空 down 假装可以回滚。生成的 up 默认抛错，必须先实现后执行。
 
-TS 使用同一接口，工具内部去除类型，不进行完整类型检查。模板包含基本类型提示。
+JS 模板通过 JSDoc 声明 `MigrationDB` 并标注 `db`，TS 模板提供等价的类型声明；
+两者都包含数据库方法、参数和结果类型，便于编辑器提示。TS 执行时去除类型，不进行完整类型检查。
 需要共享声明时，将 [migration-api.d.ts](migration-api.d.ts) 放在项目中，使用
 `/// <reference path="./migration-api.d.ts" />` 引用，并移除模板内同名的局部类型。
 

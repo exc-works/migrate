@@ -47,8 +47,10 @@ Export synchronous `down(db)` only when reversal is implemented. Missing down
 blocks the selected rollback range; an empty function does not reverse an up.
 Generated up functions throw until implemented.
 
-TS uses the same API. Transpilation does not perform type checking. Generated TS
-contains local declarations; optionally replace them with the shared
+JS templates define `MigrationDB` in JSDoc and annotate `db`; TS templates provide
+equivalent declarations. Both describe database methods, parameters and result types
+for editor assistance. TS transpilation does not perform type checking. Optionally
+replace the local declarations with the shared
 [migration-api.d.ts](migration-api.d.ts), referenced by a triple-slash path comment.
 
 ## Values and SQL
