@@ -43,7 +43,16 @@ func mixedSources() []source.Migration {
 }
 
 func TestMixedLifecycleAndHashes(t *testing.T) {
-	svc, db, _ := mixedService(t, mixedSources(), false)
+	for _, extension := range []string{"js", "mjs"} {
+		t.Run(extension, func(t *testing.T) { testMixedLifecycleAndHashes(t, extension) })
+	}
+}
+
+func testMixedLifecycleAndHashes(t *testing.T, extension string) {
+	t.Helper()
+	items := mixedSources()
+	items[1].Filename = "V2__seed." + extension
+	svc, db, _ := mixedService(t, items, false)
 	for range 2 {
 		if err := svc.Up(); err != nil {
 			t.Fatal(err)
@@ -124,12 +133,13 @@ func TestIrreversibleRangeDoesNotPartiallyRollback(t *testing.T) {
 
 func TestScriptsNotEvaluatedByDryRunOrBaseline(t *testing.T) {
 	items := mixedSources()
+	items[1].Filename = "V2__seed.mjs"
 	items[1].Source = `throw Error('must not run');export function up(){}`
 	svc, db, out := mixedService(t, items, true)
 	if err := svc.Up(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "script up V2__seed.js (not executed)") {
+	if !strings.Contains(out.String(), "script up V2__seed.mjs (not executed)") {
 		t.Fatalf("%s", out.String())
 	}
 	var count int
@@ -151,16 +161,20 @@ func TestScriptsNotEvaluatedByDryRunOrBaseline(t *testing.T) {
 }
 
 func TestCrossFormatDuplicateVersion(t *testing.T) {
-	items := mixedSources()
-	items[1].Filename = "V1__duplicate.js"
-	svc, _, _ := mixedService(t, items, false)
-	if err := svc.Up(); err == nil || !strings.Contains(err.Error(), "duplicate version") {
-		t.Fatalf("%v", err)
+	for _, filename := range []string{"V1__duplicate.js", "V1__duplicate.mjs", "V2__duplicate.mjs", "V3__duplicate.mjs"} {
+		t.Run(filename, func(t *testing.T) {
+			items := append(mixedSources(), source.Migration{Filename: filename, Source: `export function up(){}`})
+			svc, _, _ := mixedService(t, items, false)
+			if err := svc.Up(); err == nil || !strings.Contains(err.Error(), "duplicate version") {
+				t.Fatalf("%v", err)
+			}
+		})
 	}
 }
 
 func TestScriptTamperingBlocksExecution(t *testing.T) {
 	items := mixedSources()
+	items[1].Filename = "V2__seed.mjs"
 	svc, db, _ := mixedService(t, items, false)
 	if err := svc.Up(); err != nil {
 		t.Fatal(err)

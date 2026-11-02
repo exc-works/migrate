@@ -65,7 +65,7 @@ func TestFSSourceEmptyRootDefaultsToFSRoot(t *testing.T) {
 
 func TestSourcesDiscoverAllKnownFormats(t *testing.T) {
 	dir := t.TempDir()
-	names := []string{"V1__sql.sql", "V2__js.js", "V3__ts.ts"}
+	names := []string{"V1__sql.sql", "V2__js.js", "V3__ts.ts", "V4__module.mjs"}
 	fsys := fstest.MapFS{}
 	for _, name := range names {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("content"), 0o644); err != nil {
@@ -75,7 +75,7 @@ func TestSourcesDiscoverAllKnownFormats(t *testing.T) {
 	}
 	for _, src := range []MigrationSource{DirectorySource{Directory: dir}, FSSource{FS: fsys}} {
 		got, err := src.LoadMigrations()
-		if err != nil || len(got) != 3 {
+		if err != nil || len(got) != len(names) {
 			t.Fatalf("%+v %v", got, err)
 		}
 		for index, name := range names {

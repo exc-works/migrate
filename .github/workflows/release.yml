@@ -78,7 +78,7 @@ jobs:
           fi
           if [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; then
             capabilities=$("dist/${raw_name}" capabilities --output json)
-            python3 -c 'import json,sys; expected=["sql","js","ts"] if sys.argv[1]=="full" else ["sql"]; assert json.loads(sys.argv[2])["formats"]==expected' "${BUILD_FLAVOR}" "${capabilities}"
+            python3 -c 'import json,sys; expected=["sql","js","ts","mjs"] if sys.argv[1]=="full" else ["sql"]; assert json.loads(sys.argv[2])["formats"]==expected' "${BUILD_FLAVOR}" "${capabilities}"
             if [ "${BUILD_FLAVOR}" = "full" ]; then
               cp docs/migration-api.d.ts dist/migration-api.d.ts
             fi

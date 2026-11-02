@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -30,13 +32,17 @@ func TestCapabilitiesNeverReadsConfigOrConnects(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Formats) != len(script.Formats()) || got.Formats[0] != "sql" {
+	expected := []string{"sql"}
+	if len(script.Formats()) > 1 {
+		expected = []string{"sql", "js", "ts", "mjs"}
+	}
+	if !slices.Equal(got.Formats, expected) {
 		t.Fatalf("%s", out.String())
 	}
 }
 
 func TestNewVersionFormats(t *testing.T) {
-	for _, format := range []string{"sql", "js", "ts", "unknown"} {
+	for _, format := range []string{"sql", "js", "ts", "mjs", "unknown"} {
 		t.Run(format, func(t *testing.T) {
 			root := t.TempDir()
 			var out bytes.Buffer
@@ -47,6 +53,9 @@ func TestNewVersionFormats(t *testing.T) {
 			if unsupported {
 				if err == nil {
 					t.Fatal("expected unsupported format")
+				}
+				if format != "unknown" && !errors.Is(err, script.ErrRequiresFull) {
+					t.Fatalf("expected actionable full-build error: %v", err)
 				}
 				if _, err := os.Stat(filepath.Join(root, "migrations")); !os.IsNotExist(err) {
 					t.Fatal("unsupported format created directory")

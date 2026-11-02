@@ -17,7 +17,7 @@ import (
 )
 
 func Formats() []string {
-	return []string{migrationsource.FormatSQL, migrationsource.FormatJS, migrationsource.FormatTS}
+	return []string{migrationsource.FormatSQL, migrationsource.FormatJS, migrationsource.FormatTS, migrationsource.FormatMJS}
 }
 
 type Program struct {
@@ -48,7 +48,7 @@ func Compile(filename, source, direction string, options Options) (*Program, err
 	}
 	loader := api.LoaderJS
 	switch filepath.Ext(filename) {
-	case migrationsource.ExtensionJS:
+	case migrationsource.ExtensionJS, migrationsource.ExtensionMJS:
 	case migrationsource.ExtensionTS:
 		loader = api.LoaderTS
 	default:

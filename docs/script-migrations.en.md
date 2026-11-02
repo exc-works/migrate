@@ -25,7 +25,9 @@ migrate up --dry-run
 migrate up
 ```
 
-Files follow `V<version>__<description>.sql|js|ts` and share one version sequence.
+Files follow `V<version>__<description>.sql|js|ts|mjs` and share one version sequence.
+The `.mjs` extension is a `.js` alias with the same execution restrictions; generate it
+with `--format mjs`. The default remains SQL. It does not enable Node.js, npm or imports.
 Do not modify or rename applied migrations. SQL keeps its existing checksums;
 scripts use original-source SHA-256.
 

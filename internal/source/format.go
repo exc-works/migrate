@@ -5,8 +5,10 @@ const (
 	FormatSQL = "sql"
 	FormatJS  = "js"
 	FormatTS  = "ts"
+	FormatMJS = "mjs"
 
 	ExtensionSQL = "." + FormatSQL
 	ExtensionJS  = "." + FormatJS
 	ExtensionTS  = "." + FormatTS
+	ExtensionMJS = "." + FormatMJS
 )
