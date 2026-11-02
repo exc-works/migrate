@@ -122,6 +122,9 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	if d.Name() == "mariadb" {
 		controls = []string{"EXECUTE IMMEDIATE 'COMMIT'"}
 	}
+	if d.Name() == "sqlite" {
+		controls = []string{"/* outer /* inner */ COMMIT -- */ SELECT 1"}
+	}
 	for _, control := range controls {
 		broken[len(broken)-1].Source = `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec(` + strconv.Quote(control) + `);throw Error('after control')}`
 		failedCfg.ScriptOptions = script.Options{}
@@ -129,7 +132,11 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = failed.Up(); err == nil || !strings.Contains(err.Error(), "manual transaction") {
+		want := "manual transaction"
+		if strings.Contains(control, "/*") {
+			want = "nested SQL comments"
+		}
+		if err = failed.Up(); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("expected bridge transaction-control rejection: %v", err)
 		}
 		assertScriptProfile(t, db, table, "new-ts")
