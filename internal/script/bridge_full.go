@@ -129,37 +129,11 @@ func singleStatement(query string) (string, error) {
 		return "", errors.New("expected one SQL statement; bind values containing semicolons")
 	}
 	prefix := query
-	for {
-		prefix = strings.TrimSpace(prefix)
-		switch {
-		case strings.HasPrefix(prefix, "--"), strings.HasPrefix(prefix, "#"):
-			n := strings.IndexByte(prefix, '\n')
-			if n < 0 {
-				return "", errors.New("expected SQL statement")
-			}
-			prefix = prefix[n+1:]
-		case strings.HasPrefix(prefix, "/*"):
-			depth, n := 1, 2
-			for depth > 0 && n+1 < len(prefix) {
-				switch prefix[n : n+2] {
-				case "/*":
-					return "", errors.New("nested SQL comments are unsupported before a statement")
-				case "*/":
-					depth--
-					n += 2
-				default:
-					n++
-				}
-			}
-			if depth != 0 {
-				return "", errors.New("unfinished SQL comment")
-			}
-			prefix = prefix[n:]
-		default:
-			goto keyword
-		}
+	// Do not interpret SQL comments: newline and nesting rules differ by engine.
+	// A directly leading keyword is unambiguous across all supported dialects.
+	if strings.HasPrefix(prefix, "--") || strings.HasPrefix(prefix, "#") || strings.HasPrefix(prefix, "/*") {
+		return "", errors.New("leading SQL comments are unsupported; place comments in the script")
 	}
-keyword:
 	n := 0
 	for n < len(prefix) && (prefix[n] >= 'a' && prefix[n] <= 'z' || prefix[n] >= 'A' && prefix[n] <= 'Z') {
 		n++

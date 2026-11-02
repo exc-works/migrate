@@ -135,12 +135,12 @@ func TestBridgeExactMetadataAndCloseFailure(t *testing.T) {
 }
 
 func TestSingleStatementControl(t *testing.T) {
-	for _, q := range []string{"COMMIT", "-- comment\nROLLBACK", "/* comment */ BEGIN", "SET autocommit=1", "SELECT 1; COMMIT", "/*! COMMIT */", "SELECT ';'"} {
+	for _, q := range []string{"COMMIT", "-- comment\nROLLBACK", "/* comment */ BEGIN", "SET autocommit=1", "SELECT 1; COMMIT", "/* comment */ SELECT 1", "/*! COMMIT */", "SELECT ';'"} {
 		if _, err := singleStatement(q); err == nil {
 			t.Fatalf("accepted %q", q)
 		}
 	}
-	for _, q := range []string{"SELECT 1;", "/* comment */ SELECT 1", "UPDATE users SET profile=?"} {
+	for _, q := range []string{"SELECT 1;", "UPDATE users SET profile=?"} {
 		if _, err := singleStatement(q); err != nil {
 			t.Fatalf("%q: %v", q, err)
 		}
@@ -166,7 +166,7 @@ func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
 		err = i.Execute(context.Background(), db, "postgres")
 		want := "manual transaction"
 		if strings.Contains(query, "/*") {
-			want = "nested SQL comments"
+			want = "leading SQL comments"
 		}
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%q: %v", query, err)
