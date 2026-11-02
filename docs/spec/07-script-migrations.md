@@ -76,9 +76,16 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 - Each invocation owns a fresh VM; runtime values never cross invocations.
 - Verified script support covers PostgreSQL, MySQL, MariaDB and SQLite.
 - TiDB, Redshift and Oracle are executable experimental dialects using their existing
-  drivers. Compatibility is not real-database verification. Oracle uses native `:1`
-  placeholders; NUMBER stays exact text, RAW/BLOB are bytes and CLOB is text.
-  PL/SQL blocks and procedure calls remain SQL-file operations.
+  drivers. Compatibility does not establish broad deployment verification. Oracle uses
+  pinned go-ora v3 (required for Oracle 23ai authentication) and native `:1`
+  placeholders; NUMBER stays exact text, RAW is bytes and CLOB is text. BLOB values
+  lacking type metadata require explicit RAW/hex projection (for example a bounded
+  DBMS_LOB.SUBSTR); do not guess based on bytes alone. CLI and test connections disable
+  fast-login cookies by default for reliable v3 reconnection, preserving explicit
+  FAST LOGIN options. Go facade callers must configure their supplied DB likewise.
+  PL/SQL blocks and procedure calls remain SQL-file operations. If this driver omits
+  SQL type names, use its numeric precision and Oracle scan-type metadata for NUMBER,
+  binary and text conversion; keep ambiguous non-Oracle byte values rejected.
   Redshift-specific values with unknown pgx type metadata require explicit SQL casts;
   use FROM_VARBYTE/FROM_HEX for binary values through hex text.
 - Capabilities preserve `script_dialects` and add per-dialect verification, transaction

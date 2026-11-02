@@ -34,6 +34,20 @@ func TestScriptMigrationsIntegration(t *testing.T) {
 func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	t.Helper()
 	ctx := context.Background()
+	if d.Name() == dialect.NameOracle {
+		query := `SELECT TO_CLOB('text') AS "text",DBMS_LOB.SUBSTR(TO_BLOB(HEXTORAW('00FF')),2,1) AS "payload",CAST(1.25 AS BINARY_FLOAT) AS "ratio",CAST('1234567890123456789012345678.123456789' AS NUMBER(38,10)) AS "amount" FROM dual`
+		p, err := script.Compile("V0__oracle_scalars.js", `export function up(db){const r=db.query(`+strconv.Quote(query)+`)[0];if(r.text!=='text'||r.payload.length!==2||r.payload[1]!==255||r.ratio!==1.25||r.amount!=='1234567890123456789012345678.123456789')throw Error('Oracle scalar fidelity')}`, "up", script.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		invocation, err := p.Instantiate(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = invocation.Execute(ctx, db, d.Name()); err != nil {
+			t.Fatal(err)
+		}
+	}
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
 	idType := "BIGINT"

@@ -26,7 +26,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/microsoft/go-mssqldb"
-	_ "github.com/sijms/go-ora/v2"
+	_ "github.com/sijms/go-ora/v3"
 	"github.com/spf13/cobra"
 	_ "modernc.org/sqlite"
 )
@@ -295,7 +295,11 @@ func newServiceFromConfigContext(ctx context.Context, c *config.FileConfig) (*mi
 	if err != nil {
 		return nil, err
 	}
-	db, err := openDB(d.DriverName(), c.DataSourceName)
+	dsn, err := config.DriverDSN(d.DriverName(), c.DataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	db, err := openDB(d.DriverName(), dsn)
 	if err != nil {
 		return nil, err
 	}

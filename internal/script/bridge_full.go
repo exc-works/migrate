@@ -4,12 +4,15 @@ package script
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/dop251/goja"
+	dbdialect "github.com/exc-works/migrate/internal/dialect"
 )
 
 // Execute binds only a narrow, synchronous database capability to the entrypoint.
@@ -62,7 +65,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if err = runCtx.Err(); err != nil {
 					return nil, remember(err)
 				}
-				rows, err := readRows(runCtx, db, text, args, i.program.options)
+				rows, err := readRows(runCtx, db, text, args, i.program.options, dialect)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -153,7 +156,7 @@ func singleStatement(query string) (string, error) {
 	}
 }
 
-func readRows(ctx context.Context, db Database, query string, args []any, options Options) (out []map[string]any, err error) {
+func readRows(ctx context.Context, db Database, query string, args []any, options Options, dialectName string) (out []map[string]any, err error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, errors.New("database query failed")
@@ -195,7 +198,7 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 		row := make(map[string]any, len(columns))
 		for index, name := range columns {
 			var n int64
-			row[name], n, err = resultValue(values[index], types[index].DatabaseTypeName())
+			row[name], n, err = resultValue(values[index], resultColumnType(types[index], dialectName))
 			if err != nil {
 				return nil, fmt.Errorf("result column %d: %w", index+1, err)
 			}
@@ -210,4 +213,24 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 		return nil, errors.New("database iteration failed")
 	}
 	return out, nil
+}
+
+// go-ora v3.0.1 omits database type names. Its documented scan metadata still
+// distinguishes Oracle binary/text values, and numeric precision identifies NUMBER.
+// Keep this fallback scoped to Oracle; other ambiguous byte results still fail.
+func resultColumnType(column *sql.ColumnType, dialectName string) string {
+	name := column.DatabaseTypeName()
+	if name != "" || dialectName != dbdialect.NameOracle {
+		return name
+	}
+	if _, _, numeric := column.DecimalSize(); numeric {
+		return "NUMBER"
+	}
+	switch column.ScanType() {
+	case reflect.TypeFor[[]byte]():
+		return "RAW"
+	case reflect.TypeFor[string]():
+		return "VARCHAR2"
+	}
+	return name
 }

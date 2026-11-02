@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -174,5 +175,44 @@ func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
 	}
 	if err = mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestOracleMissingTypeNamesUseColumnMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		dialect      string
+		numericFloat bool
+		bad          bool
+	}{
+		{"oracle", false, false}, {"postgres", false, true}, {"oracle", true, true},
+	} {
+		t.Run(fmt.Sprintf("%s/float=%t", tc.dialect, tc.numericFloat), func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			amount := any("1234567890123456789012345678.1234567890")
+			if tc.numericFloat {
+				amount = float64(0.1)
+			}
+			rows := sqlmock.NewRowsWithColumnDefinition(sqlmock.NewColumn("payload").OfType("", []byte{}), sqlmock.NewColumn("amount").OfType("", float64(0)).WithPrecisionAndScale(38, 10)).AddRow([]byte{0, 255}, amount)
+			mock.ExpectQuery("SELECT payload,amount").WillReturnRows(rows).RowsWillBeClosed()
+			p, err := Compile("V1__oracle.js", `export function up(db){const r=db.query('SELECT payload,amount')[0];if(r.payload.length!==2||r.payload[1]!==255||r.amount!=='1234567890123456789012345678.1234567890')throw Error('fidelity')}`, "up", Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			i, err := p.Instantiate(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = i.Execute(context.Background(), db, tc.dialect)
+			if (err != nil) != tc.bad {
+				t.Fatalf("%v", err)
+			}
+			if err = mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

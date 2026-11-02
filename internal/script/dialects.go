@@ -60,7 +60,7 @@ func Dialects() []DialectCapability {
 			Name:            dialect.NameOracle,
 			Verification:    VerificationExperimental,
 			TransactionMode: TransactionFramework,
-			Notes:           "not verified against a real database; DDL implicitly commits; PL/SQL blocks and procedure calls require SQL migrations",
+			Notes:           "limited Oracle Free coverage with go-ora v3; DDL implicitly commits; PL/SQL blocks and procedure calls require SQL migrations",
 		},
 	}
 }
