@@ -9,10 +9,14 @@ import (
 	"context"
 
 	internalmigrate "github.com/exc-works/migrate/internal/migrate"
+	"github.com/exc-works/migrate/internal/script"
 )
 
 // Service executes migrations and inspects schema history against a database.
 type Service = internalmigrate.Service
+
+// ScriptOptions configures script timeout and materialized query limits.
+type ScriptOptions = script.Options
 
 // Config holds the inputs required to construct a Service.
 type Config = internalmigrate.Config
@@ -20,7 +24,7 @@ type Config = internalmigrate.Config
 // Status is the lifecycle state of a single migration file.
 type Status = internalmigrate.Status
 
-// Migration is a parsed migration: filename, version, hash, and split SQL statements.
+// Migration contains source metadata and, for SQL migrations, parsed statements.
 type Migration = internalmigrate.Migration
 
 // SchemaRecord is a row in the migration history table.
@@ -44,7 +48,7 @@ func NewService(ctx context.Context, cfg Config) (*Service, error) {
 	return internalmigrate.NewService(ctx, cfg)
 }
 
-// SplitFilename extracts the version portion from a "V<version>__<desc>.sql" filename.
+// SplitFilename extracts the version portion from a versioned migration filename.
 func SplitFilename(filename string) (string, error) {
 	return internalmigrate.SplitFilename(filename)
 }

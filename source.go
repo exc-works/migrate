@@ -7,7 +7,7 @@ import (
 // MigrationSource loads the raw migration files a Service should consider.
 type MigrationSource = source.MigrationSource
 
-// SourceFile is one unparsed migration file (filename plus raw SQL text).
+// SourceFile is one unparsed migration file (filename plus raw source text).
 // It is named SourceFile rather than Migration to avoid collision with the parsed migrate.Migration.
 type SourceFile = source.Migration
 
@@ -25,7 +25,7 @@ type FSSource = source.FSSource
 // CombinedSource concatenates multiple MigrationSources into one.
 type CombinedSource = source.CombinedSource
 
-// IsSupportedFilename reports whether a filename matches the V<version>__<desc>.sql pattern.
+// IsSupportedFilename reports whether a filename is a versioned SQL, JS, or TS migration.
 func IsSupportedFilename(filename string) bool {
 	return source.IsSupportedFilename(filename)
 }
