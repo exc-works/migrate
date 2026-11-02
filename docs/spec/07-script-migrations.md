@@ -43,6 +43,15 @@ Statements use native dialect placeholders and bound parameters; do not concaten
 values into SQL. One call executes one driver statement, not annotated migration text.
 No database object is exposed during module initialization.
 
+The bridge accepts direct statements beginning with SELECT, INSERT, UPDATE, DELETE,
+WITH, VALUES, TABLE, REPLACE, MERGE, CREATE, ALTER, DROP, TRUNCATE, COMMENT,
+REFRESH, REINDEX, EXPLAIN, SHOW, DESCRIBE or DESC. Reject other leading keywords,
+including dynamic EXECUTE, procedure CALL, transaction/session and administrative
+commands, before calling the driver. Use SQL migration files for those operations.
+This restriction does not make implicitly committing DDL transactional. SQL must start directly with an allowed keyword after whitespace. Leading SQL comments
+are unsupported because dialects disagree about nesting and line endings; place
+annotations in JS/TS comments. SQL files retain their existing parser behavior.
+
 ## Database values
 
 - Integer results and affected-row counts are decimal strings, including small integers.
