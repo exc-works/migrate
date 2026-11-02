@@ -117,7 +117,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	// Transaction control is rejected before it can release framework ownership.
 	var controls []string
 	if d.Name() == "postgres" {
-		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT"}
+		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT", "-- comment\rCOMMIT /*\nSELECT 1 -- */"}
 	}
 	if d.Name() == "mariadb" {
 		controls = []string{"EXECUTE IMMEDIATE 'COMMIT'"}
@@ -133,8 +133,8 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			t.Fatal(err)
 		}
 		want := "manual transaction"
-		if strings.Contains(control, "/*") {
-			want = "nested SQL comments"
+		if strings.HasPrefix(control, "/*") || strings.HasPrefix(control, "--") {
+			want = "leading SQL comments"
 		}
 		if err = failed.Up(); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("expected bridge transaction-control rejection: %v", err)
