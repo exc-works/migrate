@@ -9,7 +9,10 @@ import (
 
 // ScriptOptions validates CLI limits before opening a database.
 func (cfg FileConfig) ScriptOptions() (script.Options, error) {
-	options := script.Options{MaxRows: cfg.ScriptMaxRows, MaxBytes: cfg.ScriptMaxBytes}
+	options := script.Options{
+		MaxRows:  cfg.ScriptMaxRows,
+		MaxBytes: cfg.ScriptMaxBytes,
+	}
 	if cfg.ScriptTimeout != "" {
 		duration, err := time.ParseDuration(cfg.ScriptTimeout)
 		if err != nil || duration <= 0 {

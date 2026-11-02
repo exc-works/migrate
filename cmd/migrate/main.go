@@ -21,6 +21,7 @@ import (
 	"github.com/exc-works/migrate/internal/dialect"
 	"github.com/exc-works/migrate/internal/logger"
 	"github.com/exc-works/migrate/internal/migrate"
+	"github.com/exc-works/migrate/internal/parser"
 	"github.com/exc-works/migrate/internal/source"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -127,7 +128,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root.AddCommand(statusCmd)
 
 	upCmd := &cobra.Command{
-		Use:     "up",
+		Use:     parser.DirectionUpName,
 		Short:   "Apply migrations to latest",
 		Example: "  migrate up\n  migrate up --dry-run",
 		PreRunE: preRun,
@@ -186,7 +187,10 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	root.AddCommand(downCmd)
 
-	newCmd := &cobra.Command{Use: "new", Short: "Generate migration file or config file"}
+	newCmd := &cobra.Command{
+		Use:   "new",
+		Short: "Generate migration file or config file",
+	}
 	root.AddCommand(newCmd)
 
 	var newVersion, newFormat string
@@ -239,7 +243,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		},
 	}
 	newVersionCmd.Flags().StringVarP(&newVersion, "version", "v", "", "override migration version")
-	newVersionCmd.Flags().StringVar(&newFormat, "format", "sql", "migration format: sql|js|ts")
+	newVersionCmd.Flags().StringVar(&newFormat, "format", source.FormatSQL, "migration format: sql|js|ts")
 	newCmd.AddCommand(newVersionCmd)
 
 	newConfigCmd := &cobra.Command{
