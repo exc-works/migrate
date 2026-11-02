@@ -24,7 +24,9 @@ migrate up --dry-run
 migrate up
 ```
 
-文件名沿用 `V<version>__<description>`，三种格式共享同一版本序列，版本号不能重复。
+文件名沿用 `V<version>__<description>`，SQL、JS（含 `.mjs`）和 TS 共享同一版本序列，版本号不能重复。
+`.mjs` 是 `.js` 的兼容后缀，执行方式和限制相同；可用 `--format mjs` 生成，默认仍生成 SQL。
+不增加 Node.js、npm 或模块导入能力。
 已有 SQL 文件及已应用脚本保持不变；修改内容或改名会被历史校验阻断。
 
 ```js

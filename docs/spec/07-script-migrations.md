@@ -12,7 +12,7 @@
 
 ## Files and planning
 
-- Discover direct children named `V<version>__<description>.sql`, `.js` or `.ts`.
+- Discover direct children named `V<version>__<description>.sql`, `.js`, `.ts` or `.mjs`.
 - Directory, string, combined and `fs.FS` sources share the same format rules.
 - All formats share version ordering, duplicate detection and the existing history table.
 - Scripts use the lowercase hex SHA-256 of original source bytes; SQL retains MD5.
@@ -27,6 +27,10 @@
 - Unsupported script dialects fail explicitly; existing SQL dialects remain supported.
 
 ## Script contract
+
+The `.mjs` extension is a JS alias with identical compilation, execution and restrictions;
+full builds advertise it in capabilities. SQL-only builds discover it and reject execution
+before writes. It does not enable imports, Node.js or a separate module loader.
 
 Scripts are independent UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
 Missing down is irreversible, not a successful no-op. The runtime validates the entry
@@ -107,7 +111,7 @@ write successful migration history. It does not predict dynamically generated SQ
 
 ## CLI and API
 
-- `new version <description> --format sql|js|ts` defaults to SQL.
+- `new version <description> --format sql|js|ts|mjs` defaults to SQL.
 - SQL-only builds refuse JS/TS generation with an actionable full-build error.
 - Generated JS templates annotate `db` with JSDoc; TS templates declare equivalent
   database, parameter and result types for editor assistance.

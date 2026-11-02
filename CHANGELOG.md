@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Accept `.mjs` as a JavaScript migration alias in full builds; SQL-only builds
+  detect and reject it before migration writes. Support `new version --format mjs`.
 - Optional `full` builds support standalone synchronous JS/TS migrations alongside SQL,
   with framework-owned transactions, exact value conversion, source checksums,
   execution deadlines and query result limits.
 - `capabilities` reports compiled formats without configuration or a connection.
-- `new version --format sql|js|ts` creates migration templates; script timeout and
+- `new version --format sql|js|ts|mjs` creates migration templates; script timeout and
   result limits can be configured through JSON or the Go facade.
 - SQL/full CI matrices and real-driver script integration for PostgreSQL, MySQL,
   MariaDB and SQLite; full release binaries and editor API declarations.

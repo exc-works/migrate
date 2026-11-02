@@ -57,7 +57,7 @@ func migrationTemplate(format string) (string, error) {
 
 -- +migrate Down
 `, nil
-	case source.FormatJS:
+	case source.FormatJS, source.FormatMJS:
 		if len(script.Formats()) == 1 {
 			return "", script.ErrRequiresFull
 		}
@@ -100,6 +100,6 @@ export function up(db: MigrationDB): void {
 // Export down(db) only when reversal is implemented.
 `, nil
 	default:
-		return "", fmt.Errorf("unsupported migration format; use sql, js or ts")
+		return "", fmt.Errorf("unsupported migration format; use sql, js, ts or mjs")
 	}
 }

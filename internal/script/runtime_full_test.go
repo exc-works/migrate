@@ -11,9 +11,14 @@ import (
 
 func TestRuntimeContracts(t *testing.T) {
 	for _, tc := range []struct {
-		name, source, direction     string
-		badCompile, badInit, badRun bool
+		name, source, direction, filename string
+		badCompile, badInit, badRun       bool
 	}{
+		{name: "MJS", filename: "V2__test.mjs", source: `export function up(db){}`, direction: "up"},
+		{name: "MJS down", filename: "V2__test.mjs", source: `export function down(db){}`, direction: "down"},
+		{name: "MJS import", filename: "V2__test.mjs", source: `import x from './helper.js'; export function up(){x()}`, direction: "up", badCompile: true},
+		{name: "MJS async", filename: "V2__test.mjs", source: `export async function up(){}`, direction: "up", badInit: true},
+		{name: "MJS rejects TS syntax", filename: "V2__test.mjs", source: `export function up(db:unknown){}`, direction: "up", badCompile: true},
 		{name: "JS", source: `export function up(db){}`, direction: "up"},
 		{name: "TS", source: `type DB={}; export function up(db:DB):void {}`, direction: "up"},
 		{name: "down", source: `export function down(db){}`, direction: "down"},
@@ -32,7 +37,11 @@ func TestRuntimeContracts(t *testing.T) {
 		{name: "no Node", source: `export function up(){if(typeof process!=='undefined'||typeof globalThis.require!=='undefined'||typeof fetch!=='undefined')throw Error('unexpected')}`, direction: "up"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := Compile("V2__test.ts", tc.source, tc.direction, Options{})
+			filename := tc.filename
+			if filename == "" {
+				filename = "V2__test.ts"
+			}
+			p, err := Compile(filename, tc.source, tc.direction, Options{})
 			if tc.badCompile {
 				if err == nil {
 					t.Fatal("expected compile failure")

@@ -243,7 +243,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		},
 	}
 	newVersionCmd.Flags().StringVarP(&newVersion, "version", "v", "", "override migration version")
-	newVersionCmd.Flags().StringVar(&newFormat, "format", source.FormatSQL, "migration format: sql|js|ts")
+	newVersionCmd.Flags().StringVar(&newFormat, "format", source.FormatSQL, "migration format: sql|js|ts|mjs")
 	newCmd.AddCommand(newVersionCmd)
 
 	newConfigCmd := &cobra.Command{

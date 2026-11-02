@@ -10,7 +10,7 @@ import (
 	"sort"
 )
 
-var filenamePattern = regexp.MustCompile(`^V.+__.*\.(` + FormatSQL + `|` + FormatJS + `|` + FormatTS + `)$`)
+var filenamePattern = regexp.MustCompile(`^V.+__.*\.(` + FormatSQL + `|` + FormatJS + `|` + FormatTS + `|` + FormatMJS + `)$`)
 
 type Migration struct {
 	Filename string
