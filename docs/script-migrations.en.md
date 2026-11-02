@@ -107,15 +107,20 @@ status, baseline and SQL-only plans do not issue this warning.
 | SQLite | Verified | `?` | Framework transaction |
 | TiDB | Experimental | `?` | CI uses Unistore; distributed TiKV remains unverified; DDL may implicitly commit |
 | Redshift | Experimental; no real-instance verification | `$1` | Transactions depend on the statement; not full PostgreSQL equivalence |
-| Oracle | Experimental; no real-instance verification | `:1` | DML uses a framework transaction; DDL implicitly commits |
+| Oracle | Experimental; limited Oracle Free coverage | `:1` | DML uses a framework transaction; DDL implicitly commits |
 | ClickHouse | Experimental | `?` | Nontransactional; no automatic rollback |
 
 Where transactions are supported, script operations and successful history writes
 share a framework transaction. Caught database errors remain fatal. Implicit DDL
 commits and other engine limitations prevent universal rollback guarantees.
 
-Oracle NUMBER values remain exact strings; RAW/BLOB values become bytes and CLOB
-becomes text. PL/SQL blocks and procedure calls still require SQL files. Redshift
+Oracle uses pinned go-ora v3. NUMBER values remain exact strings; RAW becomes bytes
+and CLOB becomes text. BLOB results without type metadata require an explicit
+projection, such as bounded `DBMS_LOB.SUBSTR` to RAW or `RAWTOHEX` to hex text.
+Do not infer ambiguous binary values. CLI connections disable v3 fast-login cookies
+by default for reliable reconnection, preserving explicit `FAST LOGIN` options.
+Go facade callers constructing their own DB should set `FAST+LOGIN=false` in the DSN.
+PL/SQL blocks and procedure calls still require SQL files. Redshift
 specific types may have unknown pgx metadata: explicitly convert them to supported
 scalars. For VARBYTE, write hex text with `FROM_HEX($1)` and read hex text with
 `FROM_VARBYTE(payload, 'hex')` rather than assuming BYTEA compatibility.

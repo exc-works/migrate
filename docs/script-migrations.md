@@ -97,13 +97,17 @@ Go API 对应 `migrate.Config.ScriptOptions` 和 `migrate.ScriptOptions`；业�
 | SQLite | 已验证 | `?` | 使用框架事务 |
 | TiDB | 实验性 | `?` | CI 使用 Unistore；分布式 TiKV 部署未验证；DDL 可能隐式提交 |
 | Redshift | 实验性，真实实例未验证 | `$1` | 事务能力取决于语句；不能视为完全等同 PostgreSQL |
-| Oracle | 实验性，真实实例未验证 | `:1` | DML 使用框架事务；DDL 隐式提交 |
+| Oracle | 实验性，仅 Oracle Free 验证 | `:1` | DML 使用框架事务；DDL 隐式提交 |
 | ClickHouse | 实验性 | `?` | 非事务执行；无自动回滚 |
 
 支持事务的路径中，数据操作与成功记录共用框架事务。数据库异常即使被脚本捕获仍会使
 迁移失败；DDL 隐式提交等限制仍然存在，不能承诺所有操作都可完整回滚。
 
-Oracle 的 NUMBER 以精确字符串返回；RAW/BLOB 返回字节数组，CLOB 返回文本。
+Oracle 使用固定的 go-ora v3 驱动，NUMBER 以精确字符串返回；RAW 返回字节数组，CLOB 返回文本。
+驱动未提供 BLOB 类型元数据时需显式投影，例如用有界的 `DBMS_LOB.SUBSTR` 读成 RAW，
+或用 `RAWTOHEX` 传递 hex 文本；不要依赖不明确的字节类型推断。
+CLI 默认关闭 v3 的快速登录缓存以保证重连，保留显式 `FAST LOGIN` 配置。
+Go facade 调用方自行创建数据库连接时，建议在 DSN 中设置 `FAST+LOGIN=false`。
 PL/SQL 块、过程调用仍需使用 SQL 文件。Redshift 特有类型可能无法被 pgx 识别，需显式
 转换为已知标量；例如使用 `FROM_HEX($1)` 写入 VARBYTE，使用
 `FROM_VARBYTE(payload, 'hex')` 读成十六进制文本，不要假设 BYTEA 完全兼容。

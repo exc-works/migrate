@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nontransactional execution/history failures; unknown affected-row counts are null.
 - ClickHouse/TiDB container CI and optional SQL/full Oracle/Redshift integration.
 
+### Fixed
+- Upgrade the Oracle driver to go-ora v3 for modern authentication; disable its fast
+  login cache by default while preserving explicit options. Correct Oracle history
+  DDL, native status binding and missing result metadata handling.
+- Serialize external SQL/full CI against each dedicated database to avoid fixture races.
+
 ### Compatibility
 - Default builds remain SQL-only. Existing script_dialects JSON output is preserved;
   script_dialect_capabilities adds detailed status. New dialects remain experimental.
