@@ -22,7 +22,7 @@ func columnType(name string) string {
 	if index := strings.IndexByte(name, '('); index >= 0 {
 		name = name[:index]
 	}
-	return strings.TrimSpace(strings.TrimSuffix(name, " UNSIGNED"))
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(name, " UNSIGNED"), "UNSIGNED "))
 }
 
 func decimalType(name string) bool { return name == "DECIMAL" || name == "NUMERIC" || name == "NUMBER" }
@@ -33,6 +33,14 @@ func integerType(name string) bool {
 	}
 	return false
 }
+func floatType(name string) bool {
+	switch name {
+	case "FLOAT", "DOUBLE", "REAL", "DOUBLE PRECISION", "FLOAT4", "FLOAT8":
+		return true
+	}
+	return false
+}
+
 func binaryType(name string) bool {
 	switch name {
 	case "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB", "BINARY", "VARBINARY", "BYTEA":
@@ -91,7 +99,7 @@ func resultValue(value any, typeName string) (any, int64, error) {
 			out := append([]byte{}, v...)
 			return out, int64(len(out)), nil
 		}
-		if decimalType(name) || integerType(name) || textType(name) || name == "BOOL" || name == "BOOLEAN" {
+		if decimalType(name) || integerType(name) || floatType(name) || textType(name) || name == "BOOL" || name == "BOOLEAN" {
 			return resultText(string(v), name)
 		}
 		return nil, 0, errors.New("ambiguous byte result; use an explicit SQL cast")
@@ -103,6 +111,13 @@ func resultValue(value any, typeName string) (any, int64, error) {
 func resultText(value, name string) (any, int64, error) {
 	if !utf8.ValidString(value) {
 		return nil, 0, errors.New("invalid UTF-8 result")
+	}
+	if floatType(name) {
+		n, err := strconv.ParseFloat(value, 64)
+		if err != nil || math.IsNaN(n) || math.IsInf(n, 0) {
+			return nil, 0, errors.New("invalid floating result")
+		}
+		return n, 8, nil
 	}
 	if decimalType(name) && !decimalPattern.MatchString(value) {
 		return nil, 0, errors.New("invalid decimal result")
