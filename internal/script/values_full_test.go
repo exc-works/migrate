@@ -22,6 +22,8 @@ func TestResultValueFidelity(t *testing.T) {
 		{name: "unsigned integer", dbType: "BIGINT UNSIGNED", input: uint64(math.MaxUint64), want: "18446744073709551615"},
 		{name: "decimal", dbType: "DECIMAL(30,10)", input: []byte("12345678901234567890.1234567890"), want: "12345678901234567890.1234567890"},
 		{name: "decimal exponent", dbType: "NUMERIC", input: "1.23e-20", want: "1.23e-20"},
+		{name: "integer float", dbType: "BIGINT", input: float64(9007199254740992), bad: true},
+		{name: "fraction in integer column", dbType: "BIGINT", input: float64(1.25), bad: true},
 		{name: "decimal float", dbType: "NUMERIC", input: float64(0.1), bad: true},
 		{name: "invalid decimal", dbType: "DECIMAL", input: "not numeric", bad: true},
 		{name: "invalid integer", dbType: "INT", input: []byte("1.2"), bad: true},
@@ -31,10 +33,11 @@ func TestResultValueFidelity(t *testing.T) {
 		{name: "text bytes", dbType: "VARCHAR", input: []byte("hello"), want: "hello"},
 		{name: "json", dbType: "JSONB", input: []byte(`{"a":1}`), want: `{"a":1}`},
 		{name: "binary", dbType: "BYTEA", input: []byte{0, 255}, want: []byte{0, 255}},
+		{name: "binary string", dbType: "BLOB", input: string([]byte{0, 255}), want: []byte{0, 255}},
 		{name: "empty binary", dbType: "BLOB", input: []byte{}, want: []byte{}},
 		{name: "unknown bytes", input: []byte("ambiguous"), bad: true},
 		{name: "invalid text", dbType: "TEXT", input: []byte{255}, bad: true},
-		{name: "date", input: instant, want: "2026-01-02T03:04:05.123456789+08:00"},
+		{name: "date", input: instant, want: "2026-01-01T19:04:05.123456789Z"},
 		{name: "float", input: float64(1.5), want: float64(1.5)},
 		{name: "NaN", input: math.NaN(), bad: true},
 		{name: "infinite", input: math.Inf(1), bad: true},
@@ -108,5 +111,17 @@ func TestBinaryValuesAreCopied(t *testing.T) {
 	v.([]byte)[0] = 9
 	if original[0] != 1 {
 		t.Fatal("parameter aliases caller buffer")
+	}
+}
+
+func TestTimestampHistoricalOffsetPreservesInstant(t *testing.T) {
+	want := time.Date(1900, 1, 1, 12, 0, 0, 123, time.FixedZone("historical", 9*60+21))
+	value, _, err := resultValue(want, "TIMESTAMPTZ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := time.Parse(time.RFC3339Nano, value.(string))
+	if err != nil || !got.Equal(want) {
+		t.Fatalf("instant changed: %s %v", value, err)
 	}
 }

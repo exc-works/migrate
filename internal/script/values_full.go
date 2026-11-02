@@ -70,17 +70,21 @@ func resultValue(value any, typeName string) (any, int64, error) {
 	case bool:
 		return v, 1, nil
 	case float64:
-		if decimalType(name) {
-			return nil, 0, errors.New("driver returned an inexact decimal")
+		if decimalType(name) || integerType(name) {
+			return nil, 0, errors.New("driver returned an inexact numeric value")
 		}
 		if math.IsNaN(v) || math.IsInf(v, 0) {
 			return nil, 0, errors.New("non-finite result")
 		}
 		return v, 8, nil
 	case time.Time:
-		out := v.Format(time.RFC3339Nano)
+		out := v.UTC().Format(time.RFC3339Nano)
 		return out, int64(len(out)), nil
 	case string:
+		if binaryType(name) {
+			out := []byte(v)
+			return out, int64(len(out)), nil
+		}
 		return resultText(v, name)
 	case []byte:
 		if binaryType(name) {
