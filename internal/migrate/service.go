@@ -36,6 +36,7 @@ type Service struct {
 
 type execContextRunner interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
 func (s *Service) Config() Config {
@@ -218,16 +219,8 @@ func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
 		return fmt.Errorf("no up statements found for %s", m.Filename)
 	}
 	return s.withTx(func(runner execContextRunner) error {
-		for _, stmt := range m.UpStatements {
-			if s.cfg.DryRun {
-				if _, err := io.WriteString(s.cfg.DryRunOutput, stmt+"\n"); err != nil {
-					return err
-				}
-				continue
-			}
-			if _, err := runner.ExecContext(s.ctx, stmt); err != nil {
-				return fmt.Errorf("apply up %s version=%s: %w", m.Filename, m.Version, err)
-			}
+		if err := s.executeStep(runner, sqlStep{migration: m, direction: "up", statements: m.UpStatements}); err != nil {
+			return err
 		}
 		if s.cfg.DryRun {
 			return nil
@@ -253,16 +246,8 @@ func (s *Service) applyDown(m Migration, deleteSQL string) error {
 		return fmt.Errorf("no down statements found for %s", m.Filename)
 	}
 	return s.withTx(func(runner execContextRunner) error {
-		for _, stmt := range m.DownStatements {
-			if s.cfg.DryRun {
-				if _, err := io.WriteString(s.cfg.DryRunOutput, stmt+"\n"); err != nil {
-					return err
-				}
-				continue
-			}
-			if _, err := runner.ExecContext(s.ctx, stmt); err != nil {
-				return fmt.Errorf("apply down %s version=%s: %w", m.Filename, m.Version, err)
-			}
+		if err := s.executeStep(runner, sqlStep{migration: m, direction: "down", statements: m.DownStatements}); err != nil {
+			return err
 		}
 		if s.cfg.DryRun {
 			return nil
@@ -275,7 +260,12 @@ func (s *Service) applyDown(m Migration, deleteSQL string) error {
 }
 
 func (s *Service) withTx(fn func(runner execContextRunner) error) (err error) {
-	// ClickHouse commonly runs without transaction semantics in database/sql.
+	// Never expose panic payloads: callbacks can contain customer data.
+	defer func() {
+		if recover() != nil {
+			err = errors.Join(errors.New("migration execution panicked"), err)
+		}
+	}()
 	if s.cfg.Dialect != nil && s.cfg.Dialect.Name() == "clickhouse" {
 		return fn(s.cfg.DB)
 	}
@@ -283,19 +273,22 @@ func (s *Service) withTx(fn func(runner execContextRunner) error) (err error) {
 	if err != nil {
 		return err
 	}
+	committed := false
 	defer func() {
-		if err != nil {
-			if rbErr := tx.Rollback(); rbErr != nil {
+		if !committed {
+			if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
 				err = errors.Join(err, fmt.Errorf("rollback failed: %w", rbErr))
 			}
-			return
-		}
-		if cmErr := tx.Commit(); cmErr != nil {
-			err = fmt.Errorf("commit failed: %w", cmErr)
 		}
 	}()
-	err = fn(tx)
-	return err
+	if err = fn(tx); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+	committed = true
+	return nil
 }
 
 func (s *Service) loadMigrations(parseUp, parseDown bool) ([]Migration, error) {
