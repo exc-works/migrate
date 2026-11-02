@@ -37,11 +37,11 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
 	idType := "BIGINT"
-	if d.Name() == "mysql" || d.Name() == "mariadb" {
+	if d.Name() == "mysql" || d.Name() == "mariadb" || d.Name() == "tidb" {
 		idType = "BIGINT UNSIGNED"
 	}
 	insertParams := "?,?,?,?,?"
-	if d.Name() == "postgres" {
+	if d.Name() == "postgres" || d.Name() == "redshift" {
 		binaryType = "BYTEA"
 		insertParams = "$1,$2,$3,$4,$5"
 	}
@@ -54,7 +54,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	insert := fmt.Sprintf("INSERT INTO %s VALUES (%s)", table, insertParams)
 	selectSQL := "SELECT id,amount,profile,payload,ratio FROM " + table
 	update := "UPDATE " + table + " SET profile="
-	if d.Name() == "postgres" {
+	if d.Name() == "postgres" || d.Name() == "redshift" {
 		update += "$1 WHERE id=$2"
 	} else {
 		update += "? WHERE id=?"
@@ -116,7 +116,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 
 	// Transaction control is rejected before it can release framework ownership.
 	var controls []string
-	if d.Name() == "postgres" {
+	if d.Name() == "postgres" || d.Name() == "redshift" {
 		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT", "-- comment\rCOMMIT /*\nSELECT 1 -- */"}
 	}
 	if d.Name() == "mariadb" {

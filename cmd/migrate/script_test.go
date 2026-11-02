@@ -91,3 +91,39 @@ func TestNewVersionFormats(t *testing.T) {
 		})
 	}
 }
+
+func TestCapabilitiesDialectVerification(t *testing.T) {
+	for _, output := range []string{"json", "text"} {
+		var out bytes.Buffer
+		cmd := newRootCommand(&out, &out)
+		cmd.SetArgs([]string{"capabilities", "--output", output})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if output == "json" {
+			var got struct {
+				Dialects     []string                   `json:"script_dialects"`
+				Capabilities []script.DialectCapability `json:"script_dialect_capabilities"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if len(script.Formats()) == 1 {
+				if len(got.Dialects) != 0 || len(got.Capabilities) != 0 {
+					t.Fatalf("%s", out.String())
+				}
+			} else {
+				if len(got.Dialects) != len(script.Dialects()) || len(got.Capabilities) != len(got.Dialects) {
+					t.Fatalf("%s", out.String())
+				}
+				for i, c := range got.Capabilities {
+					if c.Name != got.Dialects[i] || !script.SupportedDialect(c.Name) {
+						t.Fatalf("%+v", c)
+					}
+				}
+			}
+		} else if len(script.Formats()) > 1 && !strings.Contains(out.String(), "tidb (experimental, transaction=framework)") {
+			t.Fatalf("%s", out.String())
+		}
+	}
+}
