@@ -152,7 +152,7 @@ func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	for _, query := range []string{"ABORT", "PREPARE TRANSACTION 'example'", "/* outer /* inner */ ignored */ COMMIT"} {
+	for _, query := range []string{"ABORT", "PREPARE TRANSACTION 'example'", "EXECUTE IMMEDIATE 'COMMIT'", "CALL commit_procedure()", "RESET QUERY CACHE", "/* outer /* inner */ ignored */ COMMIT"} {
 		source := `export function up(db){db.exec(` + strconv.Quote(query) + `)}`
 		p, err := Compile("V1__control.js", source, "up", Options{})
 		if err != nil {

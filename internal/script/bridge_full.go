@@ -125,7 +125,7 @@ func decodeCall(query, params goja.Value) (string, []any, error) {
 func singleStatement(query string) (string, error) {
 	query = strings.TrimSpace(query)
 	query = strings.TrimSpace(strings.TrimSuffix(query, ";"))
-	if query == "" || strings.Contains(query, ";") || strings.Contains(query, "/*!") {
+	if query == "" || strings.Contains(query, ";") || strings.Contains(query, "/*!") || strings.Contains(query, "/*M!") || strings.Contains(query, "/*m!") {
 		return "", errors.New("expected one SQL statement; bind values containing semicolons")
 	}
 	prefix := query
@@ -168,11 +168,16 @@ keyword:
 	if n == 0 {
 		return "", errors.New("expected SQL statement")
 	}
+	// Use a positive set: aliases and dynamic execution must not be forwarded
+	// merely because they were absent from a transaction-command denylist.
 	switch strings.ToUpper(prefix[:n]) {
-	case "BEGIN", "END", "START", "COMMIT", "ROLLBACK", "ABORT", "PREPARE", "SAVEPOINT", "RELEASE", "SET", "LOCK", "UNLOCK":
-		return "", errors.New("manual transaction or session control is unsupported")
+	case "SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "VALUES", "TABLE",
+		"REPLACE", "MERGE", "CREATE", "ALTER", "DROP", "TRUNCATE", "COMMENT",
+		"REFRESH", "REINDEX", "EXPLAIN", "SHOW", "DESCRIBE", "DESC":
+		return query, nil
+	default:
+		return "", errors.New("manual transaction, session control or dynamic SQL is unsupported; use a direct data/schema statement")
 	}
-	return query, nil
 }
 
 func readRows(ctx context.Context, db Database, query string, args []any, options Options) (out []map[string]any, err error) {
