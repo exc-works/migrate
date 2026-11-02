@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optional `full` builds support standalone synchronous JS/TS migrations alongside SQL,
+  with framework-owned transactions, exact value conversion, source checksums,
+  execution deadlines and query result limits.
+- `capabilities` reports compiled formats without configuration or a connection.
+- `new version --format sql|js|ts` creates migration templates; script timeout and
+  result limits can be configured through JSON or the Go facade.
+- SQL/full CI matrices and real-driver script integration for PostgreSQL, MySQL,
+  MariaDB and SQLite; full release binaries and editor API declarations.
+
+### Fixed
+- Migration callbacks that panic now roll back instead of entering deferred commit.
+- Execution validates complete selected plans before changing data, including
+  irreversible rollback ranges and unsupported script capabilities.
+
+### Compatibility
+- Default binaries and existing release filenames remain SQL-only. Existing SQL
+  hashes, migration history and version command output remain unchanged.
+- Known JS/TS migration files are discovered by both builds; SQL-only execution
+  refuses them instead of silently skipping required versions.
+
 ## [1.3.1] - 2026-04-22
 
 ### Fixed
