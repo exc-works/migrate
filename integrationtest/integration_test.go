@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -289,9 +291,17 @@ func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
 		db, cleanup := startMSSQLDB(t, d, explicitlySelected)
 		return db, d, cleanup
 	case "clickhouse":
+		if explicitlySelected && strings.TrimSpace(os.Getenv(envIntegrationCH)) == "" {
+			db, cleanup := startContainerDB(t, flavor, d)
+			return db, d, cleanup
+		}
 		db, cleanup := startClickHouseDB(t, d, explicitlySelected)
 		return db, d, cleanup
 	case "tidb":
+		if explicitlySelected && strings.TrimSpace(os.Getenv(envIntegrationTiDB)) == "" {
+			db, cleanup := startContainerDB(t, flavor, d)
+			return db, d, cleanup
+		}
 		db, cleanup := startTiDBDB(t, d, explicitlySelected)
 		return db, d, cleanup
 	case "redshift":
@@ -375,6 +385,41 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 		dsn = func(host, mappedPort string) string {
 			return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", userName, userPass, host, mappedPort, dbName)
 		}
+	case "clickhouse":
+		request = testcontainers.ContainerRequest{
+			Image:        "clickhouse/clickhouse-server:25.8.4.13-alpine",
+			ExposedPorts: []string{"9000/tcp"},
+			Env: map[string]string{
+				"CLICKHOUSE_DB":                        dbName,
+				"CLICKHOUSE_USER":                      userName,
+				"CLICKHOUSE_PASSWORD":                  userPass,
+				"CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT": "1",
+			},
+			WaitingFor: wait.ForListeningPort("9000/tcp"),
+		}
+		port = "9000/tcp"
+		dsn = func(host, mappedPort string) string {
+			connection := url.URL{
+				Scheme: "clickhouse",
+				User:   url.UserPassword(userName, userPass),
+				Host:   net.JoinHostPort(host, mappedPort),
+				Path:   dbName,
+			}
+			return connection.String()
+		}
+	case "tidb":
+		// Unistore is TiDB's local test backend, not a distributed TiKV cluster.
+		request = testcontainers.ContainerRequest{
+			Image:        "pingcap/tidb:v8.5.3",
+			ExposedPorts: []string{"4000/tcp"},
+			Cmd:          []string{"--store=unistore", "--path=", "--host=0.0.0.0"},
+			WaitingFor:   wait.ForListeningPort("4000/tcp").WithStartupTimeout(2 * time.Minute),
+		}
+		port = "4000/tcp"
+		dsn = func(host, mappedPort string) string {
+			// The isolated bootstrap account is local to this disposable test server.
+			return fmt.Sprintf("root@tcp(%s)/test?parseTime=true&multiStatements=true", net.JoinHostPort(host, mappedPort))
+		}
 	default:
 		t.Fatalf("unsupported flavor: %s", flavor)
 	}
@@ -404,12 +449,15 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 		_ = container.Terminate(ctx)
 		t.Fatalf("open db: %v", err)
 	}
-	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
-
+	var cleanupOnce sync.Once
 	cleanup := func() {
-		_ = db.Close()
-		_ = container.Terminate(ctx)
+		cleanupOnce.Do(func() {
+			_ = db.Close()
+			_ = container.Terminate(ctx)
+		})
 	}
+	t.Cleanup(cleanup)
+	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
 	return db, cleanup
 }
 

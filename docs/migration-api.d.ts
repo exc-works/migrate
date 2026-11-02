@@ -18,7 +18,7 @@ interface MigrationDB {
     params?: readonly MigrationSQLParameter[],
   ): Record<string, MigrationSQLValue>[];
 
-  /** Use native placeholders. Transaction/session control is unsupported. */
+  /** Use native placeholders. ClickHouse counts are null (unknown). No manual transactions. */
   exec(
     sql: string,
     params?: readonly MigrationSQLParameter[],

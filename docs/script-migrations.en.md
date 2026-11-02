@@ -93,10 +93,54 @@ their application with `-tags=full`. Limit violations fail instead of truncating
 Page large result sets explicitly; paging reads does not create batch commits or
 resumable migrations.
 
-Scripts initially support PostgreSQL, MySQL, MariaDB and SQLite. Data operations
-and successful history writes share a transaction. Caught database errors remain
-fatal. MySQL/MariaDB require transactional tables; implicit DDL commits and other
-engine limitations still apply.
+Scripts support the following databases. Experimental dialects are executable, with
+limited coverage of versions, types and deployment configurations. Text and JSON
+`capabilities` output report verification, transaction mode and limitations. JSON
+preserves `script_dialects` and adds `script_dialect_capabilities`. Selected plans
+containing experimental scripts warn once without an extra confirmation step;
+status, baseline and SQL-only plans do not issue this warning.
+
+| Database | Status | Placeholders | Execution boundary |
+| --- | --- | --- | --- |
+| PostgreSQL | Verified | `$1` | Framework transaction |
+| MySQL / MariaDB | Verified | `?` | Requires transactional tables; DDL may implicitly commit |
+| SQLite | Verified | `?` | Framework transaction |
+| TiDB | Experimental | `?` | CI uses Unistore; distributed TiKV remains unverified; DDL may implicitly commit |
+| Redshift | Experimental; no real-instance verification | `$1` | Transactions depend on the statement; not full PostgreSQL equivalence |
+| Oracle | Experimental; no real-instance verification | `:1` | DML uses a framework transaction; DDL implicitly commits |
+| ClickHouse | Experimental | `?` | Nontransactional; no automatic rollback |
+
+Where transactions are supported, script operations and successful history writes
+share a framework transaction. Caught database errors remain fatal. Implicit DDL
+commits and other engine limitations prevent universal rollback guarantees.
+
+Oracle NUMBER values remain exact strings; RAW/BLOB values become bytes and CLOB
+becomes text. PL/SQL blocks and procedure calls still require SQL files. Redshift
+specific types may have unknown pgx metadata: explicitly convert them to supported
+scalars. For VARBYTE, write hex text with `FROM_HEX($1)` and read hex text with
+`FROM_VARBYTE(payload, 'hex')` rather than assuming BYTEA compatibility.
+
+ClickHouse integers (including 128/256-bit values) and decimals remain exact strings.
+Unadapted values such as Array, Tuple, Map, UUID and IP require explicit SQL conversion
+to supported scalars. String must contain valid UTF-8; encode arbitrary binary data
+as hex text. `rowsAffected: null` means unknown, not zero. Use statement-local
+`SETTINGS mutations_sync=2` when mutation completion is required; session settings
+are not exposed.
+
+A ClickHouse failure, timeout or history-write error can leave successful prior
+writes without successful history. Errors report possible partial changes. Down
+also has no automatic rollback guarantee. Inspect data and history and recover
+according to their actual state before retrying; do not blindly rerun or baseline.
+
+Run container verification with the following command. External TiDB/ClickHouse
+DSNs take precedence over disposable containers:
+
+```bash
+INTEGRATION_DB=clickhouse,tidb go test -tags=integration,full ./integrationtest/...
+```
+
+Optional Oracle/Redshift checks use `INTEGRATION_ORACLE_DSN` and
+`INTEGRATION_REDSHIFT_DSN`. Missing DSNs cause skipped checks, not verification.
 
 There is no Node/npm runtime, runtime module loading, network, filesystem,
 environment or timer API. Entrypoints must be synchronous. Treat scripts as trusted

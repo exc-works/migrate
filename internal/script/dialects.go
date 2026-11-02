@@ -48,7 +48,7 @@ func Dialects() []DialectCapability {
 			Name:            dialect.NameTiDB,
 			Verification:    VerificationExperimental,
 			TransactionMode: TransactionFramework,
-			Notes:           "not verified against a real database; DDL may implicitly commit",
+			Notes:           "limited Unistore coverage; distributed TiKV deployments remain unverified; DDL may implicitly commit",
 		},
 		{
 			Name:            dialect.NameRedshift,
