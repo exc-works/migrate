@@ -56,6 +56,12 @@ func Dialects() []DialectCapability {
 			TransactionMode: TransactionFramework,
 			Notes:           "not verified against a real database; transaction behavior depends on the statement",
 		},
+		{
+			Name:            dialect.NameOracle,
+			Verification:    VerificationExperimental,
+			TransactionMode: TransactionFramework,
+			Notes:           "not verified against a real database; DDL implicitly commits; PL/SQL blocks and procedure calls require SQL migrations",
+		},
 	}
 }
 

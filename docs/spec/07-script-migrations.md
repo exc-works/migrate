@@ -75,10 +75,12 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 
 - Each invocation owns a fresh VM; runtime values never cross invocations.
 - Verified script support covers PostgreSQL, MySQL, MariaDB and SQLite.
-- TiDB and Redshift are executable experimental dialects using the existing MySQL
-  and PostgreSQL drivers respectively. Compatibility is not real-database verification.
+- TiDB, Redshift and Oracle are executable experimental dialects using their existing
+  drivers. Compatibility is not real-database verification. Oracle uses native `:1`
+  placeholders; NUMBER stays exact text, RAW/BLOB are bytes and CLOB is text.
+  PL/SQL blocks and procedure calls remain SQL-file operations.
   Redshift-specific values with unknown pgx type metadata require explicit SQL casts;
-  use FROM_VARBYTE/ FROM_HEX for binary values through hex text.
+  use FROM_VARBYTE/FROM_HEX for binary values through hex text.
 - Capabilities preserve `script_dialects` and add per-dialect verification, transaction
   mode and notes. Text output shows the same distinctions. SQL-only builds report no
   script dialects. Generated declarations include every executable dialect.
@@ -93,7 +95,8 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 - A database bridge failure remains fatal even if script code catches the JS exception.
 - Scripts must not execute transaction-control SQL. No nested/manual transaction API
   is exposed. Statement restrictions are checked before executing user SQL.
-- MySQL/MariaDB atomicity requires transactional tables and operations. DDL may implicitly
+- MySQL/MariaDB atomicity requires transactional tables and operations. Oracle DDL
+  implicitly commits. MySQL/MariaDB/TiDB DDL may implicitly
   commit: a framework transaction cannot make those statements rollback-safe.
 - General nontransactional script execution and resumable backfills are deferred.
 - History tracks successful versions, not an exactly-once guarantee across crashes,

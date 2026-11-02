@@ -35,7 +35,7 @@ func integerType(name string) bool {
 }
 func floatType(name string) bool {
 	switch name {
-	case "FLOAT", "DOUBLE", "REAL", "DOUBLE PRECISION", "FLOAT4", "FLOAT8":
+	case "FLOAT", "DOUBLE", "REAL", "DOUBLE PRECISION", "FLOAT4", "FLOAT8", "BINARY_FLOAT", "BINARY_DOUBLE", "IBFLOAT", "IBDOUBLE":
 		return true
 	}
 	return false
@@ -43,14 +43,14 @@ func floatType(name string) bool {
 
 func binaryType(name string) bool {
 	switch name {
-	case "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB", "BINARY", "VARBINARY", "BYTEA":
+	case "BLOB", "TINYBLOB", "MEDIUMBLOB", "LONGBLOB", "BINARY", "VARBINARY", "BYTEA", "RAW", "LONGRAW", "LONG RAW", "OCIBLOBLOCATOR":
 		return true
 	}
 	return false
 }
 func textType(name string) bool {
 	switch name {
-	case "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT", "CHAR", "VARCHAR", "CHARACTER VARYING", "NCHAR", "NVARCHAR", "CLOB", "JSON", "JSONB", "UUID", "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "ENUM", "SET":
+	case "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT", "CHAR", "VARCHAR", "CHARACTER VARYING", "NCHAR", "NVARCHAR", "CLOB", "JSON", "JSONB", "UUID", "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "ENUM", "SET", "VARCHAR2", "NVARCHAR2", "NCLOB", "OCICLOBLOCATOR", "LONG", "ROWID", "UROWID":
 		return true
 	}
 	return false
@@ -77,6 +77,8 @@ func resultValue(value any, typeName string) (any, int64, error) {
 		return out, int64(len(out)), nil
 	case bool:
 		return v, 1, nil
+	case float32:
+		return resultValue(float64(v), typeName)
 	case float64:
 		if decimalType(name) || integerType(name) {
 			return nil, 0, errors.New("driver returned an inexact numeric value")

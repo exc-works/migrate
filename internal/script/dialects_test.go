@@ -9,7 +9,7 @@ func TestDialectCapabilities(t *testing.T) {
 			t.Fatalf("%s: %+v", name, c)
 		}
 	}
-	for _, name := range []string{"tidb", "redshift"} {
+	for _, name := range []string{"tidb", "redshift", "oracle"} {
 		c, ok := Capability(name)
 		if !ok || !SupportedDialect(name) || c.Verification != VerificationExperimental || c.Notes == "" {
 			t.Fatalf("%s: %+v", name, c)
