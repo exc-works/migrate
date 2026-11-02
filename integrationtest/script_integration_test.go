@@ -119,8 +119,8 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = failed.Up(); err == nil {
-				t.Fatal("transaction control accepted")
+			if err = failed.Up(); err == nil || !strings.Contains(err.Error(), "manual transaction") {
+				t.Fatalf("expected bridge transaction-control rejection: %v", err)
 			}
 			assertScriptProfile(t, db, table, "new-ts")
 		}
