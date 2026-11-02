@@ -542,3 +542,8 @@ _ = svc.Up()     // user-migration SQL goes to buf; no user tables are created
 - `github.com/exc-works/migrate` (root package) is the public API and follows SemVer
 - `internal/*` is not covered by the stability contract — do not import it directly
 - A complete runnable example lives in `example_test.go` at the repository root
+
+
+## SQL, JS and TS migrations
+
+The full build supports standalone JS/TS scripts; default builds remain SQL-only. See [SQL, JS and TS migrations](script-migrations.en.md).
