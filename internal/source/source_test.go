@@ -62,3 +62,26 @@ func TestFSSourceEmptyRootDefaultsToFSRoot(t *testing.T) {
 		t.Fatalf("expected single V1__one.sql, got %+v", got)
 	}
 }
+
+func TestSourcesDiscoverAllKnownFormats(t *testing.T) {
+	dir := t.TempDir()
+	names := []string{"V1__sql.sql", "V2__js.js", "V3__ts.ts"}
+	fsys := fstest.MapFS{}
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("content"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		fsys[name] = &fstest.MapFile{Data: []byte("content")}
+	}
+	for _, src := range []MigrationSource{DirectorySource{Directory: dir}, FSSource{FS: fsys}} {
+		got, err := src.LoadMigrations()
+		if err != nil || len(got) != 3 {
+			t.Fatalf("%+v %v", got, err)
+		}
+		for index, name := range names {
+			if got[index].Filename != name {
+				t.Fatalf("%+v", got)
+			}
+		}
+	}
+}
