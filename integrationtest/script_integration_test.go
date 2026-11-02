@@ -115,19 +115,24 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	assertScriptProfile(t, db, table, "new-ts")
 
 	// Transaction control is rejected before it can release framework ownership.
+	var controls []string
 	if d.Name() == "postgres" {
-		for _, control := range []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT"} {
-			broken[len(broken)-1].Source = `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec(` + strconv.Quote(control) + `);throw Error('after control')}`
-			failedCfg.ScriptOptions = script.Options{}
-			failed, err = migrate.NewService(ctx, failedCfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err = failed.Up(); err == nil || !strings.Contains(err.Error(), "manual transaction") {
-				t.Fatalf("expected bridge transaction-control rejection: %v", err)
-			}
-			assertScriptProfile(t, db, table, "new-ts")
+		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT"}
+	}
+	if d.Name() == "mariadb" {
+		controls = []string{"EXECUTE IMMEDIATE 'COMMIT'"}
+	}
+	for _, control := range controls {
+		broken[len(broken)-1].Source = `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec(` + strconv.Quote(control) + `);throw Error('after control')}`
+		failedCfg.ScriptOptions = script.Options{}
+		failed, err = migrate.NewService(ctx, failedCfg)
+		if err != nil {
+			t.Fatal(err)
 		}
+		if err = failed.Up(); err == nil || !strings.Contains(err.Error(), "manual transaction") {
+			t.Fatalf("expected bridge transaction-control rejection: %v", err)
+		}
+		assertScriptProfile(t, db, table, "new-ts")
 	}
 
 	tampered := append([]source.Migration(nil), items...)
