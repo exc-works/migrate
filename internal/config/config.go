@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/exc-works/migrate/internal/dialect"
 )
 
 type FileConfig struct {
@@ -93,7 +95,7 @@ func applyDefaults(cfg *FileConfig) {
 		cfg.SchemaName = "migration_schema"
 	}
 	if cfg.Dialect == "" {
-		cfg.Dialect = "postgres"
+		cfg.Dialect = dialect.NamePostgres
 	}
 	if cfg.LoggerLevel == "" {
 		cfg.LoggerLevel = "info"
@@ -132,7 +134,7 @@ func ReplaceEnvVar(in string) (string, error) {
 func DefaultTemplate() FileConfig {
 	return FileConfig{
 		SchemaName:        "migration_schema",
-		Dialect:           "postgres",
+		Dialect:           dialect.NamePostgres,
 		DataSourceName:    "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
 		MigrateOutOfOrder: false,
 		LoggerLevel:       "info",

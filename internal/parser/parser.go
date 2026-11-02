@@ -15,6 +15,12 @@ const (
 	DirectionDown Direction = false
 )
 
+// Direction names identify script exports and execution plans.
+const (
+	DirectionUpName   = "up"
+	DirectionDownName = "down"
+)
+
 const sqlCmdPrefix = "-- +migrate "
 
 func SplitSQLStatements(r io.Reader, direction Direction) ([]string, error) {

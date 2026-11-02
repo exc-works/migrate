@@ -68,7 +68,10 @@ func NewService(ctx context.Context, cfg Config) (*Service, error) {
 	if cfg.DryRunOutput == nil {
 		cfg.DryRunOutput = io.Discard
 	}
-	return &Service{ctx: ctx, cfg: cfg}, nil
+	return &Service{
+		ctx: ctx,
+		cfg: cfg,
+	}, nil
 }
 
 func (s *Service) Create() error {
@@ -219,7 +222,11 @@ func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
 		return fmt.Errorf("no up statements found for %s", m.Filename)
 	}
 	return s.withTx(func(runner execContextRunner) error {
-		if err := s.executeStep(runner, sqlStep{migration: m, direction: "up", statements: m.UpStatements}); err != nil {
+		if err := s.executeStep(runner, sqlStep{
+			migration:  m,
+			direction:  parser.DirectionUpName,
+			statements: m.UpStatements,
+		}); err != nil {
 			return err
 		}
 		if s.cfg.DryRun {
@@ -246,7 +253,11 @@ func (s *Service) applyDown(m Migration, deleteSQL string) error {
 		return fmt.Errorf("no down statements found for %s", m.Filename)
 	}
 	return s.withTx(func(runner execContextRunner) error {
-		if err := s.executeStep(runner, sqlStep{migration: m, direction: "down", statements: m.DownStatements}); err != nil {
+		if err := s.executeStep(runner, sqlStep{
+			migration:  m,
+			direction:  parser.DirectionDownName,
+			statements: m.DownStatements,
+		}); err != nil {
 			return err
 		}
 		if s.cfg.DryRun {
@@ -266,7 +277,7 @@ func (s *Service) withTx(fn func(runner execContextRunner) error) (err error) {
 			err = errors.Join(errors.New("migration execution panicked"), err)
 		}
 	}()
-	if s.cfg.Dialect != nil && s.cfg.Dialect.Name() == "clickhouse" {
+	if s.cfg.Dialect != nil && s.cfg.Dialect.Name() == dialect.NameClickHouse {
 		return fn(s.cfg.DB)
 	}
 	tx, err := s.cfg.DB.BeginTx(s.ctx, nil)
@@ -389,21 +400,36 @@ func buildStatuses(migrations []Migration, schemas []SchemaRecord) ([]MigrationS
 			if latestSchemaVersion != "" && CompareVersion(migration.Version, latestSchemaVersion) {
 				st = StatusOutOfOrder
 			}
-			statuses = append(statuses, MigrationStatus{Migration: migration, Status: st})
+			statuses = append(statuses, MigrationStatus{
+				Migration: migration,
+				Status:    st,
+			})
 			continue
 		}
 		if schema.Filename != migration.Filename {
 			sc := schema
-			statuses = append(statuses, MigrationStatus{Migration: migration, Schema: &sc, Status: StatusFilenameMismatch})
+			statuses = append(statuses, MigrationStatus{
+				Migration: migration,
+				Schema:    &sc,
+				Status:    StatusFilenameMismatch,
+			})
 			continue
 		}
 		if schema.Hash != migration.Hash {
 			sc := schema
-			statuses = append(statuses, MigrationStatus{Migration: migration, Schema: &sc, Status: StatusHashMismatch})
+			statuses = append(statuses, MigrationStatus{
+				Migration: migration,
+				Schema:    &sc,
+				Status:    StatusHashMismatch,
+			})
 			continue
 		}
 		sc := schema
-		statuses = append(statuses, MigrationStatus{Migration: migration, Schema: &sc, Status: schema.Status})
+		statuses = append(statuses, MigrationStatus{
+			Migration: migration,
+			Schema:    &sc,
+			Status:    schema.Status,
+		})
 	}
 
 	return statuses, migrationByVersion
