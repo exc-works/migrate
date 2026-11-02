@@ -216,3 +216,26 @@ func TestOracleMissingTypeNamesUseColumnMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestClickHouseAffectedRowsAreUnknown(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectExec("INSERT INTO users").WithArgs("exact").WillReturnResult(sqlmock.NewErrorResult(errors.New("count unavailable")))
+	p, err := Compile("V1__clickhouse.js", `export function up(db){if(db.dialect!=='clickhouse')throw Error('dialect');if(db.exec('INSERT INTO users VALUES (?)',['exact']).rowsAffected!==null)throw Error('invented count')}`, "up", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, err := p.Instantiate(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = i.Execute(context.Background(), db, "clickhouse"); err != nil {
+		t.Fatal(err)
+	}
+	if err = mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

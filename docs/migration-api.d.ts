@@ -10,7 +10,7 @@ type MigrationSQLParameter =
 type MigrationSQLValue = string | number | boolean | null | number[];
 
 interface MigrationDB {
-  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle";
+  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse";
 
   /** Integer/decimal results are strings. Results are materialized and bounded. */
   query(
@@ -22,5 +22,5 @@ interface MigrationDB {
   exec(
     sql: string,
     params?: readonly MigrationSQLParameter[],
-  ): { rowsAffected: string };
+  ): { rowsAffected: string | null };
 }

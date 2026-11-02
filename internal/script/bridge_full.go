@@ -48,6 +48,11 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if err != nil {
 					return nil, remember(errors.New("database execution failed"))
 				}
+				// ClickHouse's SQL driver reports a placeholder zero, not a row
+				// count. Expose unknown explicitly instead of inventing precision.
+				if dialect == dbdialect.NameClickHouse {
+					return map[string]any{"rowsAffected": nil}, nil
+				}
 				count, err := result.RowsAffected()
 				if err != nil {
 					return nil, remember(errors.New("database affected-row count unavailable"))

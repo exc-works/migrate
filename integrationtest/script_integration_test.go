@@ -26,7 +26,11 @@ func TestScriptMigrationsIntegration(t *testing.T) {
 			t.Parallel()
 			db, d, cleanup := startDB(t, flavor)
 			defer cleanup()
-			runScriptScenario(t, db, d)
+			if d.Name() == dialect.NameClickHouse {
+				runClickHouseScriptScenario(t, db, d)
+			} else {
+				runScriptScenario(t, db, d)
+			}
 		})
 	}
 }

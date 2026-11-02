@@ -78,9 +78,9 @@ func migrationTemplate(format string) (string, error) {
  * @typedef {string | number | boolean | null | readonly number[] | Uint8Array} SQLParameter
  * @typedef {string | number | boolean | null | number[]} SQLValue
  * @typedef {{
- *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle",
+ *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse",
  *   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[],
- *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string }
+ *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string | null }
  * }} MigrationDB
  */
 
@@ -101,9 +101,9 @@ export function up(db) {
 		return `type SQLParameter = string | number | boolean | null | readonly number[] | Uint8Array;
 type SQLValue = string | number | boolean | null | number[];
 type MigrationDB = {
-  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle";
+  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse";
   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[];
-  exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string };
+  exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string | null };
 };
 
 export function up(db: MigrationDB): void {

@@ -5,6 +5,7 @@ package script
 import (
 	"errors"
 	"math"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,23 +20,38 @@ var integerPattern = regexp.MustCompile(`^[+-]?[0-9]+$`)
 
 func columnType(name string) string {
 	name = strings.ToUpper(strings.TrimSpace(name))
+	for {
+		inner := name
+		for _, wrapper := range []string{"NULLABLE(", "LOWCARDINALITY("} {
+			if strings.HasPrefix(name, wrapper) && strings.HasSuffix(name, ")") {
+				inner = strings.TrimSpace(name[len(wrapper) : len(name)-1])
+				break
+			}
+		}
+		if inner == name {
+			break
+		}
+		name = inner
+	}
 	if index := strings.IndexByte(name, '('); index >= 0 {
 		name = name[:index]
 	}
 	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(name, " UNSIGNED"), "UNSIGNED "))
 }
 
-func decimalType(name string) bool { return name == "DECIMAL" || name == "NUMERIC" || name == "NUMBER" }
+func decimalType(name string) bool {
+	return name == "DECIMAL" || name == "NUMERIC" || name == "NUMBER" || name == "DECIMAL32" || name == "DECIMAL64" || name == "DECIMAL128" || name == "DECIMAL256"
+}
 func integerType(name string) bool {
 	switch name {
-	case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT", "INT2", "INT4", "INT8", "SERIAL", "BIGSERIAL":
+	case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT", "INT2", "INT4", "INT8", "SERIAL", "BIGSERIAL", "INT16", "INT32", "INT64", "INT128", "INT256", "UINT8", "UINT16", "UINT32", "UINT64", "UINT128", "UINT256":
 		return true
 	}
 	return false
 }
 func floatType(name string) bool {
 	switch name {
-	case "FLOAT", "DOUBLE", "REAL", "DOUBLE PRECISION", "FLOAT4", "FLOAT8", "BINARY_FLOAT", "BINARY_DOUBLE", "IBFLOAT", "IBDOUBLE":
+	case "FLOAT", "DOUBLE", "REAL", "DOUBLE PRECISION", "FLOAT4", "FLOAT8", "BINARY_FLOAT", "BINARY_DOUBLE", "IBFLOAT", "IBDOUBLE", "FLOAT32", "FLOAT64", "BFLOAT16":
 		return true
 	}
 	return false
@@ -50,7 +66,7 @@ func binaryType(name string) bool {
 }
 func textType(name string) bool {
 	switch name {
-	case "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT", "CHAR", "VARCHAR", "CHARACTER VARYING", "NCHAR", "NVARCHAR", "CLOB", "JSON", "JSONB", "UUID", "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "ENUM", "SET", "VARCHAR2", "NVARCHAR2", "NCLOB", "OCICLOBLOCATOR", "LONG", "ROWID", "UROWID":
+	case "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT", "CHAR", "VARCHAR", "CHARACTER VARYING", "NCHAR", "NVARCHAR", "CLOB", "JSON", "JSONB", "UUID", "DATE", "TIME", "TIMESTAMP", "TIMESTAMPTZ", "DATETIME", "ENUM", "SET", "VARCHAR2", "NVARCHAR2", "NCLOB", "OCICLOBLOCATOR", "LONG", "ROWID", "UROWID", "STRING", "FIXEDSTRING", "DATETIME64", "DATE32", "ENUM8", "ENUM16":
 		return true
 	}
 	return false
@@ -63,6 +79,33 @@ func resultValue(value any, typeName string) (any, int64, error) {
 	switch v := value.(type) {
 	case nil:
 		return nil, 1, nil
+	case int:
+		return resultValue(int64(v), typeName)
+	case int8:
+		return resultValue(int64(v), typeName)
+	case int16:
+		return resultValue(int64(v), typeName)
+	case int32:
+		return resultValue(int64(v), typeName)
+	case uint:
+		return resultValue(uint64(v), typeName)
+	case uint8:
+		return resultValue(uint64(v), typeName)
+	case uint16:
+		return resultValue(uint64(v), typeName)
+	case uint32:
+		return resultValue(uint64(v), typeName)
+	case big.Int:
+		if !integerType(name) {
+			return nil, 0, errors.New("ambiguous large integer result")
+		}
+		out := v.String()
+		return out, int64(len(out)), nil
+	case *big.Int:
+		if v == nil {
+			return nil, 1, nil
+		}
+		return resultValue(*v, typeName)
 	case int64:
 		if name == "BOOL" || name == "BOOLEAN" {
 			if v != 0 && v != 1 {
