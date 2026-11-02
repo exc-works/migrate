@@ -68,6 +68,7 @@ no embedded semicolons. Bind values containing semicolons. Only direct data/sche
 statements listed in the spec are accepted; dynamic SQL, procedure calls, administrative
 commands, manual transaction/session control and executable comments are rejected. Use SQL migration
 files for compound routine definitions. Alias duplicate result column names.
+Leading nested block comments are rejected because dialects disagree about nesting.
 
 ## Limits and guarantees
 
