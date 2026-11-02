@@ -543,3 +543,8 @@ _ = svc.Up()     // 用户迁移 SQL 只写入 buf，不会实际建表
 - `github.com/exc-works/migrate` 根包是对外公开 API，按 SemVer 维护
 - `internal/*` 不在稳定性承诺内，请勿直接 import
 - 完整可运行示例见仓库根目录 `example_test.go`
+
+
+## SQL、JS 和 TS 混合迁移
+
+完整版本支持独立 JS/TS 脚本，默认版本保持仅 SQL。安装方式、脚本接口与限制见[SQL、JS 和 TS 混合迁移](script-migrations.md).

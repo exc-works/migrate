@@ -12,7 +12,7 @@
 
 ## Files and planning
 
-- Discover direct children named `V<version>__<description>.sql`, `.js` or `.ts`.
+- Discover direct children named `V<version>__<description>.sql`, `.js`, `.ts` or `.mjs`.
 - Directory, string, combined and `fs.FS` sources share the same format rules.
 - All formats share version ordering, duplicate detection and the existing history table.
 - Scripts use the lowercase hex SHA-256 of original source bytes; SQL retains MD5.
@@ -28,6 +28,10 @@
 
 ## Script contract
 
+The `.mjs` extension is a JS alias with identical compilation, execution and restrictions;
+full builds advertise it in capabilities. SQL-only builds discover it and reject execution
+before writes. It does not enable imports, Node.js or a separate module loader.
+
 Scripts are independent UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
 Missing down is irreversible, not a successful no-op. The runtime validates the entry
 before database writes; invalid exports anywhere in a rollback plan must not cause
@@ -42,6 +46,15 @@ provide declarations for editor assistance. Do not advertise full Node.js compat
 Statements use native dialect placeholders and bound parameters; do not concatenate
 values into SQL. One call executes one driver statement, not annotated migration text.
 No database object is exposed during module initialization.
+
+The bridge accepts direct statements beginning with SELECT, INSERT, UPDATE, DELETE,
+WITH, VALUES, TABLE, REPLACE, MERGE, CREATE, ALTER, DROP, TRUNCATE, COMMENT,
+REFRESH, REINDEX, EXPLAIN, SHOW, DESCRIBE or DESC. Reject other leading keywords,
+including dynamic EXECUTE, procedure CALL, transaction/session and administrative
+commands, before calling the driver. Use SQL migration files for those operations.
+This restriction does not make implicitly committing DDL transactional. SQL must start directly with an allowed keyword after whitespace. Leading SQL comments
+are unsupported because dialects disagree about nesting and line endings; place
+annotations in JS/TS comments. SQL files retain their existing parser behavior.
 
 ## Database values
 
@@ -98,8 +111,10 @@ write successful migration history. It does not predict dynamically generated SQ
 
 ## CLI and API
 
-- `new version <description> --format sql|js|ts` defaults to SQL.
+- `new version <description> --format sql|js|ts|mjs` defaults to SQL.
 - SQL-only builds refuse JS/TS generation with an actionable full-build error.
+- Generated JS templates annotate `db` with JSDoc; TS templates declare equivalent
+  database, parameter and result types for editor assistance.
 - Script limits are configurable through both file config and the Go facade.
 - Preserve public migration/source types where possible; keep prepared execution state internal.
 

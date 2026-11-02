@@ -3,10 +3,12 @@ package migrate
 import (
 	"context"
 	"crypto/md5"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/exc-works/migrate/internal/dialect"
 	"github.com/exc-works/migrate/internal/logger"
 	"github.com/exc-works/migrate/internal/parser"
+	"github.com/exc-works/migrate/internal/script"
 	"github.com/exc-works/migrate/internal/source"
 )
 
@@ -27,6 +30,7 @@ type Config struct {
 	MigrationSource   source.MigrationSource
 	DryRun            bool
 	DryRunOutput      io.Writer
+	ScriptOptions     script.Options
 }
 
 type Service struct {
@@ -68,7 +72,15 @@ func NewService(ctx context.Context, cfg Config) (*Service, error) {
 	if cfg.DryRunOutput == nil {
 		cfg.DryRunOutput = io.Discard
 	}
-	return &Service{ctx: ctx, cfg: cfg}, nil
+	options, err := cfg.ScriptOptions.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	cfg.ScriptOptions = options
+	return &Service{
+		ctx: ctx,
+		cfg: cfg,
+	}, nil
 }
 
 func (s *Service) Create() error {
@@ -98,6 +110,10 @@ func (s *Service) Baseline() error {
 	if err != nil {
 		return err
 	}
+	if err := s.checkCapabilities(migrations); err != nil {
+		return err
+	}
+
 	schemas, maxID, err := s.loadSchemas()
 	if err != nil {
 		return err
@@ -143,6 +159,10 @@ func (s *Service) Up() error {
 	if err != nil {
 		return err
 	}
+	if err := s.checkCapabilities(migrations); err != nil {
+		return err
+	}
+
 	schemas, maxID, err := s.loadSchemas()
 	if err != nil {
 		return err
@@ -157,7 +177,7 @@ func (s *Service) Up() error {
 		return err
 	}
 
-	nextID := maxID
+	var selected []Migration
 	for _, st := range statuses {
 		if st.Status == StatusApplied || st.Status == StatusBaseline {
 			continue
@@ -166,7 +186,15 @@ func (s *Service) Up() error {
 			s.cfg.Logger.Warnf("skip out-of-order migration file=%s version=%s", st.Migration.Filename, st.Migration.Version)
 			continue
 		}
-		if err := s.applyUp(st.Migration, insertSQL, &nextID); err != nil {
+		selected = append(selected, st.Migration)
+	}
+	plan, err := s.preparePlan(selected, parser.DirectionUpName)
+	if err != nil {
+		return err
+	}
+	nextID := maxID
+	for _, item := range plan {
+		if err := s.applyUp(item.migration, item.step, insertSQL, &nextID); err != nil {
 			return err
 		}
 	}
@@ -181,6 +209,10 @@ func (s *Service) Down(toVersion string, all bool) error {
 	if err != nil {
 		return err
 	}
+	if err := s.checkCapabilities(migrations); err != nil {
+		return err
+	}
+
 	schemas, _, err := s.loadSchemas()
 	if err != nil {
 		return err
@@ -199,6 +231,7 @@ func (s *Service) Down(toVersion string, all bool) error {
 	if err != nil {
 		return err
 	}
+	var selected []Migration
 	for i := len(statuses) - 1; i >= 0; i-- {
 		st := statuses[i]
 		if st.Status != StatusApplied {
@@ -207,19 +240,23 @@ func (s *Service) Down(toVersion string, all bool) error {
 		if !all && !CompareVersion(toVersion, st.Migration.Version) {
 			continue
 		}
-		if err := s.applyDown(st.Migration, deleteSQL); err != nil {
+		selected = append(selected, st.Migration)
+	}
+	plan, err := s.preparePlan(selected, parser.DirectionDownName)
+	if err != nil {
+		return err
+	}
+	for _, item := range plan {
+		if err := s.applyDown(item.migration, item.step, deleteSQL); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
-	if len(m.UpStatements) == 0 {
-		return fmt.Errorf("no up statements found for %s", m.Filename)
-	}
+func (s *Service) applyUp(m Migration, step migrationStep, insertSQL string, nextID *uint64) error {
 	return s.withTx(func(runner execContextRunner) error {
-		if err := s.executeStep(runner, sqlStep{migration: m, direction: "up", statements: m.UpStatements}); err != nil {
+		if err := s.executeStep(runner, step); err != nil {
 			return err
 		}
 		if s.cfg.DryRun {
@@ -241,12 +278,9 @@ func (s *Service) applyUp(m Migration, insertSQL string, nextID *uint64) error {
 	})
 }
 
-func (s *Service) applyDown(m Migration, deleteSQL string) error {
-	if len(m.DownStatements) == 0 {
-		return fmt.Errorf("no down statements found for %s", m.Filename)
-	}
+func (s *Service) applyDown(m Migration, step migrationStep, deleteSQL string) error {
 	return s.withTx(func(runner execContextRunner) error {
-		if err := s.executeStep(runner, sqlStep{migration: m, direction: "down", statements: m.DownStatements}); err != nil {
+		if err := s.executeStep(runner, step); err != nil {
 			return err
 		}
 		if s.cfg.DryRun {
@@ -266,7 +300,7 @@ func (s *Service) withTx(fn func(runner execContextRunner) error) (err error) {
 			err = errors.Join(errors.New("migration execution panicked"), err)
 		}
 	}()
-	if s.cfg.Dialect != nil && s.cfg.Dialect.Name() == "clickhouse" {
+	if s.cfg.Dialect != nil && s.cfg.Dialect.Name() == dialect.NameClickHouse {
 		return fn(s.cfg.DB)
 	}
 	tx, err := s.cfg.DB.BeginTx(s.ctx, nil)
@@ -308,14 +342,17 @@ func (s *Service) loadMigrations(parseUp, parseDown bool) ([]Migration, error) {
 			Version:  version,
 			Hash:     fmt.Sprintf("%x", md5.Sum([]byte(item.Source))),
 		}
-		if parseUp {
+		if filepath.Ext(item.Filename) != source.ExtensionSQL {
+			m.Hash = fmt.Sprintf("%x", sha256.Sum256([]byte(item.Source)))
+		}
+		if parseUp && filepath.Ext(item.Filename) == source.ExtensionSQL {
 			stmts, err := parser.SplitSQLStatements(strings.NewReader(item.Source), parser.DirectionUp)
 			if err != nil {
 				return nil, fmt.Errorf("parse up migration %s: %w", item.Filename, err)
 			}
 			m.UpStatements = stmts
 		}
-		if parseDown {
+		if parseDown && filepath.Ext(item.Filename) == source.ExtensionSQL {
 			stmts, err := parser.SplitSQLStatements(strings.NewReader(item.Source), parser.DirectionDown)
 			if err != nil {
 				return nil, fmt.Errorf("parse down migration %s: %w", item.Filename, err)
@@ -389,21 +426,36 @@ func buildStatuses(migrations []Migration, schemas []SchemaRecord) ([]MigrationS
 			if latestSchemaVersion != "" && CompareVersion(migration.Version, latestSchemaVersion) {
 				st = StatusOutOfOrder
 			}
-			statuses = append(statuses, MigrationStatus{Migration: migration, Status: st})
+			statuses = append(statuses, MigrationStatus{
+				Migration: migration,
+				Status:    st,
+			})
 			continue
 		}
 		if schema.Filename != migration.Filename {
 			sc := schema
-			statuses = append(statuses, MigrationStatus{Migration: migration, Schema: &sc, Status: StatusFilenameMismatch})
+			statuses = append(statuses, MigrationStatus{
+				Migration: migration,
+				Schema:    &sc,
+				Status:    StatusFilenameMismatch,
+			})
 			continue
 		}
 		if schema.Hash != migration.Hash {
 			sc := schema
-			statuses = append(statuses, MigrationStatus{Migration: migration, Schema: &sc, Status: StatusHashMismatch})
+			statuses = append(statuses, MigrationStatus{
+				Migration: migration,
+				Schema:    &sc,
+				Status:    StatusHashMismatch,
+			})
 			continue
 		}
 		sc := schema
-		statuses = append(statuses, MigrationStatus{Migration: migration, Schema: &sc, Status: schema.Status})
+		statuses = append(statuses, MigrationStatus{
+			Migration: migration,
+			Schema:    &sc,
+			Status:    schema.Status,
+		})
 	}
 
 	return statuses, migrationByVersion

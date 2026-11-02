@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/exc-works/migrate/internal/dialect"
 )
 
 type FileConfig struct {
@@ -18,6 +20,9 @@ type FileConfig struct {
 	MigrateOutOfOrder bool   `json:"migrate_out_of_order"`
 	LoggerLevel       string `json:"logger_level"`
 	MigrationSource   string `json:"migration_source"`
+	ScriptTimeout     string `json:"script_timeout,omitempty"`
+	ScriptMaxRows     int    `json:"script_max_rows,omitempty"`
+	ScriptMaxBytes    int64  `json:"script_max_bytes,omitempty"`
 }
 
 func Read(path, workingDir string) (*FileConfig, error) {
@@ -39,6 +44,9 @@ func Read(path, workingDir string) (*FileConfig, error) {
 		cfg.WorkingDirectory = workingDir
 	}
 	applyDefaults(&cfg)
+	if _, err := cfg.ScriptOptions(); err != nil {
+		return nil, err
+	}
 	cfg.DataSourceName, err = ReplaceEnvVar(cfg.DataSourceName)
 	if err != nil {
 		return nil, err
@@ -93,7 +101,7 @@ func applyDefaults(cfg *FileConfig) {
 		cfg.SchemaName = "migration_schema"
 	}
 	if cfg.Dialect == "" {
-		cfg.Dialect = "postgres"
+		cfg.Dialect = dialect.NamePostgres
 	}
 	if cfg.LoggerLevel == "" {
 		cfg.LoggerLevel = "info"
@@ -132,7 +140,7 @@ func ReplaceEnvVar(in string) (string, error) {
 func DefaultTemplate() FileConfig {
 	return FileConfig{
 		SchemaName:        "migration_schema",
-		Dialect:           "postgres",
+		Dialect:           dialect.NamePostgres,
 		DataSourceName:    "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
 		MigrateOutOfOrder: false,
 		LoggerLevel:       "info",

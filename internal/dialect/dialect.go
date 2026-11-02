@@ -27,11 +27,11 @@ func ValidateIdentifier(name string) error {
 type PostgresDialect struct{}
 
 func (PostgresDialect) Name() string {
-	return "postgres"
+	return NamePostgres
 }
 
 func (PostgresDialect) DriverName() string {
-	return "pgx"
+	return DriverPostgres
 }
 
 func (PostgresDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -74,11 +74,11 @@ func (PostgresDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type MySQLDialect struct{}
 
 func (MySQLDialect) Name() string {
-	return "mysql"
+	return NameMySQL
 }
 
 func (MySQLDialect) DriverName() string {
-	return "mysql"
+	return DriverMySQL
 }
 
 func (MySQLDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -121,11 +121,11 @@ func (MySQLDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type MariaDBDialect struct{}
 
 func (MariaDBDialect) Name() string {
-	return "mariadb"
+	return NameMariaDB
 }
 
 func (MariaDBDialect) DriverName() string {
-	return "mysql"
+	return DriverMySQL
 }
 
 func (MariaDBDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -147,11 +147,11 @@ func (MariaDBDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type MSSQLDialect struct{}
 
 func (MSSQLDialect) Name() string {
-	return "mssql"
+	return NameMSSQL
 }
 
 func (MSSQLDialect) DriverName() string {
-	return "sqlserver"
+	return DriverMSSQL
 }
 
 func (MSSQLDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -197,11 +197,11 @@ func (MSSQLDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type OracleDialect struct{}
 
 func (OracleDialect) Name() string {
-	return "oracle"
+	return NameOracle
 }
 
 func (OracleDialect) DriverName() string {
-	return "oracle"
+	return DriverOracle
 }
 
 func (OracleDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -251,11 +251,11 @@ func (OracleDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type ClickHouseDialect struct{}
 
 func (ClickHouseDialect) Name() string {
-	return "clickhouse"
+	return NameClickHouse
 }
 
 func (ClickHouseDialect) DriverName() string {
-	return "clickhouse"
+	return DriverClickHouse
 }
 
 func (ClickHouseDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -299,11 +299,11 @@ func (ClickHouseDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type SQLiteDialect struct{}
 
 func (SQLiteDialect) Name() string {
-	return "sqlite"
+	return NameSQLite
 }
 
 func (SQLiteDialect) DriverName() string {
-	return "sqlite"
+	return DriverSQLite
 }
 
 func (SQLiteDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -346,11 +346,11 @@ func (SQLiteDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type TiDBDialect struct{}
 
 func (TiDBDialect) Name() string {
-	return "tidb"
+	return NameTiDB
 }
 
 func (TiDBDialect) DriverName() string {
-	return "mysql"
+	return DriverMySQL
 }
 
 func (TiDBDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -372,11 +372,11 @@ func (TiDBDialect) SelectSchemaSQL(schemaName string) (string, error) {
 type RedshiftDialect struct{}
 
 func (RedshiftDialect) Name() string {
-	return "redshift"
+	return NameRedshift
 }
 
 func (RedshiftDialect) DriverName() string {
-	return "pgx"
+	return DriverPostgres
 }
 
 func (RedshiftDialect) CreateSchemaSQL(schemaName string) (string, error) {
@@ -418,23 +418,23 @@ func (RedshiftDialect) SelectSchemaSQL(schemaName string) (string, error) {
 
 func FromName(name string) (Dialect, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", "postgres", "pgsql", "postgresql":
+	case "", NamePostgres, "pgsql", "postgresql":
 		return PostgresDialect{}, nil
-	case "mysql":
+	case NameMySQL:
 		return MySQLDialect{}, nil
-	case "mariadb":
+	case NameMariaDB:
 		return MariaDBDialect{}, nil
-	case "mssql", "sqlserver", "azuresql":
+	case NameMSSQL, "sqlserver", "azuresql":
 		return MSSQLDialect{}, nil
-	case "oracle", "orcl", "ora", "go-ora", "goora", "godror":
+	case NameOracle, "orcl", "ora", "go-ora", "goora", "godror":
 		return OracleDialect{}, nil
-	case "clickhouse":
+	case NameClickHouse:
 		return ClickHouseDialect{}, nil
-	case "sqlite", "sqlite3":
+	case NameSQLite, "sqlite3":
 		return SQLiteDialect{}, nil
-	case "tidb":
+	case NameTiDB:
 		return TiDBDialect{}, nil
-	case "redshift":
+	case NameRedshift:
 		return RedshiftDialect{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported dialect: %s", name)
