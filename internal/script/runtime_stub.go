@@ -2,9 +2,13 @@
 
 package script
 
-import "context"
+import (
+	"context"
 
-func Formats() []string { return []string{"sql"} }
+	migrationsource "github.com/exc-works/migrate/internal/source"
+)
+
+func Formats() []string { return []string{migrationsource.FormatSQL} }
 
 type Program struct{}
 type Invocation struct{}

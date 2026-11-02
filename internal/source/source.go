@@ -10,7 +10,7 @@ import (
 	"sort"
 )
 
-var filenamePattern = regexp.MustCompile(`^V.+__.*\.sql$`)
+var filenamePattern = regexp.MustCompile(`^V.+__.*\.` + FormatSQL + `$`)
 
 type Migration struct {
 	Filename string
@@ -52,7 +52,10 @@ func (d DirectorySource) LoadMigrations() ([]Migration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read migration %s: %w", name, err)
 		}
-		migrations = append(migrations, Migration{Filename: name, Source: string(content)})
+		migrations = append(migrations, Migration{
+			Filename: name,
+			Source:   string(content),
+		})
 	}
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].Filename < migrations[j].Filename
@@ -90,7 +93,10 @@ func (f FSSource) LoadMigrations() ([]Migration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read migration %s: %w", name, err)
 		}
-		migrations = append(migrations, Migration{Filename: name, Source: string(content)})
+		migrations = append(migrations, Migration{
+			Filename: name,
+			Source:   string(content),
+		})
 	}
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].Filename < migrations[j].Filename

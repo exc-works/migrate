@@ -4,6 +4,8 @@ package script
 import (
 	"errors"
 	"time"
+
+	"github.com/exc-works/migrate/internal/dialect"
 )
 
 // Options bounds execution and materialized query results. Zero values use defaults.
@@ -30,12 +32,18 @@ func (o Options) Normalize() (Options, error) {
 	return o, nil
 }
 
+// Build identifiers reported by capabilities.
+const (
+	BuildSQL  = "sql"
+	BuildFull = "full"
+)
+
 var ErrRequiresFull = errors.New("JS/TS migrations require a full build (build tag: full)")
 
 // SupportedDialect limits script execution to verified driver integrations.
 func SupportedDialect(name string) bool {
 	switch name {
-	case "postgres", "mysql", "mariadb", "sqlite":
+	case dialect.NamePostgres, dialect.NameMySQL, dialect.NameMariaDB, dialect.NameSQLite:
 		return true
 	}
 	return false

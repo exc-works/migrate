@@ -12,9 +12,13 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
 	"github.com/evanw/esbuild/pkg/api"
+	migrationparser "github.com/exc-works/migrate/internal/parser"
+	migrationsource "github.com/exc-works/migrate/internal/source"
 )
 
-func Formats() []string { return []string{"sql", "js", "ts"} }
+func Formats() []string {
+	return []string{migrationsource.FormatSQL, migrationsource.FormatJS, migrationsource.FormatTS}
+}
 
 type Program struct {
 	code                *goja.Program
@@ -39,28 +43,42 @@ func Compile(filename, source, direction string, options Options) (*Program, err
 	if filepath.Base(filename) != filename || strings.ContainsAny(filename, "/\\") {
 		return nil, errors.New("script filename must be a base filename")
 	}
-	if direction != "up" && direction != "down" {
+	if direction != migrationparser.DirectionUpName && direction != migrationparser.DirectionDownName {
 		return nil, errors.New("invalid script direction")
 	}
 	loader := api.LoaderJS
 	switch filepath.Ext(filename) {
-	case ".js":
-	case ".ts":
+	case migrationsource.ExtensionJS:
+	case migrationsource.ExtensionTS:
 		loader = api.LoaderTS
 	default:
 		return nil, errors.New("unsupported script extension")
 	}
 	result := api.Build(api.BuildOptions{
-		Stdin:  &api.StdinOptions{Contents: source, Sourcefile: filename, Loader: loader},
-		Bundle: true, Write: false, Format: api.FormatIIFE, GlobalName: "migration", Target: api.ES2017,
+		Stdin: &api.StdinOptions{
+			Contents:   source,
+			Sourcefile: filename,
+			Loader:     loader,
+		},
+		Bundle:     true,
+		Write:      false,
+		Format:     api.FormatIIFE,
+		GlobalName: "migration",
+		Target:     api.ES2017,
 		// Preserve async generators so preflight can reject their original kind.
-		Supported: map[string]bool{"async-generator": true},
-		Sourcemap: api.SourceMapInline, SourcesContent: api.SourcesContentExclude, TsconfigRaw: "{}", LogLevel: api.LogLevelSilent,
-		Plugins: []api.Plugin{{Name: "independent-migration", Setup: func(build api.PluginBuild) {
-			build.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(api.OnResolveArgs) (api.OnResolveResult, error) {
-				return api.OnResolveResult{Errors: []api.Message{{Text: "migration imports are unsupported"}}}, nil
-			})
-		}}},
+		Supported:      map[string]bool{"async-generator": true},
+		Sourcemap:      api.SourceMapInline,
+		SourcesContent: api.SourcesContentExclude,
+		TsconfigRaw:    "{}",
+		LogLevel:       api.LogLevelSilent,
+		Plugins: []api.Plugin{{
+			Name: "independent-migration",
+			Setup: func(build api.PluginBuild) {
+				build.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(api.OnResolveArgs) (api.OnResolveResult, error) {
+					return api.OnResolveResult{Errors: []api.Message{{Text: "migration imports are unsupported"}}}, nil
+				})
+			},
+		}},
 	})
 	if len(result.Errors) > 0 {
 		if loc := result.Errors[0].Location; loc != nil {
@@ -79,13 +97,22 @@ func Compile(filename, source, direction string, options Options) (*Program, err
 	if err != nil {
 		return nil, fmt.Errorf("compile script %s: unsupported JavaScript syntax", filename)
 	}
-	return &Program{code: code, filename: filename, direction: direction, options: options}, nil
+	return &Program{
+		code:      code,
+		filename:  filename,
+		direction: direction,
+		options:   options,
+	}, nil
 }
 
 // Instantiate evaluates the module without a database, then validates the entrypoint.
 // A plan retains each instance so initialization happens exactly once.
 func (p *Program) Instantiate(ctx context.Context) (instance *Invocation, err error) {
-	i := &Invocation{vm: goja.New(), program: p, rejected: make(map[*goja.Promise]bool)}
+	i := &Invocation{
+		vm:       goja.New(),
+		program:  p,
+		rejected: make(map[*goja.Promise]bool),
+	}
 	i.vm.SetMaxCallStackSize(512)
 	i.vm.SetParserOptions(parser.WithSourceMapLoader(func(string) ([]byte, error) { return nil, errors.New("external source maps disabled") }))
 	i.vm.SetPromiseRejectionTracker(func(p *goja.Promise, op goja.PromiseRejectionOperation) {
