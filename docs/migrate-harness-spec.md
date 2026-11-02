@@ -11,6 +11,7 @@
 5. [04-testing-testcontainers.md](./spec/04-testing-testcontainers.md)
 6. [05-ci-install-release.md](./spec/05-ci-install-release.md)
 7. [06-reviewer-security-rules.md](./spec/06-reviewer-security-rules.md)
+8. [07-script-migrations.md](./spec/07-script-migrations.md)
 
 ## 使用方式
 
