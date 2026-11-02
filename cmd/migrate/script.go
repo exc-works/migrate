@@ -53,26 +53,53 @@ func newCapabilitiesCommand() *cobra.Command {
 func migrationTemplate(format string) (string, error) {
 	switch format {
 	case source.FormatSQL:
-		return "-- +migrate Up\n\n-- +migrate Down\n", nil
-	case source.FormatJS, source.FormatTS:
+		return `-- +migrate Up
+
+-- +migrate Down
+`, nil
+	case source.FormatJS:
 		if len(script.Formats()) == 1 {
 			return "", script.ErrRequiresFull
 		}
+		return `/**
+ * @typedef {string | number | boolean | null | readonly number[] | Uint8Array} SQLParameter
+ * @typedef {string | number | boolean | null | number[]} SQLValue
+ * @typedef {{
+ *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite",
+ *   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[],
+ *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string }
+ * }} MigrationDB
+ */
+
+/**
+ * @param {MigrationDB} db
+ * @returns {void}
+ */
+export function up(db) {
+  throw new Error("Implement this migration");
+}
+
+// Export down(db) only when reversal is implemented.
+`, nil
+	case source.FormatTS:
+		if len(script.Formats()) == 1 {
+			return "", script.ErrRequiresFull
+		}
+		return `type SQLParameter = string | number | boolean | null | readonly number[] | Uint8Array;
+type SQLValue = string | number | boolean | null | number[];
+type MigrationDB = {
+  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite";
+  query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[];
+  exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string };
+};
+
+export function up(db: MigrationDB): void {
+  throw new Error("Implement this migration");
+}
+
+// Export down(db) only when reversal is implemented.
+`, nil
 	default:
 		return "", fmt.Errorf("unsupported migration format; use sql, js or ts")
 	}
-	declaration := ""
-	parameter := "db"
-	if format == source.FormatTS {
-		declaration = `type SQLValue = string | number | boolean | null | number[];
-type MigrationDB = {
-  readonly dialect: string;
-  query(sql: string, params?: SQLValue[]): Record<string, SQLValue>[];
-  exec(sql: string, params?: SQLValue[]): { rowsAffected: string };
-};
-
-`
-		parameter = "db: MigrationDB"
-	}
-	return declaration + "export function up(" + parameter + ") {\n  throw new Error(\"Implement this migration\");\n}\n\n// Export down(db) only when reversal is implemented.\n", nil
 }

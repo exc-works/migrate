@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"os"
@@ -64,6 +65,19 @@ func TestNewVersionFormats(t *testing.T) {
 			}
 			if format != "sql" && (!strings.Contains(string(content), "export function up(") || strings.Contains(string(content), "export function down(")) {
 				t.Fatalf("unsafe script template: %s", content)
+			}
+			if format != "sql" {
+				program, err := script.Compile("V1__example."+format, string(content), "up", script.Options{})
+				if err != nil {
+					t.Fatalf("generated template does not compile: %v", err)
+				}
+				invocation, err := program.Instantiate(context.Background())
+				if err != nil {
+					t.Fatalf("generated entrypoint is invalid: %v", err)
+				}
+				if err = invocation.Run(context.Background(), nil); err == nil {
+					t.Fatal("unimplemented migration template must fail")
+				}
 			}
 		})
 	}
