@@ -62,7 +62,9 @@ No database object is exposed during module initialization.
 
 - Each invocation owns a fresh VM; runtime values never cross invocations.
 - Full script support initially covers PostgreSQL, MySQL, MariaDB and SQLite.
-- Each migration and its successful history write use the same framework transaction.
+- Each script migration and its successful history write use the same framework transaction.
+- Preserve existing SQL transaction behavior, including the nontransactional ClickHouse
+  SQL fallback. Transaction guarantees below apply only where a transaction is supported.
 - Default cleanup rolls back. Commit happens explicitly after successful execution.
 - Runtime/bridge failures never commit. Capture unexpected callback panics at the
   execution boundary, return a sanitized error and preserve rollback errors.
