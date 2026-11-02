@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/exc-works/migrate/internal/dialect"
 	"github.com/exc-works/migrate/internal/logger"
 	"github.com/exc-works/migrate/internal/migrate"
+	"github.com/exc-works/migrate/internal/parser"
 	"github.com/exc-works/migrate/internal/source"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -41,8 +44,10 @@ var (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	root := newRootCommand(os.Stdout, os.Stderr)
-	if err := root.Execute(); err != nil {
+	if err := root.ExecuteContext(ctx); err != nil {
 		fmt.Fprintln(root.ErrOrStderr(), err.Error())
 		os.Exit(1)
 	}
@@ -65,7 +70,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		s, err := newServiceFromConfig(c)
+		s, err := newServiceFromConfigContext(cmd.Context(), c)
 		if err != nil {
 			return err
 		}
@@ -73,6 +78,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		return nil
 	}
 
+	root.AddCommand(newCapabilitiesCommand())
 	root.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print CLI version",
@@ -122,15 +128,15 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root.AddCommand(statusCmd)
 
 	upCmd := &cobra.Command{
-		Use:     "up",
+		Use:     parser.DirectionUpName,
 		Short:   "Apply migrations to latest",
 		Example: "  migrate up\n  migrate up --dry-run",
 		PreRunE: preRun,
 	}
-	upDryRun := upCmd.Flags().Bool("dry-run", false, "print SQL statements without executing")
+	upDryRun := upCmd.Flags().Bool("dry-run", false, "print SQL or script plans without executing")
 	upCmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if *upDryRun {
-			svcDry, err := withDryRun(svc)
+			svcDry, err := withDryRun(svc, cmd.Context(), cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -162,7 +168,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		},
 		PreRunE: preRun,
 	}
-	downDryRun := downCmd.Flags().Bool("dry-run", false, "print SQL statements without executing")
+	downDryRun := downCmd.Flags().Bool("dry-run", false, "print SQL or script plans without executing")
 	downAll := downCmd.Flags().Bool("all", false, "rollback all applied versions")
 	downCmd.RunE = func(cmd *cobra.Command, args []string) error {
 		var toVersion string
@@ -171,7 +177,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		}
 		targetSvc := svc
 		if *downDryRun {
-			drySvc, err := withDryRun(svc)
+			drySvc, err := withDryRun(svc, cmd.Context(), cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -181,16 +187,24 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	root.AddCommand(downCmd)
 
-	newCmd := &cobra.Command{Use: "new", Short: "Generate migration file or config file"}
+	newCmd := &cobra.Command{
+		Use:   "new",
+		Short: "Generate migration file or config file",
+	}
 	root.AddCommand(newCmd)
 
-	var newVersion string
+	var newVersion, newFormat string
 	newVersionCmd := &cobra.Command{
 		Use:     "version [description]",
-		Short:   "Create a new migration SQL file",
+		Short:   "Create a new migration file",
 		Example: "  migrate new version init_users\n  migrate new version add_email -v 202604140002",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			format := strings.ToLower(strings.TrimSpace(newFormat))
+			template, err := migrationTemplate(format)
+			if err != nil {
+				return err
+			}
 			c, err := readConfigOrDefault(*cfgPath, *workingDir)
 			if err != nil {
 				return err
@@ -211,7 +225,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			filename := fmt.Sprintf("V%s__%s.sql", version, desc)
+			filename := fmt.Sprintf("V%s__%s.%s", version, desc, format)
 			fullPath, err := secureJoinWithin(migrationDir, filename)
 			if err != nil {
 				return err
@@ -224,14 +238,12 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 				return err
 			}
 			defer f.Close()
-			_, err = f.WriteString(`-- +migrate Up
-
--- +migrate Down
-`)
+			_, err = f.WriteString(template)
 			return err
 		},
 	}
 	newVersionCmd.Flags().StringVarP(&newVersion, "version", "v", "", "override migration version")
+	newVersionCmd.Flags().StringVar(&newFormat, "format", source.FormatSQL, "migration format: sql|js|ts")
 	newCmd.AddCommand(newVersionCmd)
 
 	newConfigCmd := &cobra.Command{
@@ -271,6 +283,14 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 }
 
 func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
+	return newServiceFromConfigContext(context.Background(), c)
+}
+
+func newServiceFromConfigContext(ctx context.Context, c *config.FileConfig) (*migrate.Service, error) {
+	options, err := c.ScriptOptions()
+	if err != nil {
+		return nil, err
+	}
 	d, err := dialect.FromName(c.Dialect)
 	if err != nil {
 		return nil, err
@@ -279,13 +299,13 @@ func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	pingCtx, cancel := context.WithTimeout(context.Background(), pingTimeout)
+	pingCtx, cancel := context.WithTimeout(ctx, pingTimeout)
 	defer cancel()
 	if err := pingDB(pingCtx, db); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
-	svc, err := newMigrateService(context.Background(), migrate.Config{
+	svc, err := newMigrateService(ctx, migrate.Config{
 		Dialect:           d,
 		DB:                db,
 		Logger:            logger.NewStd(c.LoggerLevel, os.Stdout),
@@ -294,7 +314,8 @@ func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
 		MigrationSource: source.DirectorySource{
 			Directory: filepath.Join(c.WorkingDirectory, c.MigrationSource),
 		},
-		DryRunOutput: os.Stdout,
+		DryRunOutput:  os.Stdout,
+		ScriptOptions: options,
 	})
 	if err != nil {
 		_ = db.Close()
@@ -303,11 +324,11 @@ func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
 	return svc, nil
 }
 
-func withDryRun(svc *migrate.Service) (*migrate.Service, error) {
+func withDryRun(svc *migrate.Service, ctx context.Context, out io.Writer) (*migrate.Service, error) {
 	cfg := svc.Config()
 	cfg.DryRun = true
-	cfg.DryRunOutput = os.Stdout
-	return migrate.NewService(context.Background(), cfg)
+	cfg.DryRunOutput = out
+	return migrate.NewService(ctx, cfg)
 }
 
 func readConfigOrDefault(path, workingDir string) (*config.FileConfig, error) {

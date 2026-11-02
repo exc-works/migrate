@@ -20,6 +20,9 @@ type FileConfig struct {
 	MigrateOutOfOrder bool   `json:"migrate_out_of_order"`
 	LoggerLevel       string `json:"logger_level"`
 	MigrationSource   string `json:"migration_source"`
+	ScriptTimeout     string `json:"script_timeout,omitempty"`
+	ScriptMaxRows     int    `json:"script_max_rows,omitempty"`
+	ScriptMaxBytes    int64  `json:"script_max_bytes,omitempty"`
 }
 
 func Read(path, workingDir string) (*FileConfig, error) {
@@ -41,6 +44,9 @@ func Read(path, workingDir string) (*FileConfig, error) {
 		cfg.WorkingDirectory = workingDir
 	}
 	applyDefaults(&cfg)
+	if _, err := cfg.ScriptOptions(); err != nil {
+		return nil, err
+	}
 	cfg.DataSourceName, err = ReplaceEnvVar(cfg.DataSourceName)
 	if err != nil {
 		return nil, err

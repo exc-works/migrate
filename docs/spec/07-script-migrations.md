@@ -109,6 +109,8 @@ write successful migration history. It does not predict dynamically generated SQ
 
 - `new version <description> --format sql|js|ts` defaults to SQL.
 - SQL-only builds refuse JS/TS generation with an actionable full-build error.
+- Generated JS templates annotate `db` with JSDoc; TS templates declare equivalent
+  database, parameter and result types for editor assistance.
 - Script limits are configurable through both file config and the Go facade.
 - Preserve public migration/source types where possible; keep prepared execution state internal.
 
