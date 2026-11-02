@@ -7,3 +7,4 @@ migrate
 !cmd/migrate/
 !cmd/migrate/main.go
 !cmd/migrate/main_test.go
+.worktrees/
