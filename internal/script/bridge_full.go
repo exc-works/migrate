@@ -34,7 +34,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if failure != nil {
 					return nil, failure
 				}
-				text, args, err := decodeCall(query, params)
+				text, args, err := i.decodeCall(query, params)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -55,7 +55,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if failure != nil {
 					return nil, failure
 				}
-				text, args, err := decodeCall(query, params)
+				text, args, err := i.decodeCall(query, params)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -71,6 +71,15 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 		}
 	})
 	return errors.Join(err, failure)
+}
+
+// Accessors and Export can throw inside reflected Go callbacks. Convert those
+// exceptions into ordinary errors so callers always record a sticky failure.
+func (i *Invocation) decodeCall(query, params goja.Value) (text string, args []any, err error) {
+	if exception := i.vm.Try(func() { text, args, err = decodeCall(query, params) }); exception != nil {
+		return "", nil, errors.New("SQL parameter access failed")
+	}
+	return
 }
 
 func decodeCall(query, params goja.Value) (string, []any, error) {
@@ -130,11 +139,23 @@ func singleStatement(query string) (string, error) {
 			}
 			prefix = prefix[n+1:]
 		case strings.HasPrefix(prefix, "/*"):
-			n := strings.Index(prefix[2:], "*/")
-			if n < 0 {
+			depth, n := 1, 2
+			for depth > 0 && n+1 < len(prefix) {
+				switch prefix[n : n+2] {
+				case "/*":
+					depth++
+					n += 2
+				case "*/":
+					depth--
+					n += 2
+				default:
+					n++
+				}
+			}
+			if depth != 0 {
 				return "", errors.New("unfinished SQL comment")
 			}
-			prefix = prefix[n+4:]
+			prefix = prefix[n:]
 		default:
 			goto keyword
 		}
@@ -148,7 +169,7 @@ keyword:
 		return "", errors.New("expected SQL statement")
 	}
 	switch strings.ToUpper(prefix[:n]) {
-	case "BEGIN", "END", "START", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE", "SET", "LOCK", "UNLOCK":
+	case "BEGIN", "END", "START", "COMMIT", "ROLLBACK", "ABORT", "PREPARE", "SAVEPOINT", "RELEASE", "SET", "LOCK", "UNLOCK":
 		return "", errors.New("manual transaction or session control is unsupported")
 	}
 	return query, nil

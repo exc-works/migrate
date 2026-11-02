@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +71,10 @@ func TestBridgeFailuresAreStickyAndRollback(t *testing.T) {
 		{name: "unsafe number", body: `db.exec('UPDATE users SET id=?',[9007199254740993])`},
 		{name: "undefined", body: `db.exec('UPDATE users SET profile=?',[undefined])`},
 		{name: "object", body: `db.exec('UPDATE users SET profile=?',[{}])`},
+		{name: "abort alias", body: `db.exec('ABORT')`},
+		{name: "nested comment commit", body: `db.exec('/* outer /* inner */ ignored */ COMMIT')`},
+		{name: "prepare transaction", body: `db.exec("PREPARE TRANSACTION 'example'")`},
+		{name: "throwing parameter", body: `const p=[];Object.defineProperty(p,0,{get(){throw Error("private value")}});try{db.exec('SELECT ?',p)}catch(e){}`},
 		{name: "manual commit", body: `db.exec(' /* leading */ COMMIT')`},
 		{name: "multiple statements", body: `db.exec('SELECT 1; COMMIT')`},
 		{name: "row cap", body: `db.query('SELECT id FROM users UNION ALL SELECT id FROM users')`, options: Options{MaxRows: 1}},
@@ -138,5 +143,31 @@ func TestSingleStatementControl(t *testing.T) {
 		if _, err := singleStatement(q); err != nil {
 			t.Fatalf("%q: %v", q, err)
 		}
+	}
+}
+
+func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, query := range []string{"ABORT", "PREPARE TRANSACTION 'example'", "/* outer /* inner */ ignored */ COMMIT"} {
+		source := `export function up(db){db.exec(` + strconv.Quote(query) + `)}`
+		p, err := Compile("V1__control.js", source, "up", Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		i, err := p.Instantiate(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = i.Execute(context.Background(), db, "postgres")
+		if err == nil || !strings.Contains(err.Error(), "manual transaction") {
+			t.Fatalf("%q: %v", query, err)
+		}
+	}
+	if err = mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }
