@@ -86,9 +86,38 @@ running migrate, for example with your project's lockfile-based package manager
 command. esbuild resolves package exports, subpaths, nested dependencies and static
 CommonJS imports, using neutral conditions and `module`, then `main` entry fields.
 Migrate does not install packages or enable Node APIs. Only packages compatible with
-Goja's synchronous runtime can execute. Virtual-source imports follow in the next layer.
+Goja's synchronous runtime can execute. Virtual-source configuration is described below.
 Node built-ins, native addons, dynamic import, dynamic require and asynchronous
 entrypoints remain unsupported. No runtime module loader is exposed.
+
+## Embedded and in-memory modules
+
+`FSSource` resolves relative modules within its supplied `fs.FS`, from each importer's
+path. This includes `embed.FS` and `fstest.MapFS`. It supports file-extension lookup
+and directory `index` files; virtual package.json directory entry points and virtual
+node_modules package resolution are not implemented. Supply an explicit disk directory
+when those sources need installed npm packages:
+
+```go
+source := migrate.WithModules{
+    Source: migrate.FSSource{
+        FS:   embeddedFiles,
+        Root: "migrations",
+    },
+    DependencyDir: projectDirectory,
+}
+```
+
+Here `embeddedFiles` is your supplied filesystem and `projectDirectory` is the local
+project directory containing installed dependencies. Relative helper imports continue
+to use the virtual filesystem; packages and their dependencies use disk resolution.
+Without DependencyDir, virtual sources do not search the host working directory.
+
+For `StringSource`, wrap it in `WithModules` with `FS` containing helper modules and
+optional `Root` locating the entry, or with `Directory` for local disk helpers/packages.
+The original source interface and source struct layouts remain compatible. Custom
+sources may explicitly implement `MigrationEntriesSource` to supply entry contexts;
+existing LoadMigrations overrides, including embedded built-ins, keep their behavior.
 
 ## Values and SQL
 

@@ -78,9 +78,34 @@ checksum 只覆盖入口原始源码。修改辅助文件不会导致历史校�
 `import { normalize } from "@company/migration-utils"`。运行迁移前，使用项目的包管理器
 和 lockfile 安装依赖。esbuild 处理包导出、子路径、嵌套依赖及静态 CommonJS 导入；
 使用 neutral 条件，入口字段依次为 `module`、`main`。工具不安装包，也不增加 Node API；
-包的运行要求必须兼容 Goja 同步运行时。虚拟来源导入由下一层启用。
+包的运行要求必须兼容 Goja 同步运行时。虚拟来源的配置方式见下文。
 Node 内置模块、原生扩展、动态 import、动态 require 和异步入口仍不支持；
 运行时不提供通用模块加载器。
+
+## 嵌入与内存模块
+
+`FSSource` 从提供的 `fs.FS` 解析相对模块，支持 `embed.FS`、`fstest.MapFS`；
+每次导入相对于当前模块位置查找。支持扩展名查找和目录 `index` 文件，暂不解析虚拟
+package.json 目录入口或虚拟 node_modules。需要已安装 npm 包时，显式提供磁盘依赖目录：
+
+```go
+source := migrate.WithModules{
+    Source: migrate.FSSource{
+        FS:   embeddedFiles,
+        Root: "migrations",
+    },
+    DependencyDir: projectDirectory,
+}
+```
+
+`embeddedFiles` 是调用者提供的文件系统，`projectDirectory` 是已安装依赖的本地项目目录。
+相对 helper 仍从虚拟文件系统读取，包及包内依赖使用磁盘解析。未指定 DependencyDir 时，
+虚拟来源不会查找进程当前目录。
+
+`StringSource` 可以通过 `WithModules` 的 `FS` 提供辅助模块、通过可选的 `Root` 定位入口；
+也可以设置 `Directory` 使用本地辅助文件和包。现有来源接口及结构体字段布局保持兼容。
+自定义来源可显式实现 `MigrationEntriesSource` 提供上下文；已有 LoadMigrations 覆盖方法
+（包括嵌入内置来源的类型）继续按原有方式执行。
 
 ## 数据与 SQL 接口
 
