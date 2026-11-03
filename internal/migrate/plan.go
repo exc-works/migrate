@@ -16,6 +16,7 @@ import (
 
 type plannedMigration struct {
 	migration Migration
+	modules   *source.ModuleContext
 	step      migrationStep
 }
 
@@ -56,6 +57,10 @@ func (s *Service) checkCapabilities(migrations []Migration) error {
 // preparePlan validates every selected step before the first transaction. Script
 // instances are initialized without DB access and retained, never initialized twice.
 func (s *Service) preparePlan(migrations []Migration, direction string) ([]plannedMigration, error) {
+	return s.preparePlanWithModules(migrations, direction, nil)
+}
+
+func (s *Service) preparePlanWithModules(migrations []Migration, direction string, modules map[string]*source.ModuleContext) ([]plannedMigration, error) {
 	plan := make([]plannedMigration, 0, len(migrations))
 	warned := false
 	for _, m := range migrations {
@@ -104,6 +109,7 @@ func (s *Service) preparePlan(migrations []Migration, direction string) ([]plann
 		}
 		plan = append(plan, plannedMigration{
 			migration: m,
+			modules:   modules[m.Version],
 			step:      step,
 		})
 	}

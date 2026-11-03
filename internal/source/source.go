@@ -34,11 +34,23 @@ type DirectorySource struct {
 }
 
 func (d DirectorySource) LoadMigrations() ([]Migration, error) {
-	entries, err := os.ReadDir(d.Directory)
+	entries, err := d.loadMigrationEntries()
+	return migrationsFromEntries(entries), err
+}
+
+func (d DirectorySource) loadMigrationEntries() ([]MigrationEntry, error) {
+	if d.Directory == "" {
+		return nil, fmt.Errorf("migration directory is required")
+	}
+	directory, err := filepath.Abs(d.Directory)
+	if err != nil {
+		return nil, fmt.Errorf("resolve migration directory failed")
+	}
+	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, err
 	}
-	migrations := make([]Migration, 0, len(entries))
+	migrations := make([]MigrationEntry, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -47,18 +59,24 @@ func (d DirectorySource) LoadMigrations() ([]Migration, error) {
 		if !IsSupportedFilename(name) {
 			continue
 		}
-		path := filepath.Join(d.Directory, name)
+		path := filepath.Join(directory, name)
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read migration %s: %w", name, err)
 		}
-		migrations = append(migrations, Migration{
-			Filename: name,
-			Source:   string(content),
+		migrations = append(migrations, MigrationEntry{
+			Migration: Migration{
+				Filename: name,
+				Source:   string(content),
+			},
+			Modules: &ModuleContext{
+				Directory: directory,
+				EntryPath: name,
+			},
 		})
 	}
 	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].Filename < migrations[j].Filename
+		return migrations[i].Migration.Filename < migrations[j].Migration.Filename
 	})
 	return migrations, nil
 }
@@ -72,6 +90,11 @@ type FSSource struct {
 }
 
 func (f FSSource) LoadMigrations() ([]Migration, error) {
+	entries, err := f.loadMigrationEntries()
+	return migrationsFromEntries(entries), err
+}
+
+func (f FSSource) loadMigrationEntries() ([]MigrationEntry, error) {
 	root := f.Root
 	if root == "" {
 		root = "."
@@ -80,7 +103,7 @@ func (f FSSource) LoadMigrations() ([]Migration, error) {
 	if err != nil {
 		return nil, err
 	}
-	migrations := make([]Migration, 0, len(entries))
+	migrations := make([]MigrationEntry, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -93,13 +116,19 @@ func (f FSSource) LoadMigrations() ([]Migration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read migration %s: %w", name, err)
 		}
-		migrations = append(migrations, Migration{
-			Filename: name,
-			Source:   string(content),
+		migrations = append(migrations, MigrationEntry{
+			Migration: Migration{
+				Filename: name,
+				Source:   string(content),
+			},
+			Modules: &ModuleContext{
+				FS:        f.FS,
+				EntryPath: path.Join(root, name),
+			},
 		})
 	}
 	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].Filename < migrations[j].Filename
+		return migrations[i].Migration.Filename < migrations[j].Migration.Filename
 	})
 	return migrations, nil
 }
@@ -109,9 +138,14 @@ type CombinedSource struct {
 }
 
 func (c CombinedSource) LoadMigrations() ([]Migration, error) {
-	all := make([]Migration, 0)
+	entries, err := c.loadMigrationEntries()
+	return migrationsFromEntries(entries), err
+}
+
+func (c CombinedSource) loadMigrationEntries() ([]MigrationEntry, error) {
+	all := make([]MigrationEntry, 0)
 	for _, src := range c.Sources {
-		items, err := src.LoadMigrations()
+		items, err := LoadEntries(src)
 		if err != nil {
 			return nil, err
 		}

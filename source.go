@@ -29,3 +29,15 @@ type CombinedSource = source.CombinedSource
 func IsSupportedFilename(filename string) bool {
 	return source.IsSupportedFilename(filename)
 }
+
+// MigrationEntry carries a source file and its optional module context.
+type MigrationEntry = source.MigrationEntry
+
+// ModuleContext identifies the disk or virtual files available to compilation.
+type ModuleContext = source.ModuleContext
+
+// MigrationEntriesSource optionally supplies entries with module context.
+type MigrationEntriesSource = source.MigrationEntriesSource
+
+// WithModules adds module files or a disk dependency directory to a source.
+type WithModules = source.WithModules

@@ -155,7 +155,8 @@ func (s *Service) Baseline() error {
 }
 
 func (s *Service) Up() error {
-	migrations, err := s.loadMigrations(true, false)
+	loaded, err := s.loadMigrationSet(true, false)
+	migrations := loaded.migrations
 	if err != nil {
 		return err
 	}
@@ -188,7 +189,7 @@ func (s *Service) Up() error {
 		}
 		selected = append(selected, st.Migration)
 	}
-	plan, err := s.preparePlan(selected, parser.DirectionUpName)
+	plan, err := s.preparePlanWithModules(selected, parser.DirectionUpName, loaded.modules)
 	if err != nil {
 		return err
 	}
@@ -205,7 +206,8 @@ func (s *Service) Down(toVersion string, all bool) error {
 	if !all && strings.TrimSpace(toVersion) == "" {
 		return errors.New("to-version must be set when --all is false")
 	}
-	migrations, err := s.loadMigrations(false, true)
+	loaded, err := s.loadMigrationSet(false, true)
+	migrations := loaded.migrations
 	if err != nil {
 		return err
 	}
@@ -242,7 +244,7 @@ func (s *Service) Down(toVersion string, all bool) error {
 		}
 		selected = append(selected, st.Migration)
 	}
-	plan, err := s.preparePlan(selected, parser.DirectionDownName)
+	plan, err := s.preparePlanWithModules(selected, parser.DirectionDownName, loaded.modules)
 	if err != nil {
 		return err
 	}
@@ -326,15 +328,27 @@ func (s *Service) withTx(fn func(runner execContextRunner) error) (err error) {
 }
 
 func (s *Service) loadMigrations(parseUp, parseDown bool) ([]Migration, error) {
-	items, err := s.cfg.MigrationSource.LoadMigrations()
+	loaded, err := s.loadMigrationSet(parseUp, parseDown)
+	return loaded.migrations, err
+}
+
+type migrationSet struct {
+	migrations []Migration
+	modules    map[string]*source.ModuleContext
+}
+
+func (s *Service) loadMigrationSet(parseUp, parseDown bool) (migrationSet, error) {
+	items, err := source.LoadEntries(s.cfg.MigrationSource)
 	if err != nil {
-		return nil, err
+		return migrationSet{}, err
 	}
 	migrations := make([]Migration, 0, len(items))
-	for _, item := range items {
+	modules := make(map[string]*source.ModuleContext)
+	for _, entry := range items {
+		item := entry.Migration
 		version, err := SplitFilename(item.Filename)
 		if err != nil {
-			return nil, err
+			return migrationSet{}, err
 		}
 		m := Migration{
 			Filename: item.Filename,
@@ -348,18 +362,19 @@ func (s *Service) loadMigrations(parseUp, parseDown bool) ([]Migration, error) {
 		if parseUp && filepath.Ext(item.Filename) == source.ExtensionSQL {
 			stmts, err := parser.SplitSQLStatements(strings.NewReader(item.Source), parser.DirectionUp)
 			if err != nil {
-				return nil, fmt.Errorf("parse up migration %s: %w", item.Filename, err)
+				return migrationSet{}, fmt.Errorf("parse up migration %s: %w", item.Filename, err)
 			}
 			m.UpStatements = stmts
 		}
 		if parseDown && filepath.Ext(item.Filename) == source.ExtensionSQL {
 			stmts, err := parser.SplitSQLStatements(strings.NewReader(item.Source), parser.DirectionDown)
 			if err != nil {
-				return nil, fmt.Errorf("parse down migration %s: %w", item.Filename, err)
+				return migrationSet{}, fmt.Errorf("parse down migration %s: %w", item.Filename, err)
 			}
 			m.DownStatements = stmts
 		}
 		migrations = append(migrations, m)
+		modules[version] = entry.Modules
 	}
 	sort.Slice(migrations, func(i, j int) bool {
 		return CompareVersion(migrations[i].Version, migrations[j].Version)
@@ -367,10 +382,13 @@ func (s *Service) loadMigrations(parseUp, parseDown bool) ([]Migration, error) {
 
 	for i := 1; i < len(migrations); i++ {
 		if migrations[i-1].Version == migrations[i].Version {
-			return nil, fmt.Errorf("duplicate version: %s", migrations[i].Version)
+			return migrationSet{}, fmt.Errorf("duplicate version: %s", migrations[i].Version)
 		}
 	}
-	return migrations, nil
+	return migrationSet{
+		migrations: migrations,
+		modules:    modules,
+	}, nil
 }
 
 func (s *Service) loadSchemas() ([]SchemaRecord, uint64, error) {
