@@ -93,6 +93,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 			return err
 		}
 		svc = s
+		cmd.SetContext(s.Context())
 		return nil
 	}
 
