@@ -171,21 +171,23 @@ type quietMySQLLogger struct{}
 func (quietMySQLLogger) Print(...any) {}
 
 func relayDialer(r *tunnel.Relay, target string, timeout time.Duration) func(context.Context, string, string) (net.Conn, error) {
-	dialer := net.Dialer{
-		Timeout: timeout,
-	}
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
 		if network != "tcp" && network != "tcp4" && network != "tcp6" {
 			return nil, errors.New("unexpected database network")
 		}
 		// pgx CancelRequest uses the peer address of its established TCP socket.
-		if address != target && address != r.Address() {
+		if address != target && address != r.Address() && !r.OwnsPeer(address) {
 			return nil, errors.New("unexpected database target")
 		}
 		if r.Context().Err() != nil {
 			return nil, errors.New("SSH route is closed; inspect migration state before retrying")
 		}
-		conn, err := dialer.DialContext(ctx, "tcp4", r.Address())
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+		conn, err := r.DialContext(ctx)
 		if err != nil {
 			return nil, errors.New("database SSH route unavailable")
 		}
