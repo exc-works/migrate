@@ -115,7 +115,9 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	mergeCheck := ""
 	if d.Name() == dialect.NameMSSQL {
 		merge := "WITH s AS (SELECT CAST(@p1 AS BIGINT) AS id, CAST(@p2 AS NVARCHAR(200)) AS profile) MERGE " + table + " AS t USING s ON t.id=s.id WHEN MATCHED THEN UPDATE SET profile=s.profile;"
-		mergeCheck = `const merged=db.exec(` + strconv.Quote(merge) + `,['9007199254740993','old']);if(merged.rowsAffected!=='1')throw Error('MERGE count');`
+		replaceUpdate := "UPDATE " + table + " SET profile=REPLACE(profile,@p1,@p2)"
+		replaceQuery := "SELECT profile,REPLACE(@p1,@p2,@p3) AS value FROM " + table
+		mergeCheck = `db.exec(` + strconv.Quote(replaceUpdate) + `,['old','transformed']);const transformed=db.query(` + strconv.Quote(replaceQuery) + `,['old','old','expected'])[0];if(transformed.profile!=='transformed'||transformed.value!=='expected')throw Error('REPLACE function');const merged=db.exec(` + strconv.Quote(merge) + `,['9007199254740993','old']);if(merged.rowsAffected!=='1')throw Error('MERGE count');`
 		parent, view := table+"_parent", table+"_view"
 		statements := []string{
 			"CREATE OR ALTER VIEW " + view + " AS SELECT CAST(1 AS INT) AS id",

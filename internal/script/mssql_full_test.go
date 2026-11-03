@@ -32,6 +32,9 @@ func TestMSSQLBatchesRejectedBeforeDriver(t *testing.T) {
 		"ALTER TABLE child ADD FOREIGN KEY(parent_id) REFERENCES parent(id) ON DELETE SET NULL SET IMPLICIT_TRANSACTIONS ON",
 		"ALTER TABLE child ADD FOREIGN KEY(parent_id) REFERENCES parent(id) ON UPDATE NO ACTION COMMIT",
 		"CREATE OR ALTER VIEW current_users AS SELECT id FROM users DROP TABLE users",
+		"SELECT REPLACE(@p1,@p2,@p3) COMMIT TRANSACTION",
+		"SELECT REPLACE(@p1,@p2,@p3) UPDATE users SET profile=@p1",
+		"UPDATE users SET profile=REPLACE(profile,@p1,@p2) SET XACT_ABORT OFF",
 	} {
 		for _, method := range []string{"exec", "query"} {
 			t.Run(method+"/"+query, func(t *testing.T) {
@@ -76,6 +79,8 @@ func TestMSSQLDirectStatementsAndQuoting(t *testing.T) {
 		"ALTER TABLE users DROP CONSTRAINT [email_unique]",
 		"ALTER TABLE users DROP /* nested /* comment */ here */ COLUMN email",
 		"SELECT 中文 FROM 用户 WHERE 姓名=@p1",
+		"UPDATE users SET profile=REPLACE(profile,@p1,@p2)",
+		"SELECT REPLACE(@p1,@p2,@p3) AS value",
 	} {
 		if got, err := prepareMSSQL(query); err != nil || got != query {
 			t.Fatalf("%s: %v", query, err)

@@ -59,7 +59,9 @@ func prepareMSSQL(query string) (string, error) {
 			if root == "INSERT" {
 				insertSource = true
 			}
-		case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP", "TRUNCATE", "REPLACE":
+		// SQL Server REPLACE is a scalar function, not the REPLACE statement
+		// supported by other dialects in the generic leading-keyword gate.
+		case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP", "TRUNCATE":
 			allowed := false
 			next, afterNext := mssqlTopLevelWord(tokens, index+1), mssqlTopLevelWord(tokens, index+2)
 			referential := alterTable && previous == "ON" && (word == "DELETE" || word == "UPDATE") &&

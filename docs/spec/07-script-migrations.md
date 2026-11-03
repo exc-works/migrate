@@ -96,7 +96,8 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
   call, rejecting embedded transaction/session/dynamic commands and additional
   top-level statements. Ignore quoted values/identifiers and nested comments when
   examining keywords; retain direct CTE/DML, ALTER TABLE column/constraint/referential clauses,
-  CREATE OR ALTER VIEW and MERGE actions. Restore MERGE's
+  CREATE OR ALTER VIEW and MERGE actions. MSSQL scalar REPLACE calls must not be
+  confused with other dialects' REPLACE statement. Restore MERGE's
   required terminator after generic single-statement validation. Real-driver tests
   must cover a bound UPDATE followed by COMMIT, rollback and pending history.
   MONEY/SMALLMONEY remain exact strings, GUIDs retain the driver's copied binary
