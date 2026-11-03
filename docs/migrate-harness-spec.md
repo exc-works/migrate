@@ -13,6 +13,7 @@
 7. [06-reviewer-security-rules.md](./spec/06-reviewer-security-rules.md)
 8. [07-script-migrations.md](./spec/07-script-migrations.md)
 9. [08-script-modules-plan.md](./spec/08-script-modules-plan.md)（模块导入 PR stack 与验收记录）
+10. [09-ssh-tunnel.md](./spec/09-ssh-tunnel.md)（SSH 隧道、代理与交付约束）
 
 ## 使用方式
 
