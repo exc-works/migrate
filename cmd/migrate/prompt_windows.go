@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 	"unicode/utf16"
-	"unicode/utf8"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -66,6 +65,8 @@ func readSecretTerminal(ctx context.Context, file *os.File) ([]byte, error) {
 		if high != 0 {
 			ch = utf16.DecodeRune(rune(high), ch)
 		}
-		return utf8.AppendRune(nil, ch), nil
+		return repeatConsoleRune(ch, record.Repeat), nil
 	}
 }
+
+func protectPromptOutput() func() { return func() {} }

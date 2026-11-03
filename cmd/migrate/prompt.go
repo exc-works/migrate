@@ -21,6 +21,8 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) (value []b
 		return nil, errors.New("no terminal available; set the secret environment variable or use non-interactive mode")
 	}
 	defer file.Close()
+	stopSignals := protectPromptOutput()
+	defer stopSignals()
 	state, err := term.MakeRaw(int(file.Fd()))
 	if err != nil {
 		return nil, errors.New("cannot disable terminal echo")
@@ -62,4 +64,12 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) (value []b
 			}
 		}
 	}
+}
+
+func repeatConsoleRune(ch rune, count uint16) []byte {
+	var data []byte
+	for i := uint16(0); i < count; i++ {
+		data = utf8.AppendRune(data, ch)
+	}
+	return data
 }

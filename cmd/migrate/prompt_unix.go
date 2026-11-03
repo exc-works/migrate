@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -26,7 +28,10 @@ func readSecretTerminal(ctx context.Context, file *os.File) ([]byte, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		poll := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
+		poll := []unix.PollFd{{
+			Fd:     int32(fd),
+			Events: unix.POLLIN,
+		}}
 		n, err := unix.Poll(poll, 100)
 		if err == unix.EINTR {
 			continue
@@ -47,4 +52,11 @@ func readSecretTerminal(ctx context.Context, file *os.File) ([]byte, error) {
 		}
 		return buf[:count], nil
 	}
+}
+
+// A broken stderr pipe must return EPIPE so terminal restoration can run.
+func protectPromptOutput() func() {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGPIPE)
+	return func() { signal.Stop(ch) }
 }
