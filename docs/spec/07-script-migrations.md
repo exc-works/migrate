@@ -241,6 +241,10 @@ write successful migration history. It does not predict dynamically generated SQ
 
 ## Validation and delivery
 
+- Keep runnable local, installed-package and embedded-source examples under
+  `examples/script-imports`; CI runs `scripts/test-script-examples.sh` using temporary
+  SQLite databases and the committed local npm package without registry access.
+
 - Every implementation layer includes its own meaningful tests and remains buildable.
 - Cover mixed ordering, duplicates, hashes, preflight failure, rollback-range validation,
   irreversible down, baseline, out-of-order, dry-run and default-build rejection.

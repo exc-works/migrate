@@ -1,0 +1,5 @@
+{
+  "dialect": "sqlite",
+  "data_source_name": "${MIGRATE_EXAMPLE_DB}",
+  "migration_source": "migrations"
+}

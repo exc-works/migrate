@@ -1,7 +1,7 @@
 # migrate
 
 SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/TiDB/Redshift support.
-An optional full build adds standalone JavaScript and TypeScript migrations for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse/MSSQL support.
+An optional full build adds JavaScript and TypeScript migrations with local and npm imports for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse/MSSQL support.
 Use `migrate capabilities` to inspect verification status and transaction limits.
 
 ## Documentation
@@ -20,6 +20,7 @@ Use `migrate capabilities` to inspect verification status and transaction limits
 - [User Guide (हिन्दी)](docs/user-guide.hi.md)
 - [SQL + JS/TS guide (中文)](docs/script-migrations.md)
 - [SQL + JS/TS guide (English)](docs/script-migrations.en.md)
+- [Runnable script import examples](examples/script-imports/README.en.md) / [可运行示例](examples/script-imports/README.md)
 - [Migration API declarations](docs/migration-api.d.ts)
 - [Changelog](CHANGELOG.md)
 

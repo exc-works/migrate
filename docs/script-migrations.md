@@ -3,6 +3,8 @@
 默认 `migrate` 保持仅 SQL。完整版本内嵌 JS 引擎和 TS 转译器，不需要 Node.js，
 执行时也不会下载运行时。详细行为以 [脚本迁移规范](spec/07-script-migrations.md) 为准。
 
+可运行的相对路径、npm 包和 Go 嵌入示例见 [examples/script-imports](../examples/script-imports/README.md)。
+
 ## 安装和能力查询
 
 ```bash

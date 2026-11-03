@@ -36,6 +36,22 @@ jobs:
       - name: Vet
         run: go vet -tags="$BUILD_TAGS" ./...
 
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Download dependencies
+        run: go mod download
+      - name: Run script import examples
+        run: ./scripts/test-script-examples.sh
+
   integration:
     runs-on: ubuntu-latest
     env:

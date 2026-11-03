@@ -1,0 +1,10 @@
+{
+  "name": "@migrate-example/normalizer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./names.js",
+    "./names": "./names.js"
+  }
+}
