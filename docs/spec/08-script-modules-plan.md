@@ -45,7 +45,7 @@ Branch suffixes identify the implementation layers; actual PR links are listed b
 | PR2 | [#22](https://github.com/exc-works/migrate/pull/22) |
 | PR3 | [#23](https://github.com/exc-works/migrate/pull/23) |
 | PR4 | [#24](https://github.com/exc-works/migrate/pull/24) |
-| PR5 | Created after final workflow validation. |
+| PR5 | [#25](https://github.com/exc-works/migrate/pull/25) |
 
  Each PR
 targets its direct predecessor. Every implementation layer must remain buildable,
