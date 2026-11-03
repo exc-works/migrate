@@ -37,6 +37,8 @@ export default defineConfig({
     }
   },
   themeConfig: {
+    // Shared release/changelog pages have no translated counterpart.
+    i18nRouting: false,
     nav: [
       { text: 'Guide', link: route('guide') },
       { text: 'Releases', link: `${repository}/releases` }
