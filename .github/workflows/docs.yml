@@ -14,17 +14,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: docs/site/package.json
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: docs/site/package-lock.json
+          cache: pnpm
+          cache-dependency-path: docs/site/pnpm-lock.yaml
       - name: Install documentation dependencies
-        run: npm --prefix docs/site ci
+        run: pnpm --dir docs/site install --frozen-lockfile
       - name: Test shared Markdown links
-        run: npm --prefix docs/site test
+        run: pnpm --dir docs/site test
       - name: Build documentation
-        run: npm --prefix docs/site run build
+        run: pnpm --dir docs/site run build
       - name: Check rendered pages, links, assets and fragments
         run: python3 scripts/check-docs-site.py
       - name: Upload Pages artifact
