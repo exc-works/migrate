@@ -18,11 +18,13 @@ import (
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/exc-works/migrate/internal/config"
+	"github.com/exc-works/migrate/internal/connection"
 	"github.com/exc-works/migrate/internal/dialect"
 	"github.com/exc-works/migrate/internal/logger"
 	"github.com/exc-works/migrate/internal/migrate"
 	"github.com/exc-works/migrate/internal/parser"
 	"github.com/exc-works/migrate/internal/source"
+	"github.com/exc-works/migrate/internal/tunnel"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/microsoft/go-mssqldb"
@@ -63,14 +65,30 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root.SetErr(stderr)
 	cfgPath := root.PersistentFlags().StringP("config", "c", "migration_config.json", "config file path")
 	workingDir := root.PersistentFlags().StringP("working-dir", "w", "", "working directory")
+	noninteractive := root.PersistentFlags().Bool("non-interactive", false, "fail instead of requesting terminal secrets")
 
 	var svc *migrate.Service
+	var cleanup func() error
 	preRun := func(cmd *cobra.Command, args []string) error {
 		c, err := config.Read(*cfgPath, *workingDir)
 		if err != nil {
 			return err
 		}
-		s, err := newServiceFromConfigContext(cmd.Context(), c)
+		var s *migrate.Service
+		if c.SSHTunnel != nil {
+			var prompt tunnel.Prompt
+			if !*noninteractive {
+				prompt = func(ctx context.Context, label string) ([]byte, error) {
+					return terminalSecret(ctx, cmd.ErrOrStderr(), label)
+				}
+			}
+			s, cleanup, err = newSSHService(cmd.Context(), c, prompt)
+		} else {
+			s, err = newServiceFromConfigContext(cmd.Context(), c)
+			if err == nil {
+				cleanup = s.Config().DB.Close
+			}
+		}
 		if err != nil {
 			return err
 		}
@@ -279,7 +297,66 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	newConfigCmd.Flags().Bool("force", false, "overwrite existing config file")
 	newCmd.AddCommand(newConfigCmd)
 
+	// Run-scoped cleanup also runs when RunE fails; Cobra post hooks do not.
+	for _, cmd := range root.Commands() {
+		if cmd.PreRunE == nil || cmd.RunE == nil {
+			continue
+		}
+		run := cmd.RunE
+		cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
+			defer func() {
+				if cleanup != nil {
+					err = errors.Join(err, cleanup())
+					cleanup = nil
+				}
+			}()
+			return run(cmd, args)
+		}
+	}
 	return root
+}
+
+func newSSHService(ctx context.Context, c *config.FileConfig, prompt tunnel.Prompt) (*migrate.Service, func() error, error) {
+	options, err := c.ScriptOptions()
+	if err != nil {
+		return nil, nil, err
+	}
+	d, err := dialect.FromName(c.Dialect)
+	if err != nil {
+		return nil, nil, err
+	}
+	conn, err := connection.Open(ctx, connection.Options{
+		Dialect:        c.Dialect,
+		DataSourceName: c.DataSourceName,
+		SSHTunnel:      c.SSHTunnel,
+		Prompt:         prompt,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	pingCtx, cancel := context.WithTimeout(conn.Context(), pingTimeout)
+	defer cancel()
+	if err := conn.DB.PingContext(pingCtx); err != nil {
+		_ = conn.Close()
+		return nil, nil, errors.New("database connection through SSH failed")
+	}
+	svc, err := newMigrateService(conn.Context(), migrate.Config{
+		Dialect:           d,
+		DB:                conn.DB,
+		Logger:            logger.NewStd(c.LoggerLevel, os.Stdout),
+		SchemaName:        c.SchemaName,
+		MigrateOutOfOrder: c.MigrateOutOfOrder,
+		MigrationSource: source.DirectorySource{
+			Directory: filepath.Join(c.WorkingDirectory, c.MigrationSource),
+		},
+		DryRunOutput:  os.Stdout,
+		ScriptOptions: options,
+	})
+	if err != nil {
+		_ = conn.Close()
+		return nil, nil, err
+	}
+	return svc, conn.Close, nil
 }
 
 func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {

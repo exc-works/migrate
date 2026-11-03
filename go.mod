@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.45.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/creack/pty v1.1.24
 	github.com/docker/go-connections v0.6.0
 	github.com/dop251/goja v0.0.0-20261008222547-e9f698900731
 	github.com/evanw/esbuild v0.25.12
@@ -16,6 +17,8 @@ require (
 	github.com/testcontainers/testcontainers-go v0.40.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/net v0.50.0
+	golang.org/x/sys v0.42.0
+	golang.org/x/term v0.40.0
 	modernc.org/sqlite v1.48.2
 )
 
@@ -95,7 +98,6 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
