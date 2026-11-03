@@ -1,0 +1,21 @@
+{
+  "name": "migrate-docs",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare": "node prepare.mjs",
+    "dev": "node prepare.mjs && vitepress dev",
+    "build": "node prepare.mjs && vitepress build",
+    "preview": "vitepress preview",
+    "test": "node --test links.test.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  },
+  "overrides": {
+    "vite": "6.4.5"
+  }
+}
