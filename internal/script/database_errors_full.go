@@ -8,6 +8,7 @@ import (
 
 	clickhouseproto "github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/go-sql-driver/mysql"
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/sijms/go-ora/v3/network"
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -33,6 +34,15 @@ func nativeDatabaseTermination(err error) bool {
 	if err == nil {
 		return false
 	}
+	for _, sentinel := range []error{mysql.ErrInvalidConn, mysql.ErrMalformPkt, mysql.ErrPktSync, mysql.ErrPktSyncMul, mysql.ErrBusyBuffer} {
+		if errors.Is(err, sentinel) {
+			return true
+		}
+	}
+	switch err.(type) {
+	case mssql.StreamError, *mssql.StreamError:
+		return true
+	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		for _, cause := range joined.Unwrap() {
 			if nativeDatabaseTermination(cause) {
@@ -56,6 +66,10 @@ func nativeDatabaseTermination(err error) bool {
 	}
 	var my *mysql.MySQLError
 	if errors.As(err, &my) {
+		code := string(my.SQLState[:])
+		if code == "70100" || strings.HasPrefix(code, "08") {
+			return true
+		}
 		switch my.Number {
 		case mysqlQueryInterrupted, mysqlQueryTimeout, mariaDBStatementTimeout:
 			return true

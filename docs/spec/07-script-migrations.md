@@ -154,7 +154,8 @@ commands do not evaluate config or validate dynamically computed export values.
 - Cancellation/deadlines, lost/finished connection handles and transport failures remain
   fatal even if caught. Include structured server-native cancellation/timeout codes
   (for example PostgreSQL 57014), not only Go context/network errors; classify errors
-  before removing driver details. Parameter/result validation, result limits, result-cleanup and
+  before removing driver details. Driver invalid-connection/protocol sentinels (such
+  as mysql.ErrInvalidConn) and invalid TDS streams are also fatal. Parameter/result validation, result limits, result-cleanup and
   affected-row conversion failures also remain fatal. database/sql reports both late
   SQL exceptions and automatic result-close errors through Rows.Err: only structured
   native SQL exceptions there are recoverable; unclassified stream/cleanup errors are

@@ -176,6 +176,29 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		}
 	}
 
+	if d.Name() == dialect.NameMySQL || d.Name() == dialect.NameMariaDB {
+		// Kill only this explicitly reserved test connection. The driver may hide
+		// the underlying network error behind its own invalid-connection sentinel.
+		func() {
+			conn, err := db.Conn(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			p, err := script.Compile("V0__lost_connection.js", `export function up(db){const id=db.query('SELECT CONNECTION_ID() AS id')[0].id;if(!/^[0-9]+$/.test(id))throw Error('invalid connection id');try{db.exec('KILL CONNECTION '+id)}catch(e){}}`, "up", script.Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			i, err := p.Instantiate(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = i.Execute(ctx, conn, d.Name()); err == nil {
+				t.Fatal("caught native connection loss returned success")
+			}
+		}()
+	}
+
 	// Real-driver recovery must repair the database's transaction state explicitly.
 	if d.Name() == dialect.NamePostgres || d.Name() == dialect.NameMSSQL {
 		save, rollback, release := "SAVEPOINT script_recovery", "ROLLBACK TO SAVEPOINT script_recovery", "RELEASE SAVEPOINT script_recovery"

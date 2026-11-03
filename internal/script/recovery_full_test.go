@@ -62,7 +62,7 @@ func TestCaughtSQLFailuresAllowRecovery(t *testing.T) {
 	}
 }
 func TestConnectionAndCancellationFailuresRemainFatal(t *testing.T) {
-	for _, cause := range []error{context.Canceled, context.DeadlineExceeded, driver.ErrBadConn, sql.ErrConnDone, sql.ErrTxDone, io.EOF, io.ErrUnexpectedEOF, net.ErrClosed, &net.OpError{Op: "read", Net: "tcp", Err: errors.New("private driver detail")}} {
+	for _, cause := range []error{context.Canceled, context.DeadlineExceeded, driver.ErrBadConn, mysql.ErrInvalidConn, mysql.ErrMalformPkt, mysql.ErrPktSync, mysql.ErrPktSyncMul, mysql.ErrBusyBuffer, mssql.StreamError{InnerError: errors.New("private driver detail")}, sql.ErrConnDone, sql.ErrTxDone, io.EOF, io.ErrUnexpectedEOF, net.ErrClosed, &net.OpError{Op: "read", Net: "tcp", Err: errors.New("private driver detail")}} {
 		for _, method := range []string{"exec", "query"} {
 			t.Run(method+"/"+cause.Error(), func(t *testing.T) {
 				db := &recoveryDB{failure: fmt.Errorf("private driver detail: %w", cause)}
@@ -125,6 +125,8 @@ func TestNativeDatabaseCancellationsRemainFatal(t *testing.T) {
 		&pgconn.PgError{Code: "08006", Message: "private native detail"},
 		&pgconn.PgError{Code: "57P01", Message: "private native detail"},
 		&mysql.MySQLError{Number: 1317, Message: "private native detail"},
+		&mysql.MySQLError{Number: 1927, SQLState: [5]byte{'7', '0', '1', '0', '0'}, Message: "private native detail"},
+		&mysql.MySQLError{SQLState: [5]byte{'0', '8', 'S', '0', '1'}, Message: "private native detail"},
 		&mysql.MySQLError{Number: 3024, Message: "private native detail"},
 		&mysql.MySQLError{Number: 1969, Message: "private native detail"},
 		&network.OracleError{ErrCode: 1013, ErrMsg: "private native detail"},
