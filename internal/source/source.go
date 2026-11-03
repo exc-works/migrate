@@ -34,11 +34,14 @@ type DirectorySource struct {
 }
 
 func (d DirectorySource) LoadMigrations() ([]Migration, error) {
-	entries, err := d.LoadMigrationEntries()
+	entries, err := d.loadMigrationEntries()
 	return migrationsFromEntries(entries), err
 }
 
-func (d DirectorySource) LoadMigrationEntries() ([]MigrationEntry, error) {
+func (d DirectorySource) loadMigrationEntries() ([]MigrationEntry, error) {
+	if d.Directory == "" {
+		return nil, fmt.Errorf("migration directory is required")
+	}
 	directory, err := filepath.Abs(d.Directory)
 	if err != nil {
 		return nil, fmt.Errorf("resolve migration directory failed")
@@ -87,11 +90,11 @@ type FSSource struct {
 }
 
 func (f FSSource) LoadMigrations() ([]Migration, error) {
-	entries, err := f.LoadMigrationEntries()
+	entries, err := f.loadMigrationEntries()
 	return migrationsFromEntries(entries), err
 }
 
-func (f FSSource) LoadMigrationEntries() ([]MigrationEntry, error) {
+func (f FSSource) loadMigrationEntries() ([]MigrationEntry, error) {
 	root := f.Root
 	if root == "" {
 		root = "."
@@ -135,11 +138,11 @@ type CombinedSource struct {
 }
 
 func (c CombinedSource) LoadMigrations() ([]Migration, error) {
-	entries, err := c.LoadMigrationEntries()
+	entries, err := c.loadMigrationEntries()
 	return migrationsFromEntries(entries), err
 }
 
-func (c CombinedSource) LoadMigrationEntries() ([]MigrationEntry, error) {
+func (c CombinedSource) loadMigrationEntries() ([]MigrationEntry, error) {
 	all := make([]MigrationEntry, 0)
 	for _, src := range c.Sources {
 		items, err := LoadEntries(src)

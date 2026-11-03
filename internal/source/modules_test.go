@@ -65,7 +65,7 @@ func TestWithModulesPreservesUnderlyingContext(t *testing.T) {
 	src := &countingEntriesSource{entries: []MigrationEntry{{Migration: Migration{"V1__one.js", "original bytes"}, Modules: original}}}
 	dependencyDir := t.TempDir()
 	wrapped := WithModules{Source: src, DependencyDir: dependencyDir}
-	entries, err := wrapped.LoadMigrationEntries()
+	entries, err := LoadEntries(wrapped)
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("%+v %v", entries, err)
 	}
@@ -97,8 +97,42 @@ func TestWithModulesConfiguresLegacyEntries(t *testing.T) {
 		{Source: legacy, Root: "migrations"},
 		{Source: legacy, FS: virtual, Root: "../outside"},
 	} {
-		if _, err := invalid.LoadMigrationEntries(); err == nil {
+		if _, err := LoadEntries(invalid); err == nil {
 			t.Fatalf("accepted invalid wrapper: %+v", invalid)
 		}
+	}
+}
+
+// Embedded built-ins must not opt an existing custom source into a new protocol.
+type filteredDirectory struct {
+	DirectorySource
+	calls int
+}
+
+func (s *filteredDirectory) LoadMigrations() ([]Migration, error) {
+	s.calls++
+	return nil, nil
+}
+
+func TestEmbeddedBuiltInKeepsLegacyOverride(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "V1__excluded.js"), []byte("excluded"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	custom := &filteredDirectory{DirectorySource: DirectorySource{Directory: root}}
+	for _, src := range []MigrationSource{custom, CombinedSource{Sources: []MigrationSource{custom}}} {
+		entries, err := LoadEntries(src)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("legacy filter bypassed: %+v %v", entries, err)
+		}
+	}
+	if custom.calls != 2 {
+		t.Fatalf("legacy override called %d times", custom.calls)
+	}
+}
+
+func TestDirectorySourceRejectsUnsetDirectory(t *testing.T) {
+	if _, err := LoadEntries(DirectorySource{}); err == nil {
+		t.Fatal("unset directory fell back to the working directory")
 	}
 }

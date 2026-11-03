@@ -30,6 +30,15 @@ type MigrationEntriesSource interface {
 }
 
 func LoadEntries(src MigrationSource) ([]MigrationEntry, error) {
+	// Only exact built-in types use their internal extension. Exporting it on
+	// built-ins would silently opt legacy embedding types into the new protocol
+	// through method promotion and bypass their LoadMigrations overrides.
+	switch src.(type) {
+	case DirectorySource, *DirectorySource, FSSource, *FSSource, CombinedSource, *CombinedSource, WithModules, *WithModules:
+		return src.(interface {
+			loadMigrationEntries() ([]MigrationEntry, error)
+		}).loadMigrationEntries()
+	}
 	if extended, ok := src.(MigrationEntriesSource); ok {
 		return extended.LoadMigrationEntries()
 	}
@@ -55,11 +64,11 @@ type WithModules struct {
 }
 
 func (s WithModules) LoadMigrations() ([]Migration, error) {
-	entries, err := s.LoadMigrationEntries()
+	entries, err := s.loadMigrationEntries()
 	return migrationsFromEntries(entries), err
 }
 
-func (s WithModules) LoadMigrationEntries() ([]MigrationEntry, error) {
+func (s WithModules) loadMigrationEntries() ([]MigrationEntry, error) {
 	if s.Source == nil {
 		return nil, errors.New("module source is required")
 	}
