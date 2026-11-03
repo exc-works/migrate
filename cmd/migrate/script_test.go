@@ -120,9 +120,15 @@ func TestCapabilitiesDialectVerification(t *testing.T) {
 					if c.Name != got.Dialects[i] || !script.SupportedDialect(c.Name) {
 						t.Fatalf("%+v", c)
 					}
+					if c.Name == "mssql" && !slices.Equal(c.Aliases, []string{"sqlserver", "azuresql"}) {
+						t.Fatalf("MSSQL aliases missing: %+v", c)
+					}
+					if c.Name == "postgres" && !slices.Equal(c.Aliases, []string{"pg", "pgsql", "postgresql", "pgx"}) {
+						t.Fatalf("Postgres aliases missing: %+v", c)
+					}
 				}
 			}
-		} else if len(script.Formats()) > 1 && !strings.Contains(out.String(), "tidb (experimental, transaction=framework)") {
+		} else if len(script.Formats()) > 1 && (!strings.Contains(out.String(), "tidb (experimental, transaction=framework)") || !strings.Contains(out.String(), "aliases=sqlserver,azuresql")) {
 			t.Fatalf("%s", out.String())
 		}
 	}

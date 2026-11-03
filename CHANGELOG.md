@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Experimental JS/TS/MJS migration execution for TiDB, Redshift, Oracle and ClickHouse.
-- Per-dialect verification status, transaction modes and limitations in capabilities,
+- Experimental JS/TS/MJS migration execution for TiDB, Redshift, Oracle, ClickHouse and MSSQL.
+- A shared case-insensitive alias catalog for SQL and scripts, including PostgreSQL
+  pg/pgsql/postgresql/pgx and MSSQL sqlserver/azuresql; scripts expose canonical names.
+- Per-dialect verification status, aliases, transaction modes and limitations in capabilities,
   plus one warning per selected experimental script plan.
 - ClickHouse scalar value conversion and explicit partial-state errors for
   nontransactional execution/history failures; driver-reported affected-row counts remain strings.
-- ClickHouse/TiDB container CI and optional SQL/full Oracle/Redshift integration.
+- ClickHouse/TiDB/MSSQL container CI and optional SQL/full Oracle/Redshift/MSSQL integration.
 
 ### Fixed
 - Upgrade the Oracle driver to go-ora v3 for modern authentication; disable its fast

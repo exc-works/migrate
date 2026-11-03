@@ -52,6 +52,9 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			t.Fatal(err)
 		}
 	}
+	if d.Name() == dialect.NameMSSQL {
+		runMSSQLScalarScenario(t, db)
+	}
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
 	idType := "BIGINT"
@@ -84,6 +87,10 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		// Oracle NUMBER preserves the value, without retaining trailing zero scale.
 		amountExpected = "12345678901234567890.123456789"
 	}
+	if d.Name() == dialect.NameMSSQL {
+		profileType, binaryType, ratioType = "NVARCHAR(200)", "VARBINARY(16)", "FLOAT"
+		insertParams = "@p1,@p2,@p3,@p4,@p5"
+	}
 	create := fmt.Sprintf("CREATE TABLE %s (id %s PRIMARY KEY, amount %s, profile %s, payload %s, ratio %s);", table, idType, amountType, profileType, binaryType, ratioType)
 	insert := fmt.Sprintf("INSERT INTO %s VALUES (%s)", table, insertParams)
 	selectSQL := "SELECT id,amount,profile,payload,ratio FROM " + table
@@ -100,12 +107,14 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		update += "$1 WHERE id=$2"
 	} else if d.Name() == "oracle" {
 		update += ":1 WHERE id=:2"
+	} else if d.Name() == dialect.NameMSSQL {
+		update += "@p1 WHERE id=@p2"
 	} else {
 		update += "? WHERE id=?"
 	}
 	items := []source.Migration{
 		{Filename: "V1__create.sql", Source: "-- +migrate Up\n" + create + "\n-- +migrate Down\nDROP TABLE " + table + ";\n"},
-		{Filename: "V2__seed.mjs", Source: `export function up(db){db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!==` + strconv.Quote(amountExpected) + `||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
+		{Filename: "V2__seed.mjs", Source: `export function up(db){const seeded=db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);if(db.dialect==='mssql'&&seeded.rowsAffected!=='1')throw Error('driver count');const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!==` + strconv.Quote(amountExpected) + `||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
 		{Filename: "V3__transform.ts", Source: `export function up(db:any){const r=db.query(` + strconv.Quote(selectSQL) + `)[0];db.exec(` + strconv.Quote(update) + `,[r.profile+'-ts',r.id]);}export function down(db:any){db.exec(` + strconv.Quote(update) + `,['new','9007199254740993']);}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: randomName("script_history"), MigrationSource: source.StringSource{Migrations: items}}
@@ -160,6 +169,9 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 
 	// Transaction control is rejected before it can release framework ownership.
 	var controls []string
+	if d.Name() == dialect.NameMSSQL {
+		controls = []string{"BEGIN TRANSACTION", "COMMIT", "ROLLBACK", "EXEC('COMMIT')"}
+	}
 	if d.Name() == "postgres" || d.Name() == "redshift" {
 		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT", "-- comment\rCOMMIT /*\nSELECT 1 -- */"}
 	}

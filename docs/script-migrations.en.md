@@ -109,6 +109,28 @@ status, baseline and SQL-only plans do not issue this warning.
 | Redshift | Experimental; no real-instance verification | `$1` | Transactions depend on the statement; not full PostgreSQL equivalence |
 | Oracle | Experimental; limited Oracle Free coverage | `:1` | DML uses a framework transaction; DDL implicitly commits |
 | ClickHouse | Experimental | `?` | Nontransactional; no automatic rollback |
+| MSSQL / SQL Server | Experimental | `@p1` | Framework transaction; Azure SQL instances remain unverified |
+
+Names are trimmed and case-insensitive. Configuration, CLI, Go facade and script
+capability checks share a single alias catalog:
+
+| Canonical name | Accepted aliases |
+| --- | --- |
+| `postgres` | `pg`, `pgsql`, `postgresql`, `pgx` |
+| `mssql` | `sqlserver`, `azuresql` |
+| `oracle` | `orcl`, `ora`, `go-ora`, `goora`, `godror` |
+| `sqlite` | `sqlite3` |
+| `mysql`, `mariadb`, `tidb`, `redshift`, `clickhouse` | No extra aliases |
+
+MySQL, MariaDB and TiDB remain separate dialects despite sharing a driver.
+`db.dialect` always contains the canonical name: an `azuresql` input yields `mssql`.
+Capabilities text and JSON `aliases` fields list accepted aliases.
+
+MSSQL MONEY/SMALLMONEY values remain exact strings. UNIQUEIDENTIFIER retains the
+driver's binary representation as copied bytes; use `CAST(id AS VARCHAR(36))` for
+formatted GUID text and bind GUID strings on writes. Rowversion/timestamp is binary;
+DATETIMEOFFSET and other time values follow the common time conversion contract.
+T-SQL batches, IF/BEGIN and procedure calls still require SQL migration files.
 
 Where transactions are supported, script operations and successful history writes
 share a framework transaction. Caught database errors remain fatal. Implicit DDL
@@ -137,11 +159,11 @@ writes without successful history. Errors report possible partial changes. Down
 also has no automatic rollback guarantee. Inspect data and history and recover
 according to their actual state before retrying; do not blindly rerun or baseline.
 
-Run container verification with the following command. External TiDB/ClickHouse
+Run container verification with the following command. External TiDB/ClickHouse/MSSQL
 DSNs take precedence over disposable containers:
 
 ```bash
-INTEGRATION_DB=clickhouse,tidb go test -tags=integration,full ./integrationtest/...
+INTEGRATION_DB=clickhouse,tidb,mssql go test -tags=integration,full ./integrationtest/...
 ```
 
 Optional Oracle/Redshift checks use `INTEGRATION_ORACLE_DSN` and

@@ -385,3 +385,28 @@ func stubDBInitDeps(t *testing.T, db *sql.DB) func() {
 		_ = db.Close()
 	}
 }
+
+func TestConfigAliasesSelectCanonicalDriver(t *testing.T) {
+	original := openDB
+	t.Cleanup(func() { openDB = original })
+	sentinel := errors.New("stop before connection")
+	for _, tc := range []struct{ input, driver string }{
+		{" SQLSERVER ", "sqlserver"}, {"azuresql", "sqlserver"}, {"mssql", "sqlserver"},
+		{"pgsql", "pgx"}, {"PostgreSQL", "pgx"}, {"pgx", "pgx"}, {"pg", "pgx"}, {" MySQL ", "mysql"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			called := false
+			openDB = func(driver, dsn string) (*sql.DB, error) {
+				called = true
+				if driver != tc.driver || dsn != "placeholder" {
+					t.Fatalf("driver=%s", driver)
+				}
+				return nil, sentinel
+			}
+			_, err := newServiceFromConfig(&config.FileConfig{Dialect: tc.input, DataSourceName: "placeholder"})
+			if !called || !errors.Is(err, sentinel) {
+				t.Fatalf("%v", err)
+			}
+		})
+	}
+}

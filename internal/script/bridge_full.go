@@ -17,9 +17,11 @@ import (
 
 // Execute binds only a narrow, synchronous database capability to the entrypoint.
 func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) error {
-	if !SupportedDialect(dialect) {
+	capability, supported := Capability(dialect)
+	if !supported {
 		return errors.New("script dialect is unsupported")
 	}
+	dialect = capability.Name
 	if db == nil {
 		return errors.New("script database is required")
 	}
@@ -220,6 +222,14 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 // Keep this fallback scoped to Oracle; other ambiguous byte results still fail.
 func resultColumnType(column *sql.ColumnType, dialectName string) string {
 	name := column.DatabaseTypeName()
+	if dialectName == dbdialect.NameMSSQL {
+		switch strings.ToUpper(name) {
+		case "TIMESTAMP", "ROWVERSION":
+			return "BINARY"
+		case "MONEY", "SMALLMONEY":
+			return "DECIMAL"
+		}
+	}
 	if name != "" || dialectName != dbdialect.NameOracle {
 		return name
 	}

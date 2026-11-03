@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	dbdialect "github.com/exc-works/migrate/internal/dialect"
 	_ "modernc.org/sqlite"
 )
 
@@ -254,5 +256,106 @@ func TestClickHouseAffectedRowsUseDriverResult(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestBridgeDialectAliasesUseCanonicalNameAndNativeParameters(t *testing.T) {
+	for _, canonical := range dbdialect.Names() {
+		for _, input := range append([]string{canonical}, dbdialect.Aliases(canonical)...) {
+			t.Run(input, func(t *testing.T) {
+				db, mock, err := sqlmock.New()
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer db.Close()
+				placeholder := "?"
+				switch canonical {
+				case dbdialect.NamePostgres, dbdialect.NameRedshift:
+					placeholder = "$1"
+				case dbdialect.NameMSSQL:
+					placeholder = "@p1"
+				case dbdialect.NameOracle:
+					placeholder = ":1"
+				}
+				query := "SELECT " + placeholder
+				mock.ExpectExec(regexp.QuoteMeta(query)).WithArgs("9007199254740993").WillReturnResult(sqlmock.NewResult(0, 1))
+				source := fmt.Sprintf(`export function up(db){if(db.dialect!==%q)throw Error('alias');if(db.exec(%q,['9007199254740993']).rowsAffected!=='1')throw Error('count')}`, canonical, query)
+				p, err := Compile("V1__alias.js", source, "up", Options{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				i, err := p.Instantiate(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = i.Execute(context.Background(), db, " "+strings.ToUpper(input)+" "); err != nil {
+					t.Fatal(err)
+				}
+				if err = mock.ExpectationsWereMet(); err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	}
+}
+
+func TestMSSQLMetadataConversionsAreDialectScoped(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, tc := range []struct {
+		dialect, dbType string
+		value           any
+		check           string
+	}{
+		{"sqlserver", "TIMESTAMP", []byte{0, 255}, "r.value.length===2&&r.value[1]===255"},
+		{"azuresql", "ROWVERSION", []byte{0, 255}, "r.value.length===2&&r.value[1]===255"},
+		{"postgres", "TIMESTAMP", []byte("2026-11-03 01:00:00"), "r.value==='2026-11-03 01:00:00'"},
+		{"mssql", "MONEY", []byte("922337203685477.5807"), "r.value==='922337203685477.5807'"},
+		{"sqlserver", "SMALLMONEY", []byte("-214748.3648"), "r.value==='-214748.3648'"},
+		{"postgres", "MONEY", "$1.25", "r.value==='$1.25'"},
+	} {
+		mock.ExpectQuery("SELECT value").WillReturnRows(sqlmock.NewRowsWithColumnDefinition(sqlmock.NewColumn("value").OfType(tc.dbType, tc.value)).AddRow(tc.value)).RowsWillBeClosed()
+		p, err := Compile("V1__timestamp.js", `export function up(db){const r=db.query('SELECT value')[0];if(!(`+tc.check+`))throw Error('conversion')}`, "up", Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		i, err := p.Instantiate(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = i.Execute(context.Background(), db, tc.dialect); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestMSSQLMoneyRejectsInexactDriverValues(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, name := range []string{"MONEY", "SMALLMONEY"} {
+		mock.ExpectQuery("SELECT amount").WillReturnRows(sqlmock.NewRowsWithColumnDefinition(sqlmock.NewColumn("amount").OfType(name, float64(0))).AddRow(float64(0.1))).RowsWillBeClosed()
+		p, err := Compile("V1__money.js", `export function up(db){try{db.query('SELECT amount')}catch(e){}}`, "up", Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		i, err := p.Instantiate(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = i.Execute(context.Background(), db, "azuresql"); err == nil {
+			t.Fatalf("accepted inexact %s", name)
+		}
+	}
+	if err = mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }

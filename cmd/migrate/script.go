@@ -35,7 +35,11 @@ func newCapabilitiesCommand() *cobra.Command {
 					return err
 				}
 				for _, capability := range capabilities {
-					if _, err := fmt.Fprintf(cmd.OutOrStdout(), "script dialect: %s (%s, transaction=%s) %s\n", capability.Name, capability.Verification, capability.TransactionMode, capability.Notes); err != nil {
+					aliases := ""
+					if len(capability.Aliases) > 0 {
+						aliases = " aliases=" + strings.Join(capability.Aliases, ",")
+					}
+					if _, err := fmt.Fprintf(cmd.OutOrStdout(), "script dialect: %s (%s, transaction=%s) %s%s\n", capability.Name, capability.Verification, capability.TransactionMode, capability.Notes, aliases); err != nil {
 						return err
 					}
 				}
@@ -78,7 +82,7 @@ func migrationTemplate(format string) (string, error) {
  * @typedef {string | number | boolean | null | readonly number[] | Uint8Array} SQLParameter
  * @typedef {string | number | boolean | null | number[]} SQLValue
  * @typedef {{
- *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse",
+ *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse" | "mssql",
  *   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[],
  *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string }
  * }} MigrationDB
@@ -101,7 +105,7 @@ export function up(db) {
 		return `type SQLParameter = string | number | boolean | null | readonly number[] | Uint8Array;
 type SQLValue = string | number | boolean | null | number[];
 type MigrationDB = {
-  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse";
+  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse" | "mssql";
   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[];
   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string };
 };
