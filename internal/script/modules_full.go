@@ -72,7 +72,7 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 						return moduleError("Node built-in modules are unavailable in Goja"), nil
 					}
 					// Handle back imports even when a supplied string entry has no disk file.
-					if filepath.Clean(filepath.Join(args.ResolveDir, args.Path)) == entry {
+					if diskEntryAlias(filepath.Clean(filepath.Join(args.ResolveDir, args.Path)), entry) {
 						return api.OnResolveResult{
 							Path:      entry,
 							Namespace: namespace,
@@ -137,4 +137,21 @@ func moduleLoader(filename string) (api.Loader, error) {
 
 func moduleDisplayName(filename string) string {
 	return strings.TrimPrefix(filepath.Base(strings.ReplaceAll(filename, "\\", "/")), entryNamespace+":")
+}
+
+// Overlay the loaded entry at the position where the native extension search would
+// find it. Existing higher-priority files still resolve through esbuild normally.
+func diskEntryAlias(candidate, entry string) bool {
+	for _, base := range []string{candidate, filepath.Join(candidate, "index")} {
+		for _, extension := range []string{"", ".tsx", ".ts", ".jsx", ".js", ".css", ".json"} {
+			name := base + extension
+			if name == entry {
+				return true
+			}
+			if info, err := os.Stat(name); err == nil && !info.IsDir() {
+				return false
+			}
+		}
+	}
+	return false
 }
