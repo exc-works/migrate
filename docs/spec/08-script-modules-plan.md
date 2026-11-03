@@ -1,10 +1,9 @@
 # Script Module Imports: PR Stack Plan
 
-Status: disk-relative, installed-package and virtual-source imports are implemented
-on this branch; workflow integration follows in PR5. The current runtime
-contract remains in [07-script-migrations.md](07-script-migrations.md). PR0 reconciles
-that contract with the scope below and marks the rollout explicitly. This document
-describes implementation order and acceptance, not an announcement of shipped support.
+Status: PR0-PR5 are implemented on this branch. The runtime contract is in
+[07-script-migrations.md](07-script-migrations.md). Each PR remains subject to the
+current head/base checks and review recorded in its GitHub discussion. This document
+retains the implementation order and acceptance criteria for the stack.
 
 ## Agreed scope
 
@@ -37,7 +36,18 @@ main
   -> PR5 test/script-module-workflows
 ```
 
-Names are proposed branch suffixes, not existing branches or pull requests. Each PR
+Branch suffixes identify the implementation layers; actual PR links are listed below.
+
+| Layer | Pull request |
+| --- | --- |
+| PR0 | [#20](https://github.com/exc-works/migrate/pull/20) |
+| PR1 | [#21](https://github.com/exc-works/migrate/pull/21) |
+| PR2 | [#22](https://github.com/exc-works/migrate/pull/22) |
+| PR3 | [#23](https://github.com/exc-works/migrate/pull/23) |
+| PR4 | [#24](https://github.com/exc-works/migrate/pull/24) |
+| PR5 | [#25](https://github.com/exc-works/migrate/pull/25) |
+
+ Each PR
 targets its direct predecessor. Every implementation layer must remain buildable,
 include its own tests and update the documentation for behavior it enables. PR5 adds
 cross-layer verification rather than deferring foundational tests or user guidance.

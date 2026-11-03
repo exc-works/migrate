@@ -30,6 +30,7 @@ func TestScriptMigrationsIntegration(t *testing.T) {
 				runClickHouseScriptScenario(t, db, d)
 			} else {
 				runScriptScenario(t, db, d)
+				runScriptModuleScenario(t, db, d)
 			}
 		})
 	}
