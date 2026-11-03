@@ -88,6 +88,9 @@ func migrationTemplate(format string) (string, error) {
  * }} MigrationDB
  */
 
+// Set false for manual transactions or SQL that must run outside a transaction.
+export const config = { transaction: true };
+
 /**
  * @param {MigrationDB} db
  * @returns {void}
@@ -109,6 +112,9 @@ type MigrationDB = {
   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[];
   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string };
 };
+
+// Set false for manual transactions or SQL that must run outside a transaction.
+export const config = { transaction: true };
 
 export function up(db: MigrationDB): void {
   throw new Error("Implement this migration");

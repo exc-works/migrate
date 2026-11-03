@@ -63,11 +63,33 @@ NULL 对应 null，二进制结果为复制的字节数组。
 损失 JSON 大整数精度；这类内容需采用数字字符串等无损表示。SQLite NUMERIC 亲和性
 可能将 decimal 存为浮点，工具会拒绝这种不精确结果；需要精确保留时使用合适的存储类型。
 
-SQL 接口一次执行一条语句，可带尾部分号，不允许内部出现分号；包含分号的值使用绑定
-参数传入。只接受规范列出的直接数据/结构语句；手动事务、会话控制、动态 SQL、过程调用、
-管理命令和 MySQL/MariaDB 可执行注释会被拒绝。存储过程定义等复合 SQL
-继续放在 SQL 迁移文件中。查询列名必须唯一，必要时使用别名。语句在空白后必须直接以支持的关键字开头；
-不支持前置 SQL 注释，以避免不同数据库的嵌套和换行规则改变命令识别。说明请放在 JS/TS 注释中。
+SQL 会原样交给驱动。原生注释、分号、批处理、过程定义/调用、管理命令的支持由数据库
+权限和驱动决定；工具不再做 SQL 关键字过滤、语法检查或语句拆分，也不解释 GO 等客户端
+分隔符。保留原生语法要求的结束符，例如 MERGE 的分号。MySQL 批处理可能需要 DSN 驱动
+选项。查询列名必须唯一；`query` 只返回第一个结果集，exec 计数沿用驱动的批处理语义。
+
+支持事务的数据库默认使用框架事务。需要自行管理事务、调整会话，或执行不能在事务中运行
+的 SQL 时，在迁移模块导出：
+
+```js
+export const config = { transaction: false }; // 同时作用于 up 和 down
+export function up(db) {
+  db.exec("BEGIN TRANSACTION"); // 使用所选数据库的原生语法
+  db.exec("UPDATE users SET profile=@p1", ["changed"]);
+  db.exec("COMMIT TRANSACTION");
+}
+```
+
+省略 config/transaction 默认 true；提供的 transaction 值必须是 boolean。实际执行前初始化
+所有选中模块时验证并固定该配置，status、baseline 和 dry-run 不执行配置表达式。
+显式关闭事务后，一条迁移的所有调用使用同一独占连接；成功后归还连接池复用，
+由 database/sql 和驱动的有效性/重置机制处理不健康连接。不同驱动不一定清除会话设置，
+作者应恢复修改过的设置，不要依赖跨迁移的会话状态。
+作者应在正常返回前结束所有手动事务；成功返回却遗留未结束事务属于无效用法。
+桥接错误仍会使迁移失败并阻止后续调用；失败时丢弃连接，关闭尚未提交的事务。
+非事务迁移失败时，已提交的数据可能保留而没有成功历史；错误会提示部分变更，重试前
+检查数据和历史。默认框架事务中不要自行 BEGIN/COMMIT/ROLLBACK；工具会转发这些 SQL，
+但它们可能破坏回滚和历史一致性保障。迁移作者负责所执行的 SQL。
 
 ## 配置和执行边界
 
@@ -115,30 +137,28 @@ MySQL、MariaDB、TiDB 仍是独立方言；不要把共享驱动当成方言别
 `db.dialect` 始终返回规范名称，例如 `azuresql` 配置会得到 `mssql`。
 `capabilities` 的文本输出和 JSON `aliases` 字段会列出接受的别名。
 
-MSSQL 还会在调用驱动前拦截无分号批处理以及内嵌的事务、会话命令。
-支持直接的 CTE/DML、ALTER TABLE 列/约束变更（含外键引用动作）和 MERGE；复杂 T-SQL 批处理与存储过程请使用 SQL 迁移文件。
-
 MSSQL 金额类型 MONEY/SMALLMONEY 返回精确字符串。UNIQUEIDENTIFIER 保留驱动的二进制
 表示并复制为字节数组；需要标准 GUID 文本时使用 `CAST(id AS VARCHAR(36))`，写入可绑定
 GUID 字符串。rowversion/timestamp 是二进制值；DATETIMEOFFSET 等日期时间沿用通用时间
-转换约定。T-SQL 批处理、IF/BEGIN 和存储过程调用仍应使用 SQL 迁移文件。
+转换约定。原生 T-SQL 批处理和过程调用由驱动执行。
 
-支持事务的路径中，数据操作与成功记录共用框架事务。数据库异常即使被脚本捕获仍会使
-迁移失败；DDL 隐式提交等限制仍然存在，不能承诺所有操作都可完整回滚。
+框架事务模式下，数据操作与成功记录共用事务。桥接/数据库异常即使被脚本捕获仍使迁移
+失败；手动事务控制、过程副作用、DDL 隐式提交等都可能破坏回滚保障。非事务模式不承诺
+数据和历史的原子性。
 
 Oracle 使用固定的 go-ora v3 驱动，NUMBER 以精确字符串返回；RAW 返回字节数组，CLOB 返回文本。
 驱动未提供 BLOB 类型元数据时需显式投影，例如用有界的 `DBMS_LOB.SUBSTR` 读成 RAW，
 或用 `RAWTOHEX` 传递 hex 文本；不要依赖不明确的字节类型推断。
 CLI 默认关闭 v3 的快速登录缓存以保证重连，保留显式 `FAST LOGIN` 配置。
 Go facade 调用方自行创建数据库连接时，建议在 DSN 中设置 `FAST+LOGIN=false`。
-PL/SQL 块、过程调用仍需使用 SQL 文件。Redshift 特有类型可能无法被 pgx 识别，需显式
+原生 PL/SQL 块、过程调用按驱动能力执行。Redshift 特有类型可能无法被 pgx 识别，需显式
 转换为已知标量；例如使用 `FROM_HEX($1)` 写入 VARBYTE，使用
 `FROM_VARBYTE(payload, 'hex')` 读成十六进制文本，不要假设 BYTEA 完全兼容。
 
 ClickHouse 的整型（含 128/256 位）和 decimal 保持精确字符串。Array、Tuple、Map、
 UUID、IP 等未适配驱动值需在 SQL 中显式转换为字符串或其他已支持标量；String 作为文本
 必须是有效 UTF-8，任意二进制内容可用 hex 文本传递。`rowsAffected` 直接采用驱动返回值；ClickHouse 驱动可能返回 `"0"`，框架不另行替换或推断。
-需要等待 mutation 完成时，在相应语句中使用 `SETTINGS mutations_sync=2`；不提供会话设置接口。
+需要等待 mutation 完成时，在相应语句中使用 `SETTINGS mutations_sync=2`；会话控制按驱动能力执行，需显式关闭框架事务。
 
 ClickHouse 脚本失败、超时或历史写入失败后，先前成功的写入可能已经生效，却没有成功历史；
 错误会提示可能存在部分变更。down 也没有自动回滚保障。重试前检查数据与迁移历史，按实际

@@ -27,11 +27,12 @@ type Program struct {
 }
 
 type Invocation struct {
-	vm       *goja.Runtime
-	fn       goja.Callable
-	program  *Program
-	rejected map[*goja.Promise]bool
-	used     bool
+	vm          *goja.Runtime
+	fn          goja.Callable
+	program     *Program
+	rejected    map[*goja.Promise]bool
+	used        bool
+	transaction bool
 }
 
 // Compile performs no script evaluation and never resolves imported files.
@@ -109,9 +110,10 @@ func Compile(filename, source, direction string, options Options) (*Program, err
 // A plan retains each instance so initialization happens exactly once.
 func (p *Program) Instantiate(ctx context.Context) (instance *Invocation, err error) {
 	i := &Invocation{
-		vm:       goja.New(),
-		program:  p,
-		rejected: make(map[*goja.Promise]bool),
+		vm:          goja.New(),
+		program:     p,
+		rejected:    make(map[*goja.Promise]bool),
+		transaction: true,
 	}
 	i.vm.SetMaxCallStackSize(512)
 	i.vm.SetParserOptions(parser.WithSourceMapLoader(func(string) ([]byte, error) { return nil, errors.New("external source maps disabled") }))
@@ -133,7 +135,29 @@ func (p *Program) Instantiate(ctx context.Context) (instance *Invocation, err er
 				validateErr = errors.New("missing exports")
 				return
 			}
-			entry := exports.ToObject(i.vm).Get(p.direction)
+			module := exports.ToObject(i.vm)
+			config := module.Get("config")
+			if config != nil && !goja.IsUndefined(config) {
+				object, ok := config.(*goja.Object)
+				if !ok || object.ClassName() != "Object" {
+					validateErr = errors.New("config must be an object")
+					return
+				}
+				value := object.Get("transaction")
+				if value != nil && !goja.IsUndefined(value) {
+					if _, objectValue := value.(*goja.Object); objectValue {
+						validateErr = errors.New("config.transaction must be a boolean")
+						return
+					}
+					var valid bool
+					i.transaction, valid = value.Export().(bool)
+					if !valid {
+						validateErr = errors.New("config.transaction must be a boolean")
+						return
+					}
+				}
+			}
+			entry := module.Get(p.direction)
 			var ok bool
 			i.fn, ok = goja.AssertFunction(entry)
 			if !ok {
@@ -160,6 +184,10 @@ func (p *Program) Instantiate(ctx context.Context) (instance *Invocation, err er
 	}
 	return i, nil
 }
+
+// TransactionEnabled snapshots the module's config.transaction before execution.
+// The default requests the framework transaction where the dialect supports it.
+func (i *Invocation) TransactionEnabled() bool { return i.transaction }
 
 // Run is single-use. Bindings are created with the same deadline as the script.
 func (i *Invocation) Run(ctx context.Context, bindings func(context.Context) any) error {

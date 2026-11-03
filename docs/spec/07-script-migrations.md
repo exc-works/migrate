@@ -44,17 +44,25 @@ provide declarations for editor assistance. Do not advertise full Node.js compat
 
 `db` is a narrow object with `dialect`, `query(sql, params?)` and `exec(sql, params?)`.
 Statements use native dialect placeholders and bound parameters; do not concatenate
-values into SQL. One call executes one driver statement, not annotated migration text.
+values into SQL. Each call forwards nonempty SQL unchanged to the driver; it is not
+annotated migration text and the bridge does not interpret client separators such as GO.
 No database object is exposed during module initialization.
 
-The bridge accepts direct statements beginning with SELECT, INSERT, UPDATE, DELETE,
-WITH, VALUES, TABLE, REPLACE, MERGE, CREATE, ALTER, DROP, TRUNCATE, COMMENT,
-REFRESH, REINDEX, EXPLAIN, SHOW, DESCRIBE or DESC. Reject other leading keywords,
-including dynamic EXECUTE, procedure CALL, transaction/session and administrative
-commands, before calling the driver. Use SQL migration files for those operations.
-This restriction does not make implicitly committing DDL transactional. SQL must start directly with an allowed keyword after whitespace. Leading SQL comments
-are unsupported because dialects disagree about nesting and line endings; place
-annotations in JS/TS comments. SQL files retain their existing parser behavior.
+Scripts are trusted repository code with the configured account's database permissions.
+The bridge does not implement a SQL keyword allowlist/denylist, statement splitter or
+SQL syntax validator. Comments, semicolons, native batches, administrative statements,
+functions/procedure definitions and calls are forwarded as supplied; support depends
+on the driver and database. Preserve native terminators, including MERGE's semicolon.
+Use bound values; this API is not a SQL sandbox. SQL files retain their existing parser.
+`query` materializes only the first result set; driver-reported exec counts retain their
+native meaning for batches. Use separate calls when multiple result sets are needed.
+
+A module may export `config = { transaction: false }` to disable the framework
+transaction for both up and down. Omitted config/transaction defaults to true; supplied
+config must be an object and a defined transaction value must be a boolean. Validate
+and snapshot it while initializing every selected module before execution begins.
+Entrypoint mutations cannot change the prepared policy. Metadata-only and dry-run
+commands do not evaluate config or validate dynamically computed export values.
 
 ## Database values
 
@@ -84,22 +92,14 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
   DBMS_LOB.SUBSTR); do not guess based on bytes alone. CLI and test connections disable
   fast-login cookies by default for reliable v3 reconnection, preserving explicit
   FAST LOGIN options. Go facade callers must configure their supplied DB likewise.
-  PL/SQL blocks and procedure calls remain SQL-file operations. If this driver omits
+  Native PL/SQL follows driver execution semantics. If this driver omits
   SQL type names, use its numeric precision and Oracle scan-type metadata for NUMBER,
   binary and text conversion; keep ambiguous non-Oracle byte values rejected.
   Redshift-specific values with unknown pgx type metadata require explicit SQL casts;
   use FROM_VARBYTE/FROM_HEX for binary values through hex text.
-- MSSQL uses the existing sqlserver driver and native `@p1` parameters, with the
-  framework transaction shared by each script and history write. SQL batches,
-  procedure calls and session/transaction commands remain outside the script API.
-  T-SQL permits semicolon-free batches: validate MSSQL tokens before either bridge
-  call, rejecting embedded transaction/session/dynamic commands and additional
-  top-level statements. Ignore quoted values/identifiers and nested comments when
-  examining keywords; retain direct CTE/DML, ALTER TABLE column/constraint/referential clauses,
-  CREATE OR ALTER VIEW and MERGE actions. MSSQL scalar REPLACE calls must not be
-  confused with other dialects' REPLACE statement. Restore MERGE's
-  required terminator after generic single-statement validation. Real-driver tests
-  must cover a bound UPDATE followed by COMMIT, rollback and pending history.
+- MSSQL uses the existing sqlserver driver and native `@p1` parameters. Native batches,
+  DECLARE/SET, procedure definitions/calls and manual transactions are permitted by
+  the bridge. SQL Server parses the original SQL; do not reimplement T-SQL grammar.
   MONEY/SMALLMONEY remain exact strings, GUIDs retain the driver's copied binary
   representation (cast to VARCHAR(36) for formatted text), and timestamp/rowversion
   is binary only for this dialect. DATE/TIME values retain the existing time contract.
@@ -115,16 +115,35 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
   script dialects. Generated declarations include every executable dialect.
 - Warn once per selected script plan for experimental dialects, including dry-run;
   metadata-only operations and SQL-only plans do not emit this warning.
-- Each script migration and its successful history write use the same framework transaction
-  where supported. ClickHouse uses the existing nontransactional runner for scripts too.
+- By default, each script migration and successful history write share the framework
+  transaction where supported. Capability transaction_mode describes this default.
+  Authors must not manually begin/commit/rollback that transaction; such SQL is not
+  blocked, but violates managed-mode usage and invalidates automatic rollback guarantees.
+- With config.transaction=false, use one dedicated sql.Conn for every call and history
+  operation in that step, with no framework Begin/Commit/Rollback. On success, return
+  the connection to the pool via sql.Conn.Close; rely on database/sql and the driver's
+  validity/reset hooks for reuse rather than marking every successful connection bad.
+  On error or panic, discard it because an unfinished manual transaction may remain.
+  Driver reset support does not uniformly clear session settings: authors must restore
+  changed settings and finish manual transactions before successful return. Successful
+  return with an unfinished manual transaction is invalid usage. Bridge failures remain
+  sticky and block later calls; disposal cleans up still-uncommitted native transactions.
+- Warn for explicitly nontransactional scripts and annotate their errors (including
+  history and down failures) with possible partial changes and recovery guidance.
+  Earlier auto-committed operations can remain without successful history. Do not
+  claim data/history atomicity or automatic rollback in this mode.
+- ClickHouse retains its existing nontransactional default.
 - Preserve existing SQL transaction behavior, including the nontransactional ClickHouse
   SQL fallback. Transaction guarantees below apply only where a transaction is supported.
 - Default cleanup rolls back. Commit happens explicitly after successful execution.
-- Runtime/bridge failures never commit a framework transaction. Capture unexpected callback panics at the
-  execution boundary, return a sanitized error and preserve rollback errors.
+- On runtime/bridge failures the framework does not call Commit and attempts rollback.
+  This can undo only changes still governed by its transaction; user SQL, procedures,
+  implicit commits and nontransactional operations can defeat that guarantee. Capture
+  unexpected callback panics, return a sanitized error and preserve rollback errors.
 - A database bridge failure remains fatal even if script code catches the JS exception.
-- Scripts must not execute transaction-control SQL. No nested/manual transaction API
-  is exposed. Statement restrictions are checked before executing user SQL.
+- Manual SQL transaction/session control requires config.transaction=false. Database
+  permissions, SQL validity, balancing manual transactions and resetting desired session
+  state are the migration author's responsibility; no SQL keyword enforcement is provided.
 - MySQL/MariaDB atomicity requires transactional tables and operations. Oracle DDL
   implicitly commits. MySQL/MariaDB/TiDB DDL may implicitly
   commit: a framework transaction cannot make those statements rollback-safe.
@@ -135,7 +154,7 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 - ClickHouse scalar integers (including 128/256 bit) and decimal values remain exact
   strings; unwrap Nullable/LowCardinality metadata. Complex values (Array/Tuple/Map,
   etc.) require explicit scalar casts; arbitrary driver objects remain rejected.
-- General nontransactional execution beyond ClickHouse and resumable backfills are deferred.
+- Resumable backfills remain deferred.
 - History tracks successful versions, not an exactly-once guarantee across crashes,
   implicit commits or concurrent migrators. Operators serialize migration invocations.
 

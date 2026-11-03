@@ -65,7 +65,7 @@ func Dialects() []DialectCapability {
 			Name:            dialect.NameOracle,
 			Verification:    VerificationExperimental,
 			TransactionMode: TransactionFramework,
-			Notes:           "limited Oracle Free coverage with go-ora v3; DDL implicitly commits; PL/SQL blocks and procedure calls require SQL migrations",
+			Notes:           "limited Oracle Free coverage with go-ora v3; DDL implicitly commits; native PL/SQL follows driver execution semantics",
 		},
 		{
 			Name:            dialect.NameClickHouse,
@@ -77,7 +77,7 @@ func Dialects() []DialectCapability {
 			Name:            dialect.NameMSSQL,
 			Verification:    VerificationExperimental,
 			TransactionMode: TransactionFramework,
-			Notes:           "limited SQL Server coverage; Azure SQL deployments remain unverified; batches and procedure calls require SQL migrations",
+			Notes:           "limited SQL Server coverage; Azure SQL deployments remain unverified; native SQL follows driver execution semantics",
 		},
 	}
 	for i := range capabilities {

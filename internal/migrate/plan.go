@@ -2,6 +2,9 @@ package migrate
 
 import (
 	"context"
+	"database/sql"
+	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -89,6 +92,9 @@ func (s *Service) preparePlan(migrations []Migration, direction string) ([]plann
 					return nil, err
 				}
 			}
+			if invocation != nil && !invocation.TransactionEnabled() {
+				s.cfg.Logger.Warnf("nontransactional script file=%s: no automatic rollback; failures may leave partial changes without history", m.Filename)
+			}
 			step = scriptStep{
 				migration:  m,
 				direction:  direction,
@@ -104,15 +110,53 @@ func (s *Service) preparePlan(migrations []Migration, direction string) ([]plann
 	return plan, nil
 }
 
-// withStepTransaction includes history writes in the failure boundary. A failed
-// nontransactional script can have persisted data even without a history record.
-func (s *Service) withStepTransaction(step migrationStep, fn func(execContextRunner) error) error {
-	err := s.withTx(fn)
-	if _, isScript := step.(scriptStep); err != nil && isScript {
+// withStepTransaction uses the selected script's transaction policy for data and
+// history. SQL migrations retain their existing transaction behavior.
+func (s *Service) withStepTransaction(step migrationStep, fn func(execContextRunner) error) (err error) {
+	scriptMigration, isScript := step.(scriptStep)
+	disabled := isScript && scriptMigration.invocation != nil && !scriptMigration.invocation.TransactionEnabled()
+	nontransactional := disabled
+	if isScript {
 		capability, _ := script.Capability(s.cfg.Dialect.Name())
-		if capability.TransactionMode == script.TransactionNone {
-			return fmt.Errorf("%w; nontransactional script may have left partial changes; inspect data and migration history before retrying", err)
-		}
+		nontransactional = nontransactional || capability.TransactionMode == script.TransactionNone
 	}
+	defer func() {
+		if recover() != nil {
+			err = errors.Join(errors.New("migration execution panicked"), err)
+		}
+		if err != nil && isScript && nontransactional {
+			err = fmt.Errorf("%w; nontransactional script may have left partial changes; inspect data and migration history before retrying", err)
+		}
+	}()
+	if disabled && !s.cfg.DryRun {
+		return s.withScriptConnection(fn)
+	}
+	return s.withTx(fn)
+}
+
+// One connection preserves manual transactions and session settings across calls.
+// Return successful connections to the pool; database/sql and the driver validate
+// them before reuse. Failed or panicked steps may leave a manual transaction, so
+// discard those connections instead. Authors finish transactions and restore any
+// session settings they change before a successful return.
+func (s *Service) withScriptConnection(fn func(execContextRunner) error) (err error) {
+	conn, err := s.cfg.DB.Conn(s.ctx)
+	if err != nil {
+		return err
+	}
+	reusable := false
+	defer func() {
+		if !reusable {
+			discardErr := conn.Raw(func(any) error { return driver.ErrBadConn })
+			if discardErr != nil && !errors.Is(discardErr, driver.ErrBadConn) && !errors.Is(discardErr, sql.ErrConnDone) {
+				err = errors.Join(err, errors.New("discard migration connection failed"))
+			}
+		}
+		if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, sql.ErrConnDone) {
+			err = errors.Join(err, errors.New("close migration connection failed"))
+		}
+	}()
+	err = fn(conn)
+	reusable = err == nil
 	return err
 }
