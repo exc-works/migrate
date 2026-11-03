@@ -103,7 +103,7 @@ func TestMySQLRemoteDialTimeout(t *testing.T) {
 
 func TestUnsupportedTunnelBeforeNetwork(t *testing.T) {
 	_, err := Open(context.Background(), Options{Dialect: "sqlite", DataSourceName: "example", SSHTunnel: &tunnel.Options{}})
-	if err == nil || !strings.Contains(err.Error(), "only PostgreSQL") {
+	if err == nil || !strings.Contains(err.Error(), "SQLite has no TCP target") {
 		t.Fatal(err)
 	}
 }

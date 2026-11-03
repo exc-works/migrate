@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Native SSH tunnels for PostgreSQL/MySQL/MariaDB with optional SOCKS5 or HTTP
+- Native SSH tunnels for PostgreSQL/MySQL/MariaDB/MSSQL/Oracle/ClickHouse/TiDB/Redshift
+  with optional SOCKS5 or HTTP
   CONNECT proxies, strict host verification, environment or hidden terminal secrets,
   noninteractive CLI mode, and an owned Go connection API.
 

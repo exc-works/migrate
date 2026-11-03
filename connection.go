@@ -23,7 +23,7 @@ type SecretPrompt = tunnel.Prompt
 
 // OpenConnection constructs a pool without pinging. Use Connection.Context when
 // constructing the migration service so SSH transport failure cancels execution.
-// Direct drivers other than PG/MySQL must be registered by the caller.
+// The SQLite driver must be registered by the caller.
 func OpenConnection(ctx context.Context, options ConnectionOptions) (*Connection, error) {
 	return connection.Open(ctx, options)
 }

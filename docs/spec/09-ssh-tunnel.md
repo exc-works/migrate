@@ -34,9 +34,18 @@ Keep SQL/full builds and the existing caller-owned DB API compatible.
   TCP connections, not SSH channels that lack deadline support.
 - Preserve original database TLS identity and authentication. PG uses per-instance
   pgx config and MySQL uses a per-instance connector; avoid global dialer registries.
-- Initially support single TCP targets for PostgreSQL/MySQL/MariaDB only. Reject
-  multi-host, Unix socket and unsupported dialect tunnel configurations explicitly.
-  Preserve direct connections for all existing dialects and the Oracle DSN handling.
+- Support single TCP targets for PostgreSQL/MySQL/MariaDB, MSSQL, Oracle, ClickHouse,
+  TiDB (MySQL route) and Redshift (PG route). SQLite has no TCP target. Reject
+  multi-host, Unix socket and foreign-endpoint redirects explicitly. Preserve direct
+  connections for all existing dialects and the Oracle FAST LOGIN normalization.
+- MSSQL uses its connector dialer with remote DNS and the original TLS identity;
+  require TCP host/port without named-instance discovery, failover or explicit
+  MultiSubnetFailover. Oracle uses its connector dialer for one TCP/TCPS URL, without
+  descriptors, extra servers, OOB or external authentication.
+- ClickHouse Native and HTTP(S) use per-instance dial hooks. Native custom dialing
+  must perform TLS itself; HTTP(S) retains transport TLS. Preserve original host
+  verification. Reject database HTTP proxies and disable HTTP_PROXY/HTTPS_PROXY
+  discovery so database traffic cannot bypass the configured SSH route.
 - Every PG connection, including cancellation connections, must use the relay.
   Preserve connect timeouts and prevent DNS lookup or TLS fallback bypassing routing.
 - SSH handshake, proxy negotiation and channel opens have bounded timeouts and
@@ -62,7 +71,8 @@ to descendants and obtain current checks/reviews. Never merge or release automat
 
 Verify proxy auth/rejection/cancellation, generated SSH host keys and mismatches,
 password/key/agent authentication, relay lifecycle, transport loss, and actual PG/MySQL/
-MariaDB migrations. Exercise remote DNS, TLS hostname verification, driver timeouts,
+MariaDB, MSSQL, ClickHouse Native/HTTP and TiDB migrations; Oracle/Redshift workflows
+use configured external fixtures. Exercise remote DNS, TLS hostname verification, driver timeouts,
 query cancellation and no reconnect after failure. Generate test keys at runtime;
 commit no private keys. Container DB tests use testcontainers and existing CI matrix.
 Run all five merge gates in default/full builds; report skipped external tests honestly.
