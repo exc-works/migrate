@@ -65,9 +65,9 @@ func Read(path, workingDir string) (*FileConfig, error) {
 }
 
 func resolveTunnelConfig(o *tunnel.Options, base string) error {
-	fields := []*string{&o.Host, &o.User, &o.Auth.KeyFile, &o.KnownHostsFile}
+	fields := []*string{&o.Host, &o.User, &o.Auth.Type, &o.Auth.KeyFile, &o.KnownHostsFile, &o.ConnectTimeout, &o.KeepaliveInterval, &o.KeepaliveTimeout}
 	if o.Proxy != nil {
-		fields = append(fields, &o.Proxy.Address, &o.Proxy.Username)
+		fields = append(fields, &o.Proxy.Type, &o.Proxy.Address, &o.Proxy.Username)
 	}
 	for _, field := range fields {
 		value, err := ReplaceEnvVar(*field)
