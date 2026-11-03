@@ -125,7 +125,7 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 						return moduleError("module import requires source context"), nil
 					}
 					// Handle back imports even when a supplied string entry has no disk file.
-					if (strings.HasPrefix(args.Path, "./") || strings.HasPrefix(args.Path, "../") || filepath.IsAbs(args.Path)) && diskEntryAlias(filepath.Clean(filepath.Join(args.ResolveDir, args.Path)), entry) {
+					if (relativeModulePath(args.Path) || filepath.IsAbs(args.Path)) && diskEntryAlias(filepath.Clean(filepath.Join(args.ResolveDir, args.Path)), entry) {
 						return api.OnResolveResult{
 							Path:      entry,
 							Namespace: namespace,
@@ -272,4 +272,8 @@ func moduleFileCandidates(candidate string) []string {
 		names = append(names, strings.TrimSuffix(candidate, extension)+replacement)
 	}
 	return names
+}
+
+func relativeModulePath(specifier string) bool {
+	return specifier == "." || specifier == ".." || strings.HasPrefix(specifier, "./") || strings.HasPrefix(specifier, "../")
 }
