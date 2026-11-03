@@ -86,7 +86,7 @@ func (s *Service) preparePlanWithModules(migrations []Migration, direction strin
 				}
 				warned = true
 			}
-			p, err := script.Compile(m.Filename, m.Source, direction, s.cfg.ScriptOptions)
+			p, err := script.Compile(m.Filename, m.Source, direction, s.cfg.ScriptOptions, modules[m.Version])
 			if err != nil {
 				return nil, err
 			}

@@ -26,7 +26,7 @@ migrate up
 
 文件名沿用 `V<version>__<description>`，SQL、JS（含 `.mjs`）和 TS 共享同一版本序列，版本号不能重复。
 `.mjs` 是 `.js` 的兼容后缀，执行方式和限制相同；可用 `--format mjs` 生成，默认仍生成 SQL。
-不增加 Node.js、npm 或模块导入能力。
+不增加 Node.js 运行时。
 已有 SQL 文件及已应用脚本保持不变；修改内容或改名会被历史校验阻断。
 
 ```js
@@ -53,6 +53,29 @@ JS 模板通过 JSDoc 声明 `MigrationDB` 并标注 `db`，TS 模板提供等�
 两者都包含数据库方法、参数和结果类型，便于编辑器提示。TS 执行时去除类型，不进行完整类型检查。
 需要共享声明时，将 [migration-api.d.ts](migration-api.d.ts) 放在项目中，使用
 `/// <reference path="./migration-api.d.ts" />` 引用，并移除模板内同名的局部类型。
+
+## 共享模块
+
+目录来源的迁移可以静态导入或再导出 `.js`、`.ts`、`.mjs` 文件。路径相对于每个
+导入文件解析，允许引用迁移目录外的共享代码；辅助文件仅作为依赖，不作为独立迁移执行。
+
+```ts
+import { normalize } from "../shared/normalize.ts";
+
+export function up(db) {
+  db.exec("UPDATE users SET name=? WHERE id=?", [normalize(" Alice "), "1"]);
+}
+```
+
+工具在迁移写入前打包依赖；每条迁移保持独立的 VM 和模块状态。后续选中迁移的依赖错误
+会阻止前面的迁移执行；回滚也先准备整个选定范围。dry-run 编译但不执行模块，
+status/baseline 只读取元数据。
+
+checksum 只覆盖入口原始源码。修改辅助文件不会导致历史校验失败，也不会重新执行已应用
+迁移。需要保留历史可重放性时，保留旧辅助实现，新增版本供新迁移使用。
+
+已安装 npm 包和虚拟来源导入由后续层启用。Node 内置模块、原生扩展、动态 import、
+动态 require 和异步入口仍不支持；运行时不提供通用模块加载器。
 
 ## 数据与 SQL 接口
 

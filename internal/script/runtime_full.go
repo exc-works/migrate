@@ -12,7 +12,6 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
-	"github.com/evanw/esbuild/pkg/api"
 	migrationparser "github.com/exc-works/migrate/internal/parser"
 	migrationsource "github.com/exc-works/migrate/internal/source"
 )
@@ -36,8 +35,8 @@ type Invocation struct {
 	transaction bool
 }
 
-// Compile performs no script evaluation and never resolves imported files.
-func Compile(filename, source, direction string, options Options) (*Program, error) {
+// Compile bundles and compiles without evaluating scripts or dependency modules.
+func Compile(filename, source, direction string, options Options, contexts ...*migrationsource.ModuleContext) (*Program, error) {
 	options, err := options.Normalize()
 	if err != nil {
 		return nil, err
@@ -48,50 +47,23 @@ func Compile(filename, source, direction string, options Options) (*Program, err
 	if direction != migrationparser.DirectionUpName && direction != migrationparser.DirectionDownName {
 		return nil, errors.New("invalid script direction")
 	}
-	loader := api.LoaderJS
+	if len(contexts) > 1 {
+		return nil, errors.New("expected at most one module context")
+	}
+	var modules *migrationsource.ModuleContext
+	if len(contexts) == 1 {
+		modules = contexts[0]
+	}
 	switch filepath.Ext(filename) {
-	case migrationsource.ExtensionJS, migrationsource.ExtensionMJS:
-	case migrationsource.ExtensionTS:
-		loader = api.LoaderTS
+	case migrationsource.ExtensionJS, migrationsource.ExtensionMJS, migrationsource.ExtensionTS:
 	default:
 		return nil, errors.New("unsupported script extension")
 	}
-	result := api.Build(api.BuildOptions{
-		Stdin: &api.StdinOptions{
-			Contents:   source,
-			Sourcefile: filename,
-			Loader:     loader,
-		},
-		Bundle:     true,
-		Write:      false,
-		Format:     api.FormatIIFE,
-		GlobalName: "migration",
-		Target:     api.ES2017,
-		// Preserve async generators so preflight can reject their original kind.
-		Supported:      map[string]bool{"async-generator": true},
-		Sourcemap:      api.SourceMapInline,
-		SourcesContent: api.SourcesContentExclude,
-		TsconfigRaw:    "{}",
-		LogLevel:       api.LogLevelSilent,
-		Plugins: []api.Plugin{{
-			Name: "independent-migration",
-			Setup: func(build api.PluginBuild) {
-				build.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(api.OnResolveArgs) (api.OnResolveResult, error) {
-					return api.OnResolveResult{Errors: []api.Message{{Text: "migration imports are unsupported"}}}, nil
-				})
-			},
-		}},
-	})
-	if len(result.Errors) > 0 {
-		if loc := result.Errors[0].Location; loc != nil {
-			return nil, fmt.Errorf("compile script %s:%d:%d", filename, loc.Line, loc.Column+1)
-		}
-		return nil, fmt.Errorf("compile script %s: imports and re-exports are unsupported", filename)
+	bundled, err := bundleModule(filename, source, modules)
+	if err != nil {
+		return nil, err
 	}
-	if len(result.OutputFiles) != 1 {
-		return nil, fmt.Errorf("compile script %s: expected one module", filename)
-	}
-	ast, err := parser.ParseFile(nil, filename, string(result.OutputFiles[0].Contents), 0, parser.WithSourceMapLoader(func(string) ([]byte, error) { return nil, errors.New("external source maps disabled") }))
+	ast, err := parser.ParseFile(nil, filename, string(bundled), 0, parser.WithSourceMapLoader(func(string) ([]byte, error) { return nil, errors.New("external source maps disabled") }))
 	if err != nil {
 		return nil, fmt.Errorf("compile script %s: invalid source map", filename)
 	}
@@ -244,6 +216,10 @@ func (i *Invocation) guarded(parent context.Context, fn func(context.Context) er
 			for _, frame := range exception.Stack() {
 				pos := frame.Position()
 				if pos.Line > 0 {
+					module := moduleDisplayName(pos.Filename)
+					if module != i.program.filename {
+						return fmt.Errorf("execute %s script %s: module %s:%d:%d: script failed", i.program.direction, i.program.filename, module, pos.Line, pos.Column)
+					}
 					return fmt.Errorf("execute %s script %s:%d:%d: script failed", i.program.direction, i.program.filename, pos.Line, pos.Column)
 				}
 			}

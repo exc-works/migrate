@@ -46,9 +46,8 @@ assistance. Do not advertise full Node.js compatibility.
 ### Module import rollout
 
 The following is the target contract for the staged implementation in
-[08-script-modules-plan.md](08-script-modules-plan.md). At the contract-only stage,
-runtime compilation still rejects imports; subsequent layers enable disk-relative,
-installed-package and virtual-source imports in that order. User documentation must
+[08-script-modules-plan.md](08-script-modules-plan.md). Disk-relative imports are implemented on this branch. Installed-package and
+virtual-source imports are enabled by subsequent layers in that order. User documentation must
 describe only the layers actually implemented on its branch.
 
 - Bundle static local imports and re-exports from JS/TS/MJS, installed npm packages
