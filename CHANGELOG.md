@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ClickHouse/TiDB/MSSQL container CI and optional SQL/full Oracle/Redshift/MSSQL integration.
 
 ### Fixed
+- Restore Linux/Windows x86 SQL and full builds by pinning the upstream Oracle
+  driver fix for 32-bit INTERVAL integer overflow.
 - Ignore ordinary synchronous script return values and allow caught SQL failures to
   recover with subsequent calls without classifying vendor error codes. Promise,
   actual execution cancellation, overall timeout, validation and resource-limit
