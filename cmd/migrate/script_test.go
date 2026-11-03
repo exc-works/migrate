@@ -127,3 +127,28 @@ func TestCapabilitiesDialectVerification(t *testing.T) {
 		}
 	}
 }
+
+func TestGeneratedTypesCoverExecutableDialects(t *testing.T) {
+	if len(script.Formats()) == 1 {
+		t.Skip("script templates require full build")
+	}
+	declarations, err := os.ReadFile(filepath.Join("..", "..", "docs", "migration-api.d.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, format := range []string{"js", "mjs", "ts"} {
+		template, err := migrationTemplate(format)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, capability := range script.Dialects() {
+			name := `"` + capability.Name + `"`
+			if !strings.Contains(template, name) || !strings.Contains(string(declarations), name) {
+				t.Fatalf("%s missing dialect %s", format, capability.Name)
+			}
+		}
+		if !strings.Contains(template, "rowsAffected: string") || !strings.Contains(string(declarations), "rowsAffected: string") || strings.Contains(template, "rowsAffected: string | null") || strings.Contains(string(declarations), "rowsAffected: string | null") {
+			t.Fatalf("%s must declare driver row counts as strings", format)
+		}
+	}
+}

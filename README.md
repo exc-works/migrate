@@ -1,7 +1,8 @@
 # migrate
 
 SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/TiDB/Redshift support.
-An optional full build adds standalone JavaScript and TypeScript migrations for PostgreSQL/MySQL/MariaDB/SQLite.
+An optional full build adds standalone JavaScript and TypeScript migrations for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse support.
+Use `migrate capabilities` to inspect verification status and transaction limits.
 
 ## Documentation
 
@@ -62,6 +63,18 @@ Run a specific integration dialect:
 INTEGRATION_DB=sqlite go test -tags=integration ./integrationtest/...
 INTEGRATION_DB=postgres,mysql,mariadb go test -tags=integration ./integrationtest/...
 ```
+
+Run ClickHouse/TiDB SQL and script integration in disposable containers (or set
+`INTEGRATION_CLICKHOUSE_DSN` / `INTEGRATION_TIDB_DSN` to use external test instances):
+
+```bash
+INTEGRATION_DB=clickhouse,tidb go test -tags=integration,full ./integrationtest/...
+```
+
+TiDB containers use Unistore; distributed TiKV behavior remains unverified.
+Oracle and Redshift tests require dedicated external instances and the corresponding
+`INTEGRATION_ORACLE_DSN` / `INTEGRATION_REDSHIFT_DSN`. Without these values, optional
+checks are skipped, which does not count as verification.
 
 Run Oracle integration (requires reachable Oracle DSN):
 

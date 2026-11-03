@@ -18,7 +18,7 @@ interface MigrationDB {
     params?: readonly MigrationSQLParameter[],
   ): Record<string, MigrationSQLValue>[];
 
-  /** Use native placeholders. Transaction/session control is unsupported. */
+  /** Use native placeholders. Counts are driver-reported decimal strings. No manual transactions. */
   exec(
     sql: string,
     params?: readonly MigrationSQLParameter[],

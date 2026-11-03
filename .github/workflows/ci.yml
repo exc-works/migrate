@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        db: [postgres, mysql, mariadb, sqlite]
+        db: [postgres, mysql, mariadb, sqlite, clickhouse, tidb]
         build: [sql, full]
     steps:
       - uses: actions/checkout@v6
@@ -60,34 +60,55 @@ jobs:
           INTEGRATION_DB: ${{ matrix.db }}
         run: go test -tags="integration${BUILD_TAGS:+,$BUILD_TAGS}" ./...
 
-  integration-oracle:
+  integration-external:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [oracle, redshift]
+    # Both builds share the dedicated external schema, so run them in order.
+    # Also prevent another workflow run from modifying that schema concurrently.
+    concurrency:
+      group: integration-external-${{ matrix.db }}
+      cancel-in-progress: false
     env:
       INTEGRATION_ORACLE_DSN: ${{ secrets.INTEGRATION_ORACLE_DSN }}
+      INTEGRATION_REDSHIFT_DSN: ${{ secrets.INTEGRATION_REDSHIFT_DSN }}
     steps:
-      - name: Check Oracle DSN
-        id: oracle_dsn
+      - name: Check external DSN
+        id: dsn
+        env:
+          DB_FLAVOR: ${{ matrix.db }}
         run: |
-          if [ -n "${INTEGRATION_ORACLE_DSN:-}" ]; then
+          case "$DB_FLAVOR" in
+            oracle) selected_dsn="${INTEGRATION_ORACLE_DSN:-}" ;;
+            redshift) selected_dsn="${INTEGRATION_REDSHIFT_DSN:-}" ;;
+          esac
+          if [ -n "$selected_dsn" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "INTEGRATION_ORACLE_DSN is not set, skip oracle integration tests."
+            echo "$DB_FLAVOR DSN is not set; real-instance verification is skipped."
           fi
       - uses: actions/checkout@v6
-        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
+        if: ${{ steps.dsn.outputs.available == 'true' }}
       - uses: actions/setup-go@v6
-        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
+        if: ${{ steps.dsn.outputs.available == 'true' }}
         with:
           go-version-file: go.mod
       - name: Download dependencies
-        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
+        if: ${{ steps.dsn.outputs.available == 'true' }}
         run: go mod download
-      - name: Integration tests (oracle)
-        if: ${{ steps.oracle_dsn.outputs.available == 'true' }}
+      - name: Integration tests (SQL)
+        if: ${{ steps.dsn.outputs.available == 'true' }}
         env:
-          INTEGRATION_DB: oracle
+          INTEGRATION_DB: ${{ matrix.db }}
         run: go test -tags=integration ./integrationtest/...
+      - name: Integration tests (full)
+        if: ${{ steps.dsn.outputs.available == 'true' }}
+        env:
+          INTEGRATION_DB: ${{ matrix.db }}
+        run: go test -tags=integration,full ./integrationtest/...
 
   build:
     runs-on: ubuntu-latest

@@ -154,6 +154,13 @@ write successful migration history. It does not predict dynamically generated SQ
 - Cover conversion fidelity, driver errors, timeout, cancellation, sticky failures,
   resource caps, module restrictions, isolated VM state and original TS error locations.
 - Use testcontainers for PostgreSQL/MySQL/MariaDB and temporary SQLite files.
+- Explicit ClickHouse/TiDB selection without an external DSN uses disposable pinned
+  containers; TiDB uses Unistore, not a verified distributed TiKV deployment. Preserve
+  external DSN overrides and default optional-database skips.
+- CI covers ClickHouse/TiDB SQL and full builds. Oracle/Redshift SQL/full checks are
+  conditional on dedicated external DSNs; skipped jobs are not real-instance verification.
+- New dialects remain experimental despite limited container coverage; keep capability
+  notes accurate about what has been exercised.
 - Run all five repository merge gates in both default and full configurations.
   Combine `integration,full` for full integration tests.
 - Test minimum Go compatibility, release platform builds and native executable smoke tests.

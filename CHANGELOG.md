@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental JS/TS/MJS migration execution for TiDB, Redshift, Oracle and ClickHouse.
+- Per-dialect verification status, transaction modes and limitations in capabilities,
+  plus one warning per selected experimental script plan.
+- ClickHouse scalar value conversion and explicit partial-state errors for
+  nontransactional execution/history failures; driver-reported affected-row counts remain strings.
+- ClickHouse/TiDB container CI and optional SQL/full Oracle/Redshift integration.
+
+### Fixed
+- Upgrade the Oracle driver to go-ora v3 for modern authentication; disable its fast
+  login cache by default while preserving explicit options. Correct Oracle history
+  DDL, native status binding and missing result metadata handling.
+- Serialize external SQL/full CI against each dedicated database to avoid fixture races.
+
+### Compatibility
+- Default builds remain SQL-only. Existing script_dialects JSON output is preserved;
+  script_dialect_capabilities adds detailed status. New dialects remain experimental.
+- Oracle DDL implicitly commits. ClickHouse scripts cannot automatically roll back;
+  inspect data and history before retrying failures. Generated declarations include
+  all executable dialects with string affected-row counts.
+
 ## [1.4.0] - 2026-11-02
 
 ### Added
