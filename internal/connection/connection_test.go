@@ -3,10 +3,12 @@ package connection
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/exc-works/migrate/internal/testssh"
 	"github.com/exc-works/migrate/internal/tunnel"
@@ -43,6 +45,11 @@ func TestMySQLConfig(t *testing.T) {
 
 func TestRelayDialer(t *testing.T) {
 	s := testssh.New(t)
+	s.Forward = func(string) (net.Conn, error) {
+		a, b := net.Pipe()
+		go func() { defer b.Close(); _, _ = io.Copy(b, b) }()
+		return a, nil
+	}
 	s.Serve()
 	host, port, _ := net.SplitHostPort(s.Address)
 	p, _ := strconv.Atoi(port)
@@ -68,6 +75,30 @@ func TestRelayDialer(t *testing.T) {
 		t.Fatal("dialed failed route")
 	}
 	conn.Close()
+}
+
+func TestMySQLRemoteDialTimeout(t *testing.T) {
+	s := testssh.New(t)
+	release := make(chan struct{})
+	defer close(release)
+	s.Forward = func(string) (net.Conn, error) { <-release; return nil, io.EOF }
+	s.Serve()
+	host, port, _ := net.SplitHostPort(s.Address)
+	p, _ := strconv.Atoi(port)
+	t.Setenv("MIGRATE_TEST_SSH_EXAMPLE_SECRET", "example")
+	o := tunnel.Options{Host: host, Port: p, User: "example", Auth: tunnel.AuthOptions{Type: tunnel.AuthPasswordMode, PasswordEnv: "MIGRATE_TEST_SSH_EXAMPLE_SECRET"}, KnownHostsFile: s.KnownHosts}
+	conn, err := Open(context.Background(), Options{Dialect: "mysql", DataSourceName: "example@tcp(db.internal.example:3306)/example?timeout=100ms", SSHTunnel: &o})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	start := time.Now()
+	if err := conn.DB.PingContext(context.Background()); err == nil {
+		t.Fatal("stalled channel connected")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("driver timeout did not cover remote channel establishment")
+	}
 }
 
 func TestUnsupportedTunnelBeforeNetwork(t *testing.T) {
