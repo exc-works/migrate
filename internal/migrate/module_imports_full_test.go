@@ -68,3 +68,33 @@ func TestMissingImportPreventsPartialRollback(t *testing.T) {
 		t.Fatalf("partially rolled back plan: %d %v", count, err)
 	}
 }
+
+func TestInstalledDependencyChangesKeepEntryHistory(t *testing.T) {
+	root := t.TempDir()
+	writeMigrationFiles(t, root, map[string]string{
+		"node_modules/helper/package.json": `{"main":"index.js"}`,
+		"node_modules/helper/index.js":     `export const value='first';`,
+		"V1__package.js":                   `import {value} from 'helper';export function up(db){db.exec('CREATE TABLE users(profile TEXT)');db.exec('INSERT INTO users VALUES (?)',[value])}export function down(db){db.exec('DROP TABLE users')}`,
+	})
+	svc, db, _ := mixedService(t, nil, false)
+	svc.cfg.MigrationSource = source.DirectorySource{Directory: root}
+	if err := svc.Up(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := svc.Status()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeMigrationFiles(t, root, map[string]string{"node_modules/helper/index.js": `export const value='second';`})
+	after, err := svc.Status()
+	if err != nil || before[0].Migration.Hash != after[0].Migration.Hash || after[0].Status != StatusApplied {
+		t.Fatalf("dependency changed history: %+v %v", after, err)
+	}
+	if err := svc.Up(); err != nil {
+		t.Fatal(err)
+	}
+	var value string
+	if err := db.QueryRow("SELECT profile FROM users").Scan(&value); err != nil || value != "first" {
+		t.Fatalf("applied migration replayed: %s %v", value, err)
+	}
+}

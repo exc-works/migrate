@@ -74,8 +74,13 @@ status/baseline 只读取元数据。
 checksum 只覆盖入口原始源码。修改辅助文件不会导致历史校验失败，也不会重新执行已应用
 迁移。需要保留历史可重放性时，保留旧辅助实现，新增版本供新迁移使用。
 
-已安装 npm 包和虚拟来源导入由后续层启用。Node 内置模块、原生扩展、动态 import、
-动态 require 和异步入口仍不支持；运行时不提供通用模块加载器。
+也支持已安装 npm 包的包名导入，例如
+`import { normalize } from "@company/migration-utils"`。运行迁移前，使用项目的包管理器
+和 lockfile 安装依赖。esbuild 处理包导出、子路径、嵌套依赖及静态 CommonJS 导入；
+使用 neutral 条件，入口字段依次为 `module`、`main`。工具不安装包，也不增加 Node API；
+包的运行要求必须兼容 Goja 同步运行时。虚拟来源导入由下一层启用。
+Node 内置模块、原生扩展、动态 import、动态 require 和异步入口仍不支持；
+运行时不提供通用模块加载器。
 
 ## 数据与 SQL 接口
 

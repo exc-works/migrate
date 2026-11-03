@@ -65,8 +65,11 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 					if args.Kind == api.ResolveJSDynamicImport || args.Kind == api.ResolveJSRequireResolve {
 						return moduleError("asynchronous or runtime module loading is unsupported"), nil
 					}
-					if directory == "" || (!strings.HasPrefix(args.Path, "./") && !strings.HasPrefix(args.Path, "../")) {
-						return moduleError("module import requires a disk-relative path and source context"), nil
+					if directory == "" {
+						return moduleError("module import requires source context"), nil
+					}
+					if strings.HasPrefix(args.Path, "node:") {
+						return moduleError("Node built-in modules are unavailable in Goja"), nil
 					}
 					// Handle back imports even when a supplied string entry has no disk file.
 					if filepath.Clean(filepath.Join(args.ResolveDir, args.Path)) == entry {
