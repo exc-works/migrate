@@ -209,6 +209,26 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		assertScriptProfile(t, db, table, "new-ts")
 	}
 
+	if d.Name() == dialect.NamePostgres {
+		cancelledItems := append([]source.Migration(nil), items...)
+		body := `export const config={transaction:false};export function up(db){db.exec("SET statement_timeout='50ms'");db.exec('BEGIN');db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec('SAVEPOINT cancelled');try{db.query('SELECT pg_sleep(1)')}catch(e){try{db.exec('ROLLBACK TO SAVEPOINT cancelled')}catch(e){}try{db.exec(` + strconv.Quote(update) + `,['must-not-run','9007199254740993'])}catch(e){}try{db.exec('COMMIT')}catch(e){}}}`
+		cancelledItems = append(cancelledItems, source.Migration{Filename: "V4__cancelled.js", Source: body})
+		cancelledCfg := cfg
+		cancelledCfg.MigrationSource = source.StringSource{Migrations: cancelledItems}
+		cancelled, err := migrate.NewService(ctx, cancelledCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = cancelled.Up(); err == nil {
+			t.Fatal("caught native cancellation recorded success")
+		}
+		assertScriptProfile(t, db, table, "new-ts")
+		statuses, err = cancelled.Status()
+		if err != nil || statuses[len(statuses)-1].Status != migrate.StatusPending {
+			t.Fatalf("%+v %v", statuses, err)
+		}
+	}
+
 	// Fail after a real update; an uncaught DB error must roll the update back.
 	broken := append([]source.Migration(nil), items...)
 	broken = append(broken, source.Migration{Filename: "V4__failure.js", Source: `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.query('SELECT * FROM missing_script_table')}`})

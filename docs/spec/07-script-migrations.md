@@ -152,7 +152,9 @@ commands do not evaluate config or validate dynamically computed export values.
   retries belong in explicit manual mode. Do not automatically replay SQL or commit
   merely to clear errors.
 - Cancellation/deadlines, lost/finished connection handles and transport failures remain
-  fatal even if caught. Parameter/result validation, result limits, result-cleanup and
+  fatal even if caught. Include structured server-native cancellation/timeout codes
+  (for example PostgreSQL 57014), not only Go context/network errors; classify errors
+  before removing driver details. Parameter/result validation, result limits, result-cleanup and
   affected-row conversion failures also remain fatal. Further DB calls are blocked.
   Classify driver errors before sanitizing, but never expose a raw driver error, cause
   chain, SQL text or values to JS while making a SQL exception recoverable.
