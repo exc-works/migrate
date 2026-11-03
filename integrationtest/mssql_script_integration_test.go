@@ -38,9 +38,9 @@ func runMSSQLNativeScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	defer db.ExecContext(ctx, "DROP PROCEDURE IF EXISTS "+proc)
 	defer db.ExecContext(ctx, "DROP TABLE IF EXISTS "+table)
 	createProc := "CREATE OR ALTER PROCEDURE " + proc + " AS BEGIN SET NOCOUNT ON; UPDATE " + table + " SET profile=N'procedure'; END;"
-	batch := "-- native T-SQL batch\nDECLARE @value NVARCHAR(50)=N'batch;value'; UPDATE " + table + " SET profile=@value;"
+	batch := "-- native T-SQL batch\nDECLARE @value NVARCHAR(50)=N'batch;value'; UPDATE " + table + " SET profile=@value,session_id=@@SPID;"
 	items := []source.Migration{
-		{Filename: "V1__native.sql", Source: "-- +migrate Up\nCREATE TABLE " + table + "(profile NVARCHAR(50)); INSERT INTO " + table + " VALUES(N'old');\n-- +migrate Down\nDROP TABLE " + table + ";"},
+		{Filename: "V1__native.sql", Source: "-- +migrate Up\nCREATE TABLE " + table + "(profile NVARCHAR(50),session_id INT); INSERT INTO " + table + " VALUES(N'old',0);\n-- +migrate Down\nDROP TABLE " + table + ";"},
 		{Filename: "V2__native.ts", Source: `export const config={transaction:false};export function up(db:any){db.exec('BEGIN TRANSACTION');db.exec(` + strconv.Quote(batch) + `);if(db.query('SELECT profile FROM ` + table + `')[0].profile!=='batch;value')throw Error('batch');db.exec('COMMIT TRANSACTION');db.exec(` + strconv.Quote(createProc) + `);db.exec('EXEC ` + proc + `');}export function down(db:any){db.exec('BEGIN TRANSACTION');db.exec("UPDATE ` + table + ` SET profile=N'old'");db.exec('COMMIT TRANSACTION');db.exec('DROP PROCEDURE ` + proc + `');}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: randomName("native_history"), MigrationSource: source.StringSource{Migrations: items}}
@@ -55,6 +55,10 @@ func runMSSQLNativeScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		t.Fatal(err)
 	}
 	assertScriptProfile(t, db, table, "procedure")
+	var scriptSession, reusedSession int
+	if err = db.QueryRowContext(ctx, "SELECT session_id,@@SPID FROM "+table).Scan(&scriptSession, &reusedSession); err != nil || scriptSession != reusedSession {
+		t.Fatalf("healthy MSSQL session was replaced: %d != %d: %v", scriptSession, reusedSession, err)
+	}
 	failedItems := append([]source.Migration(nil), items...)
 	failedItems = append(failedItems, source.Migration{Filename: "V3__partial.js", Source: `export const config={transaction:false};export function up(db){db.exec("UPDATE ` + table + ` SET profile=N'partial'");throw Error('after write')}`})
 	failedCfg := cfg

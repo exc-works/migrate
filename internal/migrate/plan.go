@@ -135,21 +135,28 @@ func (s *Service) withStepTransaction(step migrationStep, fn func(execContextRun
 }
 
 // One connection preserves manual transactions and session settings across calls.
-// Discard it afterwards: arbitrary SQL can leave session state or an unfinished
-// transaction, which must never be returned to the shared connection pool.
+// Return successful connections to the pool; database/sql and the driver validate
+// them before reuse. Failed or panicked steps may leave a manual transaction, so
+// discard those connections instead. Authors finish transactions and restore any
+// session settings they change before a successful return.
 func (s *Service) withScriptConnection(fn func(execContextRunner) error) (err error) {
 	conn, err := s.cfg.DB.Conn(s.ctx)
 	if err != nil {
 		return err
 	}
+	reusable := false
 	defer func() {
-		discardErr := conn.Raw(func(any) error { return driver.ErrBadConn })
-		if discardErr != nil && !errors.Is(discardErr, driver.ErrBadConn) && !errors.Is(discardErr, sql.ErrConnDone) {
-			err = errors.Join(err, errors.New("discard migration connection failed"))
+		if !reusable {
+			discardErr := conn.Raw(func(any) error { return driver.ErrBadConn })
+			if discardErr != nil && !errors.Is(discardErr, driver.ErrBadConn) && !errors.Is(discardErr, sql.ErrConnDone) {
+				err = errors.Join(err, errors.New("discard migration connection failed"))
+			}
 		}
 		if closeErr := conn.Close(); closeErr != nil && !errors.Is(closeErr, sql.ErrConnDone) {
 			err = errors.Join(err, errors.New("close migration connection failed"))
 		}
 	}()
-	return fn(conn)
+	err = fn(conn)
+	reusable = err == nil
+	return err
 }

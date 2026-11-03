@@ -120,10 +120,14 @@ commands do not evaluate config or validate dynamically computed export values.
   Authors must not manually begin/commit/rollback that transaction; such SQL is not
   blocked, but violates managed-mode usage and invalidates automatic rollback guarantees.
 - With config.transaction=false, use one dedicated sql.Conn for every call and history
-  operation in that step, with no framework Begin/Commit/Rollback. Discard the connection
-  on success, error or panic so session state/unfinished transactions cannot leak into
-  the pool. Authors own manual transactions and must finish them before returning;
-  successful return with an unfinished manual transaction is invalid usage.
+  operation in that step, with no framework Begin/Commit/Rollback. On success, return
+  the connection to the pool via sql.Conn.Close; rely on database/sql and the driver's
+  validity/reset hooks for reuse rather than marking every successful connection bad.
+  On error or panic, discard it because an unfinished manual transaction may remain.
+  Driver reset support does not uniformly clear session settings: authors must restore
+  changed settings and finish manual transactions before successful return. Successful
+  return with an unfinished manual transaction is invalid usage. Bridge failures remain
+  sticky and block later calls; disposal cleans up still-uncommitted native transactions.
 - Warn for explicitly nontransactional scripts and annotate their errors (including
   history and down failures) with possible partial changes and recovery guidance.
   Earlier auto-committed operations can remain without successful history. Do not

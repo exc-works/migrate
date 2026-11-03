@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ClickHouse/TiDB/MSSQL container CI and optional SQL/full Oracle/Redshift/MSSQL integration.
 
 ### Fixed
+- Reuse successful nontransactional script connections through the pool; discard only
+  failed/panicked steps, preserving cleanup of unfinished manual transactions.
 - Forward script SQL unchanged to database drivers; remove keyword/single-statement
   restrictions and the handwritten MSSQL validator while retaining runtime limits.
 - Upgrade the Oracle driver to go-ora v3 for modern authentication; disable its fast

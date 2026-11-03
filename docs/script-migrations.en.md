@@ -89,9 +89,11 @@ export function up(db) {
 Omitted config/transaction defaults to true. A defined transaction value must be a
 boolean. Config is evaluated and snapshotted during actual execution preflight;
 status, baseline and dry-run do not evaluate it. All calls in an explicitly
-nontransactional step share one dedicated connection; it is discarded afterwards
-so session state cannot leak to the pool. Finish every manual transaction before
-returning successfully. Unfinished manual transactions on successful return are invalid
+nontransactional step share one dedicated connection. On success, it is returned to
+the pool for reuse; database/sql and driver validity/reset hooks handle unhealthy
+connections. Driver reset behavior varies and may preserve session settings, so restore
+any settings you change and do not depend on session state across migrations.
+Finish every manual transaction before returning successfully. Unfinished manual transactions on successful return are invalid
 usage. A bridge failure remains fatal and blocks later calls; the dedicated connection
 is discarded on failure, closing any still-uncommitted transaction.
 Nontransactional failures may leave committed changes without successful history;
