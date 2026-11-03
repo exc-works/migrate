@@ -30,7 +30,12 @@ type Relay struct {
 	err      error
 }
 
+// Start authenticates an SSH transport and starts a loopback relay to target.
+// Startup failures close resources acquired so far. On success, the returned
+// Relay owns the transport, optional agent connection and listener; callers must
+// Close it. Context cancellation or transport failure shuts it down permanently.
 func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay, error) {
+	// Validate the target and load trusted host keys before prompting or dialing.
 	s, err := o.Normalize()
 	if err != nil {
 		return nil, err
@@ -47,6 +52,8 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 	if err != nil {
 		return nil, errors.New("cannot load SSH known_hosts file")
 	}
+	// Resolve SSH credentials before dialing its server. Until the Relay takes
+	// ownership, the deferred cleanup closes the optional agent on any failure.
 	auth, agentConn, err := authentication(ctx, s, prompt)
 	if err != nil {
 		return nil, err
@@ -57,7 +64,9 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 			_ = agentConn.Close()
 		}
 	}()
-	// Resolve human input before starting network handshake deadlines.
+	// DialServer resolves any proxy credentials before its connection deadline.
+	// Bound the subsequent SSH handshake separately, closing both the transport
+	// and agent to interrupt authentication when its context expires.
 	raw, err := DialServer(ctx, s, prompt)
 	if err != nil {
 		return nil, err
@@ -86,6 +95,8 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 		_ = raw.Close()
 		return nil, networkError(handshakeCtx, "SSH handshake, host verification or authentication failed")
 	}
+	// Disarm startup cancellation and clear its deadline before handing the live
+	// connection to the SSH client and the Relay's lifetime monitors.
 	if !stop() || handshakeCtx.Err() != nil {
 		_ = conn.Close()
 		return nil, networkError(handshakeCtx, "SSH handshake canceled")
@@ -95,6 +106,8 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 		return nil, errors.New("cannot clear SSH handshake deadline")
 	}
 	client := ssh.NewClient(conn, channels, requests)
+	// Allocate the local endpoint only after authentication succeeds. A listener
+	// failure closes the client; after construction, Relay owns all resources.
 	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", "0"))
 	if err != nil {
 		_ = client.Close()
@@ -113,9 +126,10 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 		active:   make(map[net.Conn]struct{}),
 	}
 	keepAgent = true
-	r.wg.Add(2)
-	go r.accept()
-	go r.keepalive()
+	// Close waits for the forwarding/keepalive tasks. The observers below only
+	// initiate shutdown and exit when their transport or context is closed.
+	r.wg.Go(r.accept)
+	r.wg.Go(r.keepalive)
 	go func() {
 		_ = client.Wait()
 		r.shutdown(errors.New("SSH transport disconnected; inspect migration state before retrying"))
@@ -178,7 +192,6 @@ func (r *Relay) release(c net.Conn) {
 }
 
 func (r *Relay) accept() {
-	defer r.wg.Done()
 	for {
 		local, err := r.listener.Accept()
 		if err != nil {
@@ -190,13 +203,13 @@ func (r *Relay) accept() {
 		if !r.track(local) {
 			continue
 		}
-		r.wg.Add(1)
-		go r.forward(local)
+		r.wg.Go(func() {
+			r.forward(local)
+		})
 	}
 }
 
 func (r *Relay) forward(local net.Conn) {
-	defer r.wg.Done()
 	defer r.release(local)
 	ctx, cancel := context.WithTimeout(r.ctx, r.settings.Connect)
 	remote, err := r.client.DialContext(ctx, "tcp", r.target)
@@ -223,7 +236,6 @@ func (r *Relay) forward(local net.Conn) {
 }
 
 func (r *Relay) keepalive() {
-	defer r.wg.Done()
 	ticker := time.NewTicker(r.settings.Keepalive)
 	defer ticker.Stop()
 	for {
