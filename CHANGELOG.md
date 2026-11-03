@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Runnable SQLite examples for shared script modules, package.json/npm imports and
+  embedded Go migrations, with bilingual instructions and a CI smoke check.
 - Static JS/TS/MJS imports and re-exports, plus installed npm packages bundled for
   Goja. Embedded and in-memory sources support relative modules and explicit disk
   dependency directories; no Node runtime or package installation is added.

@@ -4,6 +4,9 @@ Default builds remain SQL-only. Full builds embed the JS engine and TS transpile
 no Node.js installation or runtime download is required. The authoritative contract
 is [Script Migrations](spec/07-script-migrations.md).
 
+Runnable relative, npm package and embedded Go examples are in
+[examples/script-imports](../examples/script-imports/README.en.md).
+
 ## Install and inspect
 
 ```bash
