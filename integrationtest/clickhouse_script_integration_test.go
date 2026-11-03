@@ -27,7 +27,7 @@ func runClickHouseScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	remove := "ALTER TABLE " + table + " DELETE WHERE 1 SETTINGS mutations_sync=2"
 	items := []source.Migration{
 		{Filename: "V1__create.sql", Source: "-- +migrate Up\n" + create + ";\n-- +migrate Down\nDROP TABLE " + table + ";\n"},
-		{Filename: "V2__seed.js", Source: `export function up(db){if(db.exec(` + strconv.Quote(seed) + `,['18446744073709551615','12345678901234567890.123456789','old']).rowsAffected!==null)throw Error('count');const r=db.query(` + strconv.Quote(query) + `)[0];if(r.id!=='18446744073709551615'||r.amount!=='12345678901234567890.123456789')throw Error('precision')}export function down(db){db.exec(` + strconv.Quote(remove) + `)}`},
+		{Filename: "V2__seed.js", Source: `export function up(db){if(db.exec(` + strconv.Quote(seed) + `,['18446744073709551615','12345678901234567890.123456789','old']).rowsAffected!=='0')throw Error('count');const r=db.query(` + strconv.Quote(query) + `)[0];if(r.id!=='18446744073709551615'||r.amount!=='12345678901234567890.123456789')throw Error('precision')}export function down(db){db.exec(` + strconv.Quote(remove) + `)}`},
 		{Filename: "V3__transform.ts", Source: `export function up(db:any){const r=db.query(` + strconv.Quote(query) + `)[0];db.exec(` + strconv.Quote(update) + `,[r.profile+'-new',r.id])}export function down(db:any){db.exec(` + strconv.Quote(update) + `,['old','18446744073709551615'])}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: history, MigrationSource: source.StringSource{Migrations: items}}

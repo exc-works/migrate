@@ -80,7 +80,7 @@ func migrationTemplate(format string) (string, error) {
  * @typedef {{
  *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse",
  *   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[],
- *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string | null }
+ *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string }
  * }} MigrationDB
  */
 
@@ -103,7 +103,7 @@ type SQLValue = string | number | boolean | null | number[];
 type MigrationDB = {
   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse";
   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[];
-  exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string | null };
+  exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string };
 };
 
 export function up(db: MigrationDB): void {

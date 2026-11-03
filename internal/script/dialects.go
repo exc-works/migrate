@@ -66,7 +66,7 @@ func Dialects() []DialectCapability {
 			Name:            dialect.NameClickHouse,
 			Verification:    VerificationExperimental,
 			TransactionMode: TransactionNone,
-			Notes:           "limited database/version coverage; no migration transaction or automatic rollback; failures may leave partial changes without history; rowsAffected is null",
+			Notes:           "limited database/version coverage; no migration transaction or automatic rollback; failures may leave partial changes without history; affected-row counts are driver-reported",
 		},
 	}
 }

@@ -58,8 +58,8 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 
 ## Database values
 
-- Integer results and available affected-row counts are decimal strings, including small
-  integers. ClickHouse affected-row counts are unknown and exposed as `null`, never zero.
+- Integer results and driver-reported affected-row counts are decimal strings, including
+  small integers and zero. Do not override a driver count with a dialect-specific value.
 - DECIMAL/NUMERIC results are exact strings. Never round them through float64.
 - Floating point values are finite JS numbers; booleans and text retain their types.
 - NULL is `null`. `undefined`, arbitrary objects and unsafe numeric inputs are rejected.

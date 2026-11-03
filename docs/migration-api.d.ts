@@ -22,5 +22,5 @@ interface MigrationDB {
   exec(
     sql: string,
     params?: readonly MigrationSQLParameter[],
-  ): { rowsAffected: string | null };
+  ): { rowsAffected: string };
 }
