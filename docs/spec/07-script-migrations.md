@@ -74,7 +74,16 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 ## Execution, transactions and failures
 
 - Each invocation owns a fresh VM; runtime values never cross invocations.
-- Full script support initially covers PostgreSQL, MySQL, MariaDB and SQLite.
+- Verified script support covers PostgreSQL, MySQL, MariaDB and SQLite.
+- TiDB and Redshift are executable experimental dialects using the existing MySQL
+  and PostgreSQL drivers respectively. Compatibility is not real-database verification.
+  Redshift-specific values with unknown pgx type metadata require explicit SQL casts;
+  use FROM_VARBYTE/ FROM_HEX for binary values through hex text.
+- Capabilities preserve `script_dialects` and add per-dialect verification, transaction
+  mode and notes. Text output shows the same distinctions. SQL-only builds report no
+  script dialects. Generated declarations include every executable dialect.
+- Warn once per selected script plan for experimental dialects, including dry-run;
+  metadata-only operations and SQL-only plans do not emit this warning.
 - Each script migration and its successful history write use the same framework transaction.
 - Preserve existing SQL transaction behavior, including the nontransactional ClickHouse
   SQL fallback. Transaction guarantees below apply only where a transaction is supported.

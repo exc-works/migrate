@@ -37,13 +37,21 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
 	idType := "BIGINT"
-	if d.Name() == "mysql" || d.Name() == "mariadb" {
+	if d.Name() == "mysql" || d.Name() == "mariadb" || d.Name() == "tidb" {
 		idType = "BIGINT UNSIGNED"
 	}
 	insertParams := "?,?,?,?,?"
-	if d.Name() == "postgres" {
+	binaryParam := "[0,255]"
+	binaryCheck := "r.payload.length!==2||r.payload[1]!==255"
+	if d.Name() == "postgres" || d.Name() == "redshift" {
 		binaryType = "BYTEA"
 		insertParams = "$1,$2,$3,$4,$5"
+	}
+	if d.Name() == "redshift" {
+		binaryType = "VARBYTE"
+		insertParams = "$1,$2,$3,FROM_HEX($4),$5"
+		binaryParam = "'00ff'"
+		binaryCheck = "r.payload!=='00ff'"
 	}
 	// SQLite NUMERIC affinity can store decimals as floats. TEXT preserves exact
 	// decimal input; the runtime rejects float-backed declared numeric columns.
@@ -53,15 +61,20 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	create := fmt.Sprintf("CREATE TABLE %s (id %s PRIMARY KEY, amount %s, profile TEXT, payload %s, ratio DOUBLE PRECISION);", table, idType, amountType, binaryType)
 	insert := fmt.Sprintf("INSERT INTO %s VALUES (%s)", table, insertParams)
 	selectSQL := "SELECT id,amount,profile,payload,ratio FROM " + table
+	if d.Name() == "redshift" {
+		// pgx does not know Redshift-specific OIDs. Materialize VARBYTE as explicit
+		// hex text instead of guessing the encoding of unknown driver values.
+		selectSQL = "SELECT id,amount,profile,FROM_VARBYTE(payload,'hex') AS payload,ratio FROM " + table
+	}
 	update := "UPDATE " + table + " SET profile="
-	if d.Name() == "postgres" {
+	if d.Name() == "postgres" || d.Name() == "redshift" {
 		update += "$1 WHERE id=$2"
 	} else {
 		update += "? WHERE id=?"
 	}
 	items := []source.Migration{
 		{Filename: "V1__create.sql", Source: "-- +migrate Up\n" + create + "\n-- +migrate Down\nDROP TABLE " + table + ";\n"},
-		{Filename: "V2__seed.mjs", Source: `export function up(db){db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',[0,255],1.25]);const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!=='12345678901234567890.1234567890'||r.payload.length!==2||r.payload[1]!==255||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
+		{Filename: "V2__seed.mjs", Source: `export function up(db){db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!=='12345678901234567890.1234567890'||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
 		{Filename: "V3__transform.ts", Source: `export function up(db:any){const r=db.query(` + strconv.Quote(selectSQL) + `)[0];db.exec(` + strconv.Quote(update) + `,[r.profile+'-ts',r.id]);}export function down(db:any){db.exec(` + strconv.Quote(update) + `,['new','9007199254740993']);}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: randomName("script_history"), MigrationSource: source.StringSource{Migrations: items}}
@@ -116,7 +129,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 
 	// Transaction control is rejected before it can release framework ownership.
 	var controls []string
-	if d.Name() == "postgres" {
+	if d.Name() == "postgres" || d.Name() == "redshift" {
 		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT", "-- comment\rCOMMIT /*\nSELECT 1 -- */"}
 	}
 	if d.Name() == "mariadb" {

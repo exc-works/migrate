@@ -54,6 +54,7 @@ func (s *Service) checkCapabilities(migrations []Migration) error {
 // instances are initialized without DB access and retained, never initialized twice.
 func (s *Service) preparePlan(migrations []Migration, direction string) ([]plannedMigration, error) {
 	plan := make([]plannedMigration, 0, len(migrations))
+	warned := false
 	for _, m := range migrations {
 		var step migrationStep
 		if filepath.Ext(m.Filename) == source.ExtensionSQL {
@@ -70,6 +71,13 @@ func (s *Service) preparePlan(migrations []Migration, direction string) ([]plann
 				statements: statements,
 			}
 		} else {
+			if !warned {
+				capability, _ := script.Capability(s.cfg.Dialect.Name())
+				if capability.Verification == script.VerificationExperimental {
+					s.cfg.Logger.Warnf("experimental script dialect=%s: %s", capability.Name, capability.Notes)
+				}
+				warned = true
+			}
 			p, err := script.Compile(m.Filename, m.Source, direction, s.cfg.ScriptOptions)
 			if err != nil {
 				return nil, err

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/exc-works/migrate/internal/dialect"
 	"github.com/exc-works/migrate/internal/script"
 	"github.com/exc-works/migrate/internal/source"
 	"github.com/spf13/cobra"
@@ -21,25 +20,39 @@ func newCapabilitiesCommand() *cobra.Command {
 			formats := script.Formats()
 			build := script.BuildSQL
 			dialects := []string{}
+			capabilities := []script.DialectCapability{}
 			if len(formats) > 1 {
 				build = script.BuildFull
-				dialects = []string{dialect.NamePostgres, dialect.NameMySQL, dialect.NameMariaDB, dialect.NameSQLite}
+				capabilities = script.Dialects()
+				for _, capability := range capabilities {
+					dialects = append(dialects, capability.Name)
+				}
 			}
 			switch output {
 			case "text":
 				_, err := fmt.Fprintf(cmd.OutOrStdout(), "build: %s\nformats: %s\n", build, strings.Join(formats, ", "))
-				return err
+				if err != nil {
+					return err
+				}
+				for _, capability := range capabilities {
+					if _, err := fmt.Fprintf(cmd.OutOrStdout(), "script dialect: %s (%s, transaction=%s) %s\n", capability.Name, capability.Verification, capability.TransactionMode, capability.Notes); err != nil {
+						return err
+					}
+				}
+				return nil
 			case "json":
 				return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
-					Version        string   `json:"version"`
-					Build          string   `json:"build"`
-					Formats        []string `json:"formats"`
-					ScriptDialects []string `json:"script_dialects"`
+					Version                   string                     `json:"version"`
+					Build                     string                     `json:"build"`
+					Formats                   []string                   `json:"formats"`
+					ScriptDialects            []string                   `json:"script_dialects"`
+					ScriptDialectCapabilities []script.DialectCapability `json:"script_dialect_capabilities"`
 				}{
-					Version:        effectiveBuildVersion(),
-					Build:          build,
-					Formats:        formats,
-					ScriptDialects: dialects,
+					Version:                   effectiveBuildVersion(),
+					Build:                     build,
+					Formats:                   formats,
+					ScriptDialects:            dialects,
+					ScriptDialectCapabilities: capabilities,
 				})
 			default:
 				return fmt.Errorf("unsupported capabilities output; use text or json")
@@ -65,7 +78,7 @@ func migrationTemplate(format string) (string, error) {
  * @typedef {string | number | boolean | null | readonly number[] | Uint8Array} SQLParameter
  * @typedef {string | number | boolean | null | number[]} SQLValue
  * @typedef {{
- *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite",
+ *   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift",
  *   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[],
  *   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string }
  * }} MigrationDB
@@ -88,7 +101,7 @@ export function up(db) {
 		return `type SQLParameter = string | number | boolean | null | readonly number[] | Uint8Array;
 type SQLValue = string | number | boolean | null | number[];
 type MigrationDB = {
-  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite";
+  readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift";
   query(sql: string, params?: readonly SQLParameter[]): Record<string, SQLValue>[];
   exec(sql: string, params?: readonly SQLParameter[]): { rowsAffected: string };
 };
