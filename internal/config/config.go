@@ -10,19 +10,21 @@ import (
 	"strings"
 
 	"github.com/exc-works/migrate/internal/dialect"
+	"github.com/exc-works/migrate/internal/tunnel"
 )
 
 type FileConfig struct {
-	SchemaName        string `json:"schema_name"`
-	Dialect           string `json:"dialect"`
-	DataSourceName    string `json:"data_source_name"`
-	WorkingDirectory  string `json:"working_directory"`
-	MigrateOutOfOrder bool   `json:"migrate_out_of_order"`
-	LoggerLevel       string `json:"logger_level"`
-	MigrationSource   string `json:"migration_source"`
-	ScriptTimeout     string `json:"script_timeout,omitempty"`
-	ScriptMaxRows     int    `json:"script_max_rows,omitempty"`
-	ScriptMaxBytes    int64  `json:"script_max_bytes,omitempty"`
+	SSHTunnel         *tunnel.Options `json:"ssh_tunnel,omitempty"`
+	SchemaName        string          `json:"schema_name"`
+	Dialect           string          `json:"dialect"`
+	DataSourceName    string          `json:"data_source_name"`
+	WorkingDirectory  string          `json:"working_directory"`
+	MigrateOutOfOrder bool            `json:"migrate_out_of_order"`
+	LoggerLevel       string          `json:"logger_level"`
+	MigrationSource   string          `json:"migration_source"`
+	ScriptTimeout     string          `json:"script_timeout,omitempty"`
+	ScriptMaxRows     int             `json:"script_max_rows,omitempty"`
+	ScriptMaxBytes    int64           `json:"script_max_bytes,omitempty"`
 }
 
 func Read(path, workingDir string) (*FileConfig, error) {
@@ -54,7 +56,41 @@ func Read(path, workingDir string) (*FileConfig, error) {
 	if cfg.DataSourceName == "" {
 		return nil, fmt.Errorf("data_source_name must be set")
 	}
+	if cfg.SSHTunnel != nil {
+		if err := resolveTunnelConfig(cfg.SSHTunnel, filepath.Dir(path)); err != nil {
+			return nil, err
+		}
+	}
 	return &cfg, nil
+}
+
+func resolveTunnelConfig(o *tunnel.Options, base string) error {
+	fields := []*string{&o.Host, &o.User, &o.Auth.KeyFile, &o.KnownHostsFile}
+	if o.Proxy != nil {
+		fields = append(fields, &o.Proxy.Address, &o.Proxy.Username)
+	}
+	for _, field := range fields {
+		value, err := ReplaceEnvVar(*field)
+		if err != nil {
+			return errors.New("missing environment variable in ssh_tunnel configuration")
+		}
+		*field = value
+	}
+	normalized, err := o.Normalize()
+	if err != nil {
+		return err
+	}
+	*o = normalized.Options
+	for _, field := range []*string{&o.Auth.KeyFile, &o.KnownHostsFile} {
+		if *field == "" {
+			continue
+		}
+		*field, err = tunnel.ExpandPath(*field, base)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func formatJSONConfigError(path string, content []byte, err error) error {
