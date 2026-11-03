@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -204,8 +205,10 @@ func (i *Invocation) Run(ctx context.Context, bindings func(context.Context) any
 		if err != nil {
 			return err
 		}
-		if !goja.IsUndefined(result) {
-			return errors.New("entrypoint must return undefined")
+		// Ignore synchronous return values without exporting them or reading
+		// properties. Promise results still require an unsupported async runtime.
+		if result != nil && result.ExportType() == reflect.TypeFor[*goja.Promise]() {
+			return errors.New("entrypoint must be synchronous")
 		}
 		if len(i.rejected) > 0 {
 			return errors.New("unhandled promise rejection")

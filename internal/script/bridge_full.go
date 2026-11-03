@@ -27,6 +27,9 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 	}
 	var failure error
 	remember := func(err error) error {
+		if _, recoverable := err.(databaseError); recoverable {
+			return err
+		}
 		if failure == nil {
 			failure = err
 		}
@@ -48,11 +51,11 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				}
 				result, err := db.ExecContext(runCtx, text, args...)
 				if err != nil {
-					return nil, remember(errors.New("database execution failed"))
+					return nil, databaseError("database execution failed")
 				}
 				count, err := result.RowsAffected()
 				if err != nil {
-					return nil, remember(errors.New("database affected-row count unavailable"))
+					return nil, databaseError("database affected-row count unavailable")
 				}
 				return map[string]any{"rowsAffected": strconv.FormatInt(count, 10)}, nil
 			},
@@ -77,6 +80,12 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 	})
 	return errors.Join(err, failure)
 }
+
+// databaseError contains only a public message, never a wrapped driver error:
+// Goja exposes returned Go errors to script code, including exported methods.
+type databaseError string
+
+func (e databaseError) Error() string { return string(e) }
 
 // Accessors and Export can throw inside reflected Go callbacks. Convert those
 // exceptions into ordinary errors so callers always record a sticky failure.
@@ -127,20 +136,28 @@ func decodeCall(query, params goja.Value) (string, []any, error) {
 func readRows(ctx context.Context, db Database, query string, args []any, options Options, dialectName string) (out []map[string]any, err error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("database query failed")
+		return nil, databaseError("database query failed")
 	}
 	defer func() {
 		if rows.Close() != nil {
-			err = errors.Join(err, errors.New("database result close failed"))
+			out = nil
+			switch prior := err.(type) {
+			case nil:
+				err = databaseError("database result close failed")
+			case databaseError:
+				err = databaseError(string(prior) + "; database result close failed")
+			default:
+				err = errors.Join(err, errors.New("database result close failed"))
+			}
 		}
 	}()
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, errors.New("database columns unavailable")
+		return nil, databaseError("database columns unavailable")
 	}
 	types, err := rows.ColumnTypes()
 	if err != nil {
-		return nil, errors.New("database column types unavailable")
+		return nil, databaseError("database column types unavailable")
 	}
 	seen := make(map[string]bool, len(columns))
 	for _, name := range columns {
@@ -161,7 +178,7 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 			targets[index] = &values[index]
 		}
 		if err = rows.Scan(targets...); err != nil {
-			return nil, errors.New("database scan failed")
+			return nil, databaseError("database scan failed")
 		}
 		row := make(map[string]any, len(columns))
 		for index, name := range columns {
@@ -178,7 +195,7 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 		out = append(out, row)
 	}
 	if rows.Err() != nil {
-		return nil, errors.New("database iteration failed")
+		return nil, databaseError("database iteration failed")
 	}
 	return out, nil
 }

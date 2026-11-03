@@ -35,7 +35,9 @@ before writes. It does not enable imports, Node.js or a separate module loader.
 Scripts are independent UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
 Missing down is irreversible, not a successful no-op. The runtime validates the entry
 before database writes; invalid exports anywhere in a rollback plan must not cause
-partial rollback. Up and down return `undefined`; promises and generators are rejected.
+partial rollback. Ordinary synchronous return values are ignored without exporting or
+inspecting object properties. Promise results and async/generator entrypoints remain
+unsupported; the runtime does not await or consume returned work.
 
 ES module export syntax and TS syntax are transformed internally into a VM-loadable
 module. Imports, re-exports, dynamic imports, `require`, npm packages, asynchronous
@@ -126,8 +128,8 @@ commands do not evaluate config or validate dynamically computed export values.
   On error or panic, discard it because an unfinished manual transaction may remain.
   Driver reset support does not uniformly clear session settings: authors must restore
   changed settings and finish manual transactions before successful return. Successful
-  return with an unfinished manual transaction is invalid usage. Bridge failures remain
-  sticky and block later calls; disposal cleans up still-uncommitted native transactions.
+  return with an unfinished manual transaction is invalid usage. Uncaught or fatal
+  failures discard the connection and clean up still-uncommitted native transactions.
 - Warn for explicitly nontransactional scripts and annotate their errors (including
   history and down failures) with possible partial changes and recovery guidance.
   Earlier auto-committed operations can remain without successful history. Do not
@@ -136,11 +138,28 @@ commands do not evaluate config or validate dynamically computed export values.
 - Preserve existing SQL transaction behavior, including the nontransactional ClickHouse
   SQL fallback. Transaction guarantees below apply only where a transaction is supported.
 - Default cleanup rolls back. Commit happens explicitly after successful execution.
-- On runtime/bridge failures the framework does not call Commit and attempts rollback.
+- On uncaught script/SQL failures or fatal bridge failures the framework does not call
+  Commit and attempts rollback.
   This can undo only changes still governed by its transaction; user SQL, procedures,
   implicit commits and nontransactional operations can defeat that guarantee. Capture
   unexpected callback panics, return a sanitized error and preserve rollback errors.
-- A database bridge failure remains fatal even if script code catches the JS exception.
+- Driver errors from execution, affected-row retrieval, query metadata, scan,
+  iteration and result close are sanitized JS exceptions. Scripts may catch them
+  and make further DB calls, or rethrow to fail the migration. Do not classify
+  driver types, SQLSTATEs, vendor codes or connection/timeout sentinels to override
+  that choice. Catching an error and returning normally means the author accepts it;
+  the engine does not certify that the connection or transaction remains usable.
+- Authors must repair transaction state where required (for example ROLLBACK TO
+  SAVEPOINT on PostgreSQL, or explicit ROLLBACK in manual mode). If an error ended
+  the entire managed transaction and a savepoint cannot recover it, rethrow. Full
+  transaction retries belong in explicit manual mode. Do not automatically replay
+  SQL or replace a failed transaction. Commit and history errors still fail the step.
+- Cancellation of the actual execution context, the overall script deadline,
+  parameter/result validation and resource-limit failures remain fatal even when
+  caught, and block subsequent DB calls. A driver-reported timeout/cancellation
+  alone does not cancel the execution context and may be handled by the script.
+- Never expose raw driver errors, cause chains, SQL text or bound/result values to
+  JS. Each driver exception contains only a sanitized operation message.
 - Manual SQL transaction/session control requires config.transaction=false. Database
   permissions, SQL validity, balancing manual transactions and resetting desired session
   state are the migration author's responsibility; no SQL keyword enforcement is provided.
@@ -191,7 +210,8 @@ write successful migration history. It does not predict dynamically generated SQ
 - Every implementation layer includes its own meaningful tests and remains buildable.
 - Cover mixed ordering, duplicates, hashes, preflight failure, rollback-range validation,
   irreversible down, baseline, out-of-order, dry-run and default-build rejection.
-- Cover conversion fidelity, driver errors, timeout, cancellation, sticky failures,
+- Cover ignored synchronous return values, Promise rejection, caught SQL recovery,
+  uncaught failures, fatal bridge failures, conversion fidelity, timeout, cancellation,
   resource caps, module restrictions, isolated VM state and original TS error locations.
 - Use testcontainers for PostgreSQL/MySQL/MariaDB and temporary SQLite files.
 - Explicit ClickHouse/TiDB/MSSQL selection without an external DSN uses disposable pinned

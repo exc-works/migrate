@@ -4,6 +4,7 @@ package migrate
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func TestNontransactionalScriptFailuresExposePartialChanges(t *testing.T) {
 			case "script":
 				body += `throw Error('private value')`
 			case "database":
-				body += `try{db.query('SELECT * FROM missing')}catch(e){}`
+				body += `db.query('SELECT * FROM missing')`
 			case "timeout":
 				body += `while(true){}`
 			case "unfinished transaction":
@@ -137,5 +138,76 @@ func TestNontransactionalPanicDiscardsConnection(t *testing.T) {
 	var count int
 	if err = db.QueryRow("SELECT count(*) FROM sqlite_temp_master WHERE name='failed_session'").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("panicked connection reused: %d %v", count, err)
+	}
+}
+
+func TestManagedRecoveryAndReturnValuesShareHistoryTransaction(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprintf("fail=%t", fail), func(t *testing.T) {
+			body := `db.exec('SAVEPOINT recovery');try{db.exec('INSERT INTO missing_recovery_table VALUES(1)')}catch(e){db.exec('ROLLBACK TO SAVEPOINT recovery')}db.exec('RELEASE SAVEPOINT recovery');`
+			if fail {
+				body += `db.exec("UPDATE users SET profile='changed'");throw Error('after recovery')`
+			} else {
+				body += `return db.exec("UPDATE users SET profile='changed'")`
+			}
+			items := nontransactionSources(body, `return db.exec("UPDATE users SET profile='old'")`)
+			items[1].Source = strings.Replace(items[1].Source, "transaction:false", "transaction:true", 1)
+			svc, db, _ := mixedService(t, items, false)
+			err := svc.Up()
+			if (err != nil) != fail {
+				t.Fatalf("%v", err)
+			}
+			want, state := "changed", StatusApplied
+			if fail {
+				want, state = "old", StatusPending
+			}
+			var profile string
+			if err = db.QueryRow("SELECT profile FROM users").Scan(&profile); err != nil || profile != want {
+				t.Fatalf("%q %v", profile, err)
+			}
+			statuses, err := svc.Status()
+			if err != nil || statuses[1].Status != state {
+				t.Fatalf("%+v %v", statuses, err)
+			}
+			if !fail {
+				if err = svc.Down("1", false); err != nil {
+					t.Fatal(err)
+				}
+				if err = db.QueryRow("SELECT profile FROM users").Scan(&profile); err != nil || profile != "old" {
+					t.Fatalf("%q %v", profile, err)
+				}
+				statuses, err = svc.Status()
+				if err != nil || statuses[1].Status != StatusPending {
+					t.Fatalf("%+v %v", statuses, err)
+				}
+			}
+		})
+	}
+}
+
+func TestNontransactionalRecoveryCanRollbackAndContinue(t *testing.T) {
+	body := `db.exec('BEGIN');db.exec("UPDATE users SET profile='temporary'");let recovered=false;try{db.query('SELECT * FROM missing_recovery_table')}catch(e){db.exec('ROLLBACK');recovered=true}if(!recovered||db.query('SELECT profile FROM users')[0].profile!=='old')throw Error('rollback did not run');return db.exec("UPDATE users SET profile='recovered'")`
+	down := `db.exec('BEGIN');db.exec("UPDATE users SET profile='temporary'");try{db.exec('INSERT INTO missing_recovery_table VALUES(1)')}catch(e){db.exec('ROLLBACK')}return db.exec("UPDATE users SET profile='old'")`
+	svc, db, _ := mixedService(t, nontransactionSources(body, down), false)
+	if err := svc.Up(); err != nil {
+		t.Fatal(err)
+	}
+	var profile string
+	if err := db.QueryRow("SELECT profile FROM users").Scan(&profile); err != nil || profile != "recovered" {
+		t.Fatalf("%q %v", profile, err)
+	}
+	statuses, err := svc.Status()
+	if err != nil || statuses[1].Status != StatusApplied {
+		t.Fatalf("%+v %v", statuses, err)
+	}
+	if err = svc.Down("1", false); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRow("SELECT profile FROM users").Scan(&profile); err != nil || profile != "old" {
+		t.Fatalf("%q %v", profile, err)
+	}
+	statuses, err = svc.Status()
+	if err != nil || statuses[1].Status != StatusPending {
+		t.Fatalf("%+v %v", statuses, err)
 	}
 }

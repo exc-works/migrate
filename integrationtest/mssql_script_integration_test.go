@@ -5,14 +5,14 @@ package integrationtest
 import (
 	"context"
 	"database/sql"
-	"github.com/exc-works/migrate/internal/migrate"
-	"github.com/exc-works/migrate/internal/source"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/exc-works/migrate/internal/dialect"
+	"github.com/exc-works/migrate/internal/migrate"
 	"github.com/exc-works/migrate/internal/script"
+	"github.com/exc-works/migrate/internal/source"
 )
 
 func runMSSQLScalarScenario(t *testing.T, db *sql.DB) {
@@ -41,7 +41,7 @@ func runMSSQLNativeScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	batch := "-- native T-SQL batch\nDECLARE @value NVARCHAR(50)=N'batch;value'; UPDATE " + table + " SET profile=@value,session_id=@@SPID;"
 	items := []source.Migration{
 		{Filename: "V1__native.sql", Source: "-- +migrate Up\nCREATE TABLE " + table + "(profile NVARCHAR(50),session_id INT); INSERT INTO " + table + " VALUES(N'old',0);\n-- +migrate Down\nDROP TABLE " + table + ";"},
-		{Filename: "V2__native.ts", Source: `export const config={transaction:false};export function up(db:any){db.exec('BEGIN TRANSACTION');db.exec(` + strconv.Quote(batch) + `);if(db.query('SELECT profile FROM ` + table + `')[0].profile!=='batch;value')throw Error('batch');db.exec('COMMIT TRANSACTION');db.exec(` + strconv.Quote(createProc) + `);db.exec('EXEC ` + proc + `');}export function down(db:any){db.exec('BEGIN TRANSACTION');db.exec("UPDATE ` + table + ` SET profile=N'old'");db.exec('COMMIT TRANSACTION');db.exec('DROP PROCEDURE ` + proc + `');}`},
+		{Filename: "V2__native.ts", Source: `export const config={transaction:false};export function up(db:any){db.exec('BEGIN TRANSACTION');db.exec(` + strconv.Quote(batch) + `);if(db.query('SELECT profile FROM ` + table + `')[0].profile!=='batch;value')throw Error('batch');let recovered=false;try{db.query('SELECT * FROM missing_manual_recovery_table')}catch(e){db.exec('ROLLBACK TRANSACTION');recovered=true}if(!recovered||db.query('SELECT profile FROM ` + table + `')[0].profile!=='old')throw Error('rollback');db.exec('BEGIN TRANSACTION');db.exec(` + strconv.Quote(batch) + `);db.exec('COMMIT TRANSACTION');db.exec(` + strconv.Quote(createProc) + `);db.exec('EXEC ` + proc + `');}export function down(db:any){db.exec('BEGIN TRANSACTION');db.exec("UPDATE ` + table + ` SET profile=N'old'");db.exec('COMMIT TRANSACTION');db.exec('DROP PROCEDURE ` + proc + `');}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: randomName("native_history"), MigrationSource: source.StringSource{Migrations: items}}
 	svc, err := migrate.NewService(ctx, cfg)

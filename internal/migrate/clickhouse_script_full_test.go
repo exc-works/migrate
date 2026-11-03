@@ -31,7 +31,7 @@ func TestClickHouseScriptFailureBoundary(t *testing.T) {
 			case "script":
 				text += `throw Error('private detail');`
 			case "database":
-				text += `try{db.query('SELECT broken')}catch(e){}db.exec('INSERT INTO users VALUES (?)',['must not run']);`
+				text += `db.query('SELECT broken');db.exec('INSERT INTO users VALUES (?)',['must not run']);`
 			}
 			text += `}`
 			var logs bytes.Buffer

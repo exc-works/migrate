@@ -9,6 +9,10 @@ type MigrationSQLParameter =
 
 type MigrationSQLValue = string | number | boolean | null | number[];
 
+/** Driver errors are sanitized exceptions that scripts may catch and handle.
+ * Actual execution cancellation, overall timeout, parameter/result validation and
+ * resource limits remain fatal. Commit/history failures still fail the migration.
+ */
 interface MigrationDB {
   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse" | "mssql";
 
@@ -31,3 +35,6 @@ interface MigrationDB {
 interface MigrationConfig {
   readonly transaction?: boolean;
 }
+
+/** Synchronous return values are ignored. Promise results are unsupported. */
+type MigrationEntrypoint = (db: MigrationDB) => unknown;

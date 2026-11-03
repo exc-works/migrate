@@ -68,10 +68,10 @@ func runClickHouseScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			t.Fatalf("%+v", st)
 		}
 	}
-	// Failures are sticky but cannot undo already successful writes. No success
-	// history may be recorded, and a later statement in a catch block must not run.
+	// An uncaught failure cannot undo already successful writes. No success
+	// history may be recorded, and statements after the error must not run.
 	failedItems := append([]source.Migration(nil), items...)
-	failedItems = append(failedItems, source.Migration{Filename: "V4__failure.js", Source: `export function up(db){db.exec(` + strconv.Quote(update) + `,['partial','18446744073709551615']);try{db.query('SELECT * FROM missing_script_table')}catch(e){}db.exec(` + strconv.Quote(update) + `,['must-not-run','18446744073709551615'])}`})
+	failedItems = append(failedItems, source.Migration{Filename: "V4__failure.js", Source: `export function up(db){db.exec(` + strconv.Quote(update) + `,['partial','18446744073709551615']);db.query('SELECT * FROM missing_script_table');db.exec(` + strconv.Quote(update) + `,['must-not-run','18446744073709551615'])}`})
 	cfg.MigrationSource = source.StringSource{Migrations: failedItems}
 	failed, err := migrate.NewService(context.Background(), cfg)
 	if err != nil {
