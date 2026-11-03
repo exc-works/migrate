@@ -147,8 +147,8 @@ func TestGeneratedTypesCoverExecutableDialects(t *testing.T) {
 				t.Fatalf("%s missing dialect %s", format, capability.Name)
 			}
 		}
-		if !strings.Contains(template, "rowsAffected: string | null") || !strings.Contains(string(declarations), "rowsAffected: string | null") {
-			t.Fatalf("%s must declare unknown ClickHouse row counts", format)
+		if !strings.Contains(template, "rowsAffected: string") || !strings.Contains(string(declarations), "rowsAffected: string") || strings.Contains(template, "rowsAffected: string | null") || strings.Contains(string(declarations), "rowsAffected: string | null") {
+			t.Fatalf("%s must declare driver row counts as strings", format)
 		}
 	}
 }

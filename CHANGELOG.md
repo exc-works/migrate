@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-dialect verification status, transaction modes and limitations in capabilities,
   plus one warning per selected experimental script plan.
 - ClickHouse scalar value conversion and explicit partial-state errors for
-  nontransactional execution/history failures; unknown affected-row counts are null.
+  nontransactional execution/history failures; driver-reported affected-row counts remain strings.
 - ClickHouse/TiDB container CI and optional SQL/full Oracle/Redshift integration.
 
 ### Fixed
@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   script_dialect_capabilities adds detailed status. New dialects remain experimental.
 - Oracle DDL implicitly commits. ClickHouse scripts cannot automatically roll back;
   inspect data and history before retrying failures. Generated declarations include
-  all executable dialects and nullable affected-row counts.
+  all executable dialects with string affected-row counts.
 
 ## [1.4.0] - 2026-11-02
 

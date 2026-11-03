@@ -55,7 +55,7 @@ JS 模板通过 JSDoc 声明 `MigrationDB` 并标注 `db`，TS 模板提供等�
 ## 数据与 SQL 接口
 
 `db.query(sql, params?)` 返回行数组，`db.exec(sql, params?)` 返回字符串形式的
-`rowsAffected`（ClickHouse 为 `null`，表示未知）。使用数据库原生占位符，参数必须是数组。整数、精确 decimal 结果和
+`rowsAffected`（所有数据库均返回驱动计数的字符串形式）。使用数据库原生占位符，参数必须是数组。整数、精确 decimal 结果和
 受影响行数都是字符串；日期时间中的 Go 时间值输出为保留精度的 UTC 字符串。
 NULL 对应 null，二进制结果为复制的字节数组。
 
@@ -114,7 +114,7 @@ PL/SQL 块、过程调用仍需使用 SQL 文件。Redshift 特有类型可能�
 
 ClickHouse 的整型（含 128/256 位）和 decimal 保持精确字符串。Array、Tuple、Map、
 UUID、IP 等未适配驱动值需在 SQL 中显式转换为字符串或其他已支持标量；String 作为文本
-必须是有效 UTF-8，任意二进制内容可用 hex 文本传递。`rowsAffected: null` 不能当成零行。
+必须是有效 UTF-8，任意二进制内容可用 hex 文本传递。`rowsAffected` 直接采用驱动返回值；ClickHouse 驱动可能返回 `"0"`，框架不另行替换或推断。
 需要等待 mutation 完成时，在相应语句中使用 `SETTINGS mutations_sync=2`；不提供会话设置接口。
 
 ClickHouse 脚本失败、超时或历史写入失败后，先前成功的写入可能已经生效，却没有成功历史；

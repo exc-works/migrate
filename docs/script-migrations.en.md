@@ -128,7 +128,7 @@ scalars. For VARBYTE, write hex text with `FROM_HEX($1)` and read hex text with
 ClickHouse integers (including 128/256-bit values) and decimals remain exact strings.
 Unadapted values such as Array, Tuple, Map, UUID and IP require explicit SQL conversion
 to supported scalars. String must contain valid UTF-8; encode arbitrary binary data
-as hex text. `rowsAffected: null` means unknown, not zero. Use statement-local
+as hex text. `rowsAffected` preserves the driver count as a decimal string, including a ClickHouse driver value of `"0"`; the framework does not infer a replacement. Use statement-local
 `SETTINGS mutations_sync=2` when mutation completion is required; session settings
 are not exposed.
 
