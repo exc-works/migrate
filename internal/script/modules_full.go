@@ -5,7 +5,9 @@ package script
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -13,7 +15,10 @@ import (
 	migrationsource "github.com/exc-works/migrate/internal/source"
 )
 
-const entryNamespace = "migration-entry"
+const (
+	entryNamespace   = "migration-entry"
+	virtualNamespace = "migration-files"
+)
 
 const (
 	extensionCJS  = ".cjs"
@@ -45,6 +50,18 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 			directory = filepath.Dir(entry)
 		}
 		namespace = "file"
+	}
+	if modules != nil && modules.FS != nil {
+		entry, namespace = modules.EntryPath, virtualNamespace
+		if entry == "" {
+			entry = filename
+		}
+		if !fs.ValidPath(entry) {
+			return nil, errors.New("invalid virtual entry path")
+		}
+	}
+	if modules != nil && modules.DependencyDir != "" && !filepath.IsAbs(modules.DependencyDir) {
+		return nil, errors.New("dependency directory must be absolute")
 	}
 	result := api.Build(api.BuildOptions{
 		EntryPoints:   []string{entry},
@@ -80,11 +97,42 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 					if args.Kind == api.ResolveJSDynamicImport || args.Kind == api.ResolveJSRequireResolve {
 						return moduleError("asynchronous or runtime module loading is unsupported"), nil
 					}
-					if directory == "" {
-						return moduleError("module import requires source context"), nil
-					}
 					if strings.HasPrefix(args.Path, "node:") {
 						return moduleError("Node built-in modules are unavailable in Goja"), nil
+					}
+					if args.Namespace == virtualNamespace {
+						if relativeModulePath(args.Path) {
+							resolved, err := resolveVirtualModule(modules.FS, path.Join(path.Dir(args.Importer), args.Path), entry)
+							if err != nil {
+								return moduleError(err.Error()), nil
+							}
+							return api.OnResolveResult{
+								Path:      resolved,
+								Namespace: virtualNamespace,
+							}, nil
+						}
+						if modules.DependencyDir == "" || filepath.IsAbs(args.Path) || strings.Contains(args.Path, ":") {
+							return moduleError("package import requires an explicit disk dependency directory"), nil
+						}
+						resolved := build.Resolve(args.Path, api.ResolveOptions{
+							Namespace:  "file",
+							ResolveDir: modules.DependencyDir,
+							Kind:       args.Kind,
+						})
+						sideEffects := api.SideEffectsTrue
+						if !resolved.SideEffects {
+							sideEffects = api.SideEffectsFalse
+						}
+						return api.OnResolveResult{
+							Path:        resolved.Path,
+							Namespace:   resolved.Namespace,
+							SideEffects: sideEffects,
+							Errors:      resolved.Errors,
+							Warnings:    resolved.Warnings,
+						}, nil
+					}
+					if directory == "" && args.Namespace != "file" {
+						return moduleError("module import requires source context"), nil
 					}
 					// Handle back imports even when a supplied string entry has no disk file.
 					if (relativeModulePath(args.Path) || filepath.IsAbs(args.Path)) && diskEntryAlias(filepath.Clean(filepath.Join(args.ResolveDir, args.Path)), entry) {
@@ -98,7 +146,13 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 				build.OnLoad(api.OnLoadOptions{Filter: ".*"}, func(args api.OnLoadArgs) (api.OnLoadResult, error) {
 					text, loaderName := source, filename
 					if args.Path != entry || args.Namespace != namespace {
-						content, err := os.ReadFile(args.Path)
+						var content []byte
+						var err error
+						if args.Namespace == virtualNamespace {
+							content, err = fs.ReadFile(modules.FS, args.Path)
+						} else {
+							content, err = os.ReadFile(args.Path)
+						}
 						if err != nil {
 							return api.OnLoadResult{Errors: []api.Message{{Text: "read module failed"}}}, nil
 						}
@@ -151,7 +205,37 @@ func moduleLoader(filename string) (api.Loader, error) {
 }
 
 func moduleDisplayName(filename string) string {
-	return strings.TrimPrefix(filepath.Base(strings.ReplaceAll(filename, "\\", "/")), entryNamespace+":")
+	name := filepath.Base(strings.ReplaceAll(filename, "\\", "/"))
+	name = strings.TrimPrefix(name, entryNamespace+":")
+	return strings.TrimPrefix(name, virtualNamespace+":")
+}
+
+// Virtual filesystems use a small relative-file adapter. Package resolution stays
+// with esbuild's disk resolver, so this never interprets package.json or lockfiles.
+func resolveVirtualModule(files fs.FS, candidate, entry string) (string, error) {
+	if !fs.ValidPath(candidate) || strings.Contains(candidate, "\\") {
+		return "", errors.New("module path leaves the supplied filesystem")
+	}
+	names := moduleFileCandidates(candidate)
+	if candidate == "." {
+		names = nil
+	}
+	for _, extension := range moduleExtensions {
+		names = append(names, path.Join(candidate, "index")+extension)
+	}
+	for _, name := range names {
+		if name == entry {
+			return name, nil
+		}
+		info, err := fs.Stat(files, name)
+		if err == nil && !info.IsDir() {
+			return name, nil
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return "", errors.New("inspect module failed")
+		}
+	}
+	return "", errors.New("module not found in supplied filesystem")
 }
 
 // Overlay the loaded entry at the position where the native extension search would

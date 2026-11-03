@@ -1,7 +1,7 @@
 # Script Module Imports: PR Stack Plan
 
-Status: disk-relative and installed-package imports are implemented on this branch;
-virtual imports and workflow integration follow in the layers below. The current runtime
+Status: disk-relative, installed-package and virtual-source imports are implemented
+on this branch; workflow integration follows in PR5. The current runtime
 contract remains in [07-script-migrations.md](07-script-migrations.md). PR0 reconciles
 that contract with the scope below and marks the rollout explicitly. This document
 describes implementation order and acceptance, not an announcement of shipped support.
