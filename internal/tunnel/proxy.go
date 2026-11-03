@@ -17,6 +17,14 @@ import (
 
 // DialServer opens only the configured route. It never falls back to direct TCP.
 func DialServer(ctx context.Context, s Settings, prompt Prompt) (net.Conn, error) {
+	var secret []byte
+	if p := s.Proxy; p != nil && p.Username != "" {
+		var err error
+		secret, err = Secret(ctx, p.PasswordEnv, "Proxy password", prompt)
+		if err != nil {
+			return nil, err
+		}
+	}
 	ctx, cancel := context.WithTimeout(ctx, s.Connect)
 	defer cancel()
 	dialer := &net.Dialer{}
@@ -29,14 +37,6 @@ func DialServer(ctx context.Context, s Settings, prompt Prompt) (net.Conn, error
 		return conn, nil
 	}
 	p := s.Proxy
-	var secret []byte
-	if p.Username != "" {
-		var err error
-		secret, err = Secret(ctx, p.PasswordEnv, "Proxy password", prompt)
-		if err != nil {
-			return nil, err
-		}
-	}
 	if p.Type == ProxySOCKS5 {
 		var auth *proxy.Auth
 		if p.Username != "" {
