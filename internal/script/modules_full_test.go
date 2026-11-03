@@ -138,12 +138,28 @@ func TestDiskModuleUnsupportedLoading(t *testing.T) {
 	}
 }
 
-func TestExtensionlessCycleUsesSuppliedEntry(t *testing.T) {
+func TestEntryAliasesUseSuppliedTypeScriptBytes(t *testing.T) {
+	for _, specifier := range []string{"./V1__entry", "./V1__entry.js", "./V1__entry.jsx"} {
+		root := t.TempDir()
+		writeModuleFiles(t, root, map[string]string{
+			"helper.ts": `import {marker} from '` + specifier + `';export function read(){return marker}`,
+		})
+		text := `import {read} from './helper.ts';export const marker=42;export function up(){if(read()!==42)throw Error('entry overlay')}`
+		p, err := Compile("V1__entry.ts", text, "up", Options{}, &migrationsource.ModuleContext{Directory: root})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runModuleProgram(t, p)
+	}
+}
+
+func TestEntryAliasPreservesExactJavaScriptPrecedence(t *testing.T) {
 	root := t.TempDir()
 	writeModuleFiles(t, root, map[string]string{
-		"helper.ts": `import {marker} from './V1__entry';export function read(){return marker}`,
+		"V1__entry.js": `export const marker=7;`,
+		"helper.ts":    `import {marker} from './V1__entry.js';export function read(){return marker}`,
 	})
-	text := `import {read} from './helper.ts';export const marker=42;export function up(){if(read()!==42)throw Error('entry overlay')}`
+	text := `import {read} from './helper.ts';export const marker=42;export function up(){if(read()!==7)throw Error('exact JS file precedence')}`
 	p, err := Compile("V1__entry.ts", text, "up", Options{}, &migrationsource.ModuleContext{Directory: root})
 	if err != nil {
 		t.Fatal(err)
