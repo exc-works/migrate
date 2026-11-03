@@ -166,3 +166,18 @@ func TestEntryAliasPreservesExactJavaScriptPrecedence(t *testing.T) {
 	}
 	runModuleProgram(t, p)
 }
+
+func TestDiskDotDirectoryImports(t *testing.T) {
+	root := t.TempDir()
+	writeModuleFiles(t, root, map[string]string{
+		"index.js":        `export const value=42;`,
+		"nested/index.js": `export const value=42;`,
+	})
+	for _, specifier := range []string{".", ".."} {
+		p, err := Compile("V1__directory.js", `import {value} from '`+specifier+`';export function up(){if(value!==42)throw Error('directory import')}`, "up", Options{}, &migrationsource.ModuleContext{Directory: filepath.Join(root, "nested")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runModuleProgram(t, p)
+	}
+}

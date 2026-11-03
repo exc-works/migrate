@@ -70,7 +70,7 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 					if args.Kind == api.ResolveJSDynamicImport || args.Kind == api.ResolveJSRequireResolve {
 						return moduleError("asynchronous or runtime module loading is unsupported"), nil
 					}
-					if directory == "" || (!strings.HasPrefix(args.Path, "./") && !strings.HasPrefix(args.Path, "../")) {
+					if directory == "" || !relativeModulePath(args.Path) {
 						return moduleError("module import requires a disk-relative path and source context"), nil
 					}
 					// Handle back imports even when a supplied string entry has no disk file.
@@ -187,4 +187,8 @@ func moduleFileCandidates(candidate string) []string {
 		names = append(names, strings.TrimSuffix(candidate, extension)+replacement)
 	}
 	return names
+}
+
+func relativeModulePath(specifier string) bool {
+	return specifier == "." || specifier == ".." || strings.HasPrefix(specifier, "./") || strings.HasPrefix(specifier, "../")
 }
