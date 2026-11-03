@@ -28,8 +28,12 @@ func TestTerminalSecretHelper(t *testing.T) {
 		ctx, cancel = context.WithTimeout(ctx, 200*time.Millisecond)
 		defer cancel()
 	}
-	secret, err := terminalSecret(ctx, os.Stdout, "SSH password")
-	if mode == "cancel" {
+	output := os.Stdout
+	if mode == "broken" {
+		output = os.Stderr
+	}
+	secret, err := terminalSecret(ctx, output, "SSH password")
+	if mode == "cancel" || mode == "broken" {
 		if err == nil {
 			os.Exit(3)
 		}
@@ -49,12 +53,21 @@ func TestTerminalSecretHelper(t *testing.T) {
 }
 
 func TestTerminalNoEchoAndCancellation(t *testing.T) {
-	for _, mode := range []string{"input", "cancel"} {
+	for _, mode := range []string{"input", "cancel", "broken"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestTerminalSecretHelper$")
 			cmd.Env = append(os.Environ(), "MIGRATE_TEST_TERMINAL_HELPER="+mode)
+			if mode == "broken" {
+				reader, writer, err := os.Pipe()
+				if err != nil {
+					t.Fatal(err)
+				}
+				reader.Close()
+				defer writer.Close()
+				cmd.Stderr = writer
+			}
 			terminal, err := pty.Start(cmd)
 			if err != nil {
 				t.Fatal(err)
@@ -62,7 +75,11 @@ func TestTerminalNoEchoAndCancellation(t *testing.T) {
 			defer terminal.Close()
 			var output bytes.Buffer
 			var one [1]byte
-			for !strings.Contains(output.String(), "SSH password: ") {
+			marker := "SSH password: "
+			if mode == "broken" {
+				marker = "restored"
+			}
+			for !strings.Contains(output.String(), marker) {
 				n, err := terminal.Read(one[:])
 				if err != nil {
 					t.Fatal(err)
@@ -94,7 +111,7 @@ func TestTerminalNoEchoAndCancellation(t *testing.T) {
 			if strings.Contains(output.String(), "example value") {
 				t.Fatal("password echoed")
 			}
-			if !strings.Contains(output.String(), map[string]string{"input": "accepted", "cancel": "canceled"}[mode]) {
+			if !strings.Contains(output.String(), map[string]string{"input": "accepted", "cancel": "canceled", "broken": "canceled"}[mode]) {
 				t.Fatalf("unexpected output: %q", output.String())
 			}
 		})
