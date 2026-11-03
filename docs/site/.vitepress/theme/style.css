@@ -1,0 +1,11 @@
+:root {
+  --vp-c-brand-1: #087f8c;
+  --vp-c-brand-2: #096e79;
+  --vp-c-brand-3: #075b65;
+  --vp-home-hero-name-color: var(--vp-c-brand-1);
+}
+.dark {
+  --vp-c-brand-1: #5ad6ca;
+  --vp-c-brand-2: #35bdb1;
+  --vp-c-brand-3: #178f88;
+}
