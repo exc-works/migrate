@@ -4,6 +4,7 @@ package script
 
 import (
 	"math"
+	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -161,6 +162,43 @@ func TestOracleResultTypes(t *testing.T) {
 	} {
 		if _, _, err := resultValue(tc.value, tc.name); err == nil {
 			t.Fatalf("accepted inexact/non-finite %s", tc.name)
+		}
+	}
+}
+
+func TestClickHouseScalarValues(t *testing.T) {
+	huge, _ := new(big.Int).SetString("340282366920938463463374607431768211455", 10)
+	for _, tc := range []struct {
+		name        string
+		value, want any
+	}{
+		{"Int8", int8(-8), "-8"}, {"Int16", int16(-16), "-16"}, {"Int32", int32(-32), "-32"},
+		{"UInt8", uint8(8), "8"}, {"UInt16", uint16(16), "16"}, {"UInt32", uint32(math.MaxUint32), "4294967295"},
+		{"UInt64", uint64(math.MaxUint64), "18446744073709551615"},
+		{"UInt128", *huge, huge.String()}, {"Nullable(UInt128)", huge, huge.String()},
+		{"LowCardinality(Nullable(String))", []byte("text"), "text"},
+		{"Nullable(Decimal(38, 10))", "12345678901234567890.123456789", "12345678901234567890.123456789"},
+		{"Float32", float32(1.25), float64(1.25)}, {"Float64", []byte("1.25"), float64(1.25)},
+		{"Nullable(UInt8)", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, _, err := resultValue(tc.value, tc.name)
+			if err != nil || !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got %#v error=%v; want %#v", got, err, tc.want)
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name  string
+		value any
+	}{
+		{"Nullable(Decimal(38,10))", float64(0.1)}, {"LowCardinality(Nullable(Int64))", float64(1)},
+		{"UInt32", []byte("1.25")}, {"Float32", float32(math.Inf(1))},
+		{"Array(Int64)", []int64{1, 2}}, {"Tuple(String, Int64)", []any{"a", int64(1)}},
+		{"Map(String,Int64)", map[string]int64{"a": 1}}, {"String", *huge},
+	} {
+		if _, _, err := resultValue(tc.value, tc.name); err == nil {
+			t.Fatalf("accepted unsupported or inexact %s", tc.name)
 		}
 	}
 }

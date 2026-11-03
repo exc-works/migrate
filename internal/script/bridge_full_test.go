@@ -216,3 +216,43 @@ func TestOracleMissingTypeNamesUseColumnMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestClickHouseAffectedRowsUseDriverResult(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		count       int64
+		unavailable bool
+	}{
+		{name: "zero", count: 0}, {name: "count", count: 17}, {name: "large", count: 9007199254740993}, {name: "unavailable", unavailable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			result := sqlmock.NewResult(0, tc.count)
+			body := fmt.Sprintf(`if(db.exec('INSERT INTO users VALUES (?)',['exact']).rowsAffected!==%q)throw Error('count')`, strconv.FormatInt(tc.count, 10))
+			if tc.unavailable {
+				result = sqlmock.NewErrorResult(errors.New("private count failure"))
+				body = `try{db.exec('INSERT INTO users VALUES (?)',['exact'])}catch(e){}db.exec('INSERT INTO users VALUES (?)',['must not run'])`
+			}
+			mock.ExpectExec("INSERT INTO users").WithArgs("exact").WillReturnResult(result)
+			p, err := Compile("V1__clickhouse.js", `export function up(db){`+body+`}`, "up", Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			i, err := p.Instantiate(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = i.Execute(context.Background(), db, "clickhouse")
+			if (err != nil) != tc.unavailable || err != nil && strings.Contains(err.Error(), "private count failure") {
+				t.Fatalf("%v", err)
+			}
+			if err = mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

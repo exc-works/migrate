@@ -103,3 +103,16 @@ func (s *Service) preparePlan(migrations []Migration, direction string) ([]plann
 	}
 	return plan, nil
 }
+
+// withStepTransaction includes history writes in the failure boundary. A failed
+// nontransactional script can have persisted data even without a history record.
+func (s *Service) withStepTransaction(step migrationStep, fn func(execContextRunner) error) error {
+	err := s.withTx(fn)
+	if _, isScript := step.(scriptStep); err != nil && isScript {
+		capability, _ := script.Capability(s.cfg.Dialect.Name())
+		if capability.TransactionMode == script.TransactionNone {
+			return fmt.Errorf("%w; nontransactional script may have left partial changes; inspect data and migration history before retrying", err)
+		}
+	}
+	return err
+}

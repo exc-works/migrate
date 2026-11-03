@@ -58,7 +58,8 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 
 ## Database values
 
-- Integer results and affected-row counts are decimal strings, including small integers.
+- Integer results and driver-reported affected-row counts are decimal strings, including
+  small integers and zero. Do not override a driver count with a dialect-specific value.
 - DECIMAL/NUMERIC results are exact strings. Never round them through float64.
 - Floating point values are finite JS numbers; booleans and text retain their types.
 - NULL is `null`. `undefined`, arbitrary objects and unsafe numeric inputs are rejected.
@@ -75,7 +76,7 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 
 - Each invocation owns a fresh VM; runtime values never cross invocations.
 - Verified script support covers PostgreSQL, MySQL, MariaDB and SQLite.
-- TiDB, Redshift and Oracle are executable experimental dialects using their existing
+- TiDB, Redshift, Oracle and ClickHouse are executable experimental dialects using their existing
   drivers. Compatibility does not establish broad deployment verification. Oracle uses
   pinned go-ora v3 (required for Oracle 23ai authentication) and native `:1`
   placeholders; NUMBER stays exact text, RAW is bytes and CLOB is text. BLOB values
@@ -93,11 +94,12 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
   script dialects. Generated declarations include every executable dialect.
 - Warn once per selected script plan for experimental dialects, including dry-run;
   metadata-only operations and SQL-only plans do not emit this warning.
-- Each script migration and its successful history write use the same framework transaction.
+- Each script migration and its successful history write use the same framework transaction
+  where supported. ClickHouse uses the existing nontransactional runner for scripts too.
 - Preserve existing SQL transaction behavior, including the nontransactional ClickHouse
   SQL fallback. Transaction guarantees below apply only where a transaction is supported.
 - Default cleanup rolls back. Commit happens explicitly after successful execution.
-- Runtime/bridge failures never commit. Capture unexpected callback panics at the
+- Runtime/bridge failures never commit a framework transaction. Capture unexpected callback panics at the
   execution boundary, return a sanitized error and preserve rollback errors.
 - A database bridge failure remains fatal even if script code catches the JS exception.
 - Scripts must not execute transaction-control SQL. No nested/manual transaction API
@@ -105,7 +107,14 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 - MySQL/MariaDB atomicity requires transactional tables and operations. Oracle DDL
   implicitly commits. MySQL/MariaDB/TiDB DDL may implicitly
   commit: a framework transaction cannot make those statements rollback-safe.
-- General nontransactional script execution and resumable backfills are deferred.
+- ClickHouse scripts may leave partial changes without successful history on failure;
+  warn before execution and report this in execution/history errors for up and down.
+  Inspect data/history before retries. Do not promise automatic rollback, resumability or
+  exactly-once execution. Users must wait for mutations using native statement settings.
+- ClickHouse scalar integers (including 128/256 bit) and decimal values remain exact
+  strings; unwrap Nullable/LowCardinality metadata. Complex values (Array/Tuple/Map,
+  etc.) require explicit scalar casts; arbitrary driver objects remain rejected.
+- General nontransactional execution beyond ClickHouse and resumable backfills are deferred.
 - History tracks successful versions, not an exactly-once guarantee across crashes,
   implicit commits or concurrent migrators. Operators serialize migration invocations.
 

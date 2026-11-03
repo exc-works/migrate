@@ -255,7 +255,7 @@ func (s *Service) Down(toVersion string, all bool) error {
 }
 
 func (s *Service) applyUp(m Migration, step migrationStep, insertSQL string, nextID *uint64) error {
-	return s.withTx(func(runner execContextRunner) error {
+	return s.withStepTransaction(step, func(runner execContextRunner) error {
 		if err := s.executeStep(runner, step); err != nil {
 			return err
 		}
@@ -279,7 +279,7 @@ func (s *Service) applyUp(m Migration, step migrationStep, insertSQL string, nex
 }
 
 func (s *Service) applyDown(m Migration, step migrationStep, deleteSQL string) error {
-	return s.withTx(func(runner execContextRunner) error {
+	return s.withStepTransaction(step, func(runner execContextRunner) error {
 		if err := s.executeStep(runner, step); err != nil {
 			return err
 		}
