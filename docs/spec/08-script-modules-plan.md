@@ -1,7 +1,7 @@
 # Script Module Imports: PR Stack Plan
 
-Status: source context support is implemented on this branch; module imports remain
-unsupported until the compiler layers below land. The current runtime
+Status: disk-relative imports are implemented on this branch; package and virtual
+imports follow in the layers below. The current runtime
 contract remains in [07-script-migrations.md](07-script-migrations.md). PR0 reconciles
 that contract with the scope below and marks the rollout explicitly. This document
 describes implementation order and acceptance, not an announcement of shipped support.

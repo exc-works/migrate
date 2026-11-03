@@ -27,7 +27,7 @@ migrate up
 
 Files follow `V<version>__<description>.sql|js|ts|mjs` and share one version sequence.
 The `.mjs` extension is a `.js` alias with the same execution restrictions; generate it
-with `--format mjs`. The default remains SQL. It does not enable Node.js, npm or imports.
+with `--format mjs`. The default remains SQL. It does not enable the Node.js runtime.
 Do not modify or rename applied migrations. SQL keeps its existing checksums;
 scripts use original-source SHA-256.
 
@@ -56,6 +56,33 @@ equivalent declarations. Both describe database methods, parameters and result t
 for editor assistance. TS transpilation does not perform type checking. Optionally
 replace the local declarations with the shared
 [migration-api.d.ts](migration-api.d.ts), referenced by a triple-slash path comment.
+
+## Shared modules
+
+Disk-based migrations can use static relative imports and re-exports from `.js`,
+`.ts` and `.mjs` files. Paths resolve from each importing file, including shared
+files outside the migration directory. Helpers are dependencies, not migration entries.
+
+```ts
+import { normalize } from "../shared/normalize.ts";
+
+export function up(db) {
+  db.exec("UPDATE users SET name=? WHERE id=?", [normalize(" Alice "), "1"]);
+}
+```
+
+The compiler bundles dependencies before migration writes. Each migration keeps its
+own VM and module state. Dependency failures in a later selected migration prevent
+execution of earlier steps; the whole selected rollback range is also prepared first.
+Dry-run compiles dependencies without evaluating them; status/baseline inspect metadata.
+
+Checksums cover only original entry bytes. Editing a helper does not cause checksum
+mismatch or replay an applied migration. Keep historical helper behavior when old
+migrations must remain reproducible; add a new helper version when needed.
+
+Installed npm packages and virtual-source imports are enabled by later rollout layers.
+Node built-ins, native addons, dynamic import, dynamic require and asynchronous
+entrypoints remain unsupported. No runtime module loader is exposed.
 
 ## Values and SQL
 
