@@ -24,6 +24,11 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 			return nil, errors.New("invalid disk module context")
 		}
 		directory = modules.Directory
+		// The entry itself may be supplied only in memory. Canonicalize its
+		// existing directory so dependency realpaths can still refer back to it.
+		if resolved, err := filepath.EvalSymlinks(directory); err == nil {
+			directory = resolved
+		}
 		entry = filepath.Join(directory, filename)
 		if resolved, err := filepath.EvalSymlinks(entry); err == nil {
 			entry = resolved
