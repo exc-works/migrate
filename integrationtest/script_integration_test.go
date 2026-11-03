@@ -116,6 +116,15 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	if d.Name() == dialect.NameMSSQL {
 		merge := "WITH s AS (SELECT CAST(@p1 AS BIGINT) AS id, CAST(@p2 AS NVARCHAR(200)) AS profile) MERGE " + table + " AS t USING s ON t.id=s.id WHEN MATCHED THEN UPDATE SET profile=s.profile;"
 		mergeCheck = `const merged=db.exec(` + strconv.Quote(merge) + `,['9007199254740993','old']);if(merged.rowsAffected!=='1')throw Error('MERGE count');`
+		for _, statement := range []string{
+			"ALTER TABLE " + table + " ADD email NVARCHAR(20) NULL",
+			"ALTER TABLE " + table + " ALTER COLUMN email NVARCHAR(200) NULL",
+			"ALTER TABLE " + table + " ADD CONSTRAINT " + table + "_email CHECK (email IS NULL)",
+			"ALTER TABLE " + table + " DROP CONSTRAINT " + table + "_email",
+			"ALTER TABLE " + table + " DROP COLUMN email",
+		} {
+			mergeCheck += `db.exec(` + strconv.Quote(statement) + `);`
+		}
 	}
 	items := []source.Migration{
 		{Filename: "V1__create.sql", Source: "-- +migrate Up\n" + create + "\n-- +migrate Down\nDROP TABLE " + table + ";\n"},

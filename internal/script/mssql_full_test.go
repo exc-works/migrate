@@ -24,6 +24,9 @@ func TestMSSQLBatchesRejectedBeforeDriver(t *testing.T) {
 		"INSERT INTO users VALUES (@p1) DELETE FROM users",
 		"SELECT 1 CREATE TABLE extra(id INT)",
 		"WITH c AS (SELECT 1 AS id) SELECT id FROM c COMMIT",
+		"ALTER TABLE users DROP COLUMN email DROP TABLE other_users",
+		"ALTER TABLE users ALTER COLUMN email NVARCHAR(200) ALTER TABLE other_users ADD id INT",
+		"ALTER TABLE users DROP CONSTRAINT constraint_name COMMIT TRANSACTION",
 	} {
 		for _, method := range []string{"exec", "query"} {
 			t.Run(method+"/"+query, func(t *testing.T) {
@@ -62,6 +65,10 @@ func TestMSSQLDirectStatementsAndQuoting(t *testing.T) {
 		"INSERT INTO users(id) SELECT id FROM other_users UNION SELECT id FROM more_users",
 		"CREATE VIEW current_users AS SELECT id FROM users",
 		"DROP TABLE IF EXISTS users",
+		"ALTER TABLE users DROP COLUMN email",
+		"ALTER TABLE [users] ALTER COLUMN [email] NVARCHAR(200)",
+		"ALTER TABLE users DROP CONSTRAINT [email_unique]",
+		"ALTER TABLE users DROP /* nested /* comment */ here */ COLUMN email",
 		"SELECT 中文 FROM 用户 WHERE 姓名=@p1",
 	} {
 		if got, err := prepareMSSQL(query); err != nil || got != query {

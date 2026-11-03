@@ -23,9 +23,10 @@ func prepareMSSQL(query string) (string, error) {
 		return "", err
 	}
 	root := ""
+	alterTable := len(tokens) > 1 && tokens[0].word == "ALTER" && tokens[1].word == "TABLE"
 	updatePending, insertSource, setSelect := false, false, false
 	previous := ""
-	for _, token := range tokens {
+	for index, token := range tokens {
 		word := token.word
 		switch word {
 		case "COMMIT", "ROLLBACK", "ABORT", "BEGIN", "SAVE", "TRAN", "TRANSACTION", "EXEC", "EXECUTE", "CALL", "DECLARE", "USE", "DBCC", "WAITFOR", "KILL", "BACKUP", "RESTORE", "GRANT", "REVOKE", "DENY", "RECONFIGURE", "SHUTDOWN", "PROC", "PROCEDURE", "FUNCTION", "TRIGGER":
@@ -56,9 +57,17 @@ func prepareMSSQL(query string) (string, error) {
 			}
 		case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP", "TRUNCATE", "REPLACE":
 			allowed := false
+			next := ""
+			if index+1 < len(tokens) && tokens[index+1].depth == 0 {
+				next = tokens[index+1].word
+			}
 			switch {
 			case root == "WITH":
 				root = word
+				allowed = true
+			case alterTable && (word == "ALTER" && next == "COLUMN" || word == "DROP" && (next == "COLUMN" || next == "CONSTRAINT")):
+				// These clauses cannot start a standalone T-SQL statement. Keep
+				// ALTER TABLE and DROP TABLE rejected as additional statements.
 				allowed = true
 			case word == "SELECT" && setSelect:
 				setSelect = false
