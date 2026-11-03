@@ -1,13 +1,14 @@
 # Documentation website
 
-The site uses VitePress and requires Node.js 22 or newer. From the repository root:
+The site uses VitePress and requires Node.js 22 or newer and pnpm 10.21.0.
+Use the version pinned in `package.json` (`corepack enable` if pnpm is not installed). From the repository root:
 
 ```sh
-npm --prefix docs/site ci
-npm --prefix docs/site run dev
-npm --prefix docs/site test
-npm --prefix docs/site run build
-npm --prefix docs/site run preview
+pnpm --dir docs/site install --frozen-lockfile
+pnpm --dir docs/site run dev
+pnpm --dir docs/site test
+pnpm --dir docs/site run build
+pnpm --dir docs/site run preview
 ```
 
 Edit existing guides, examples and release notes at their original repository paths.
@@ -24,7 +25,7 @@ Documents follow main, rather than claiming all described features exist in ever
 release. Check release notes when using an older binary. Other translations remain
 available from the repository README until they are ported to the website.
 
-VitePress is pinned to its stable release. The Vite override selects the patched
+VitePress is pinned to its stable release. The override in `pnpm-workspace.yaml` selects the patched
 6.4 maintenance line because VitePress 1.x otherwise installs Vite 5. Validate
 site builds, development and preview when updating either dependency.
 
@@ -40,3 +41,6 @@ python3 scripts/test-docs-quick-start.py
 
 The release index is generated from `docs/releases/`; add new notes there rather
 than editing generated pages.
+
+Commit `pnpm-lock.yaml` when dependencies change. CI installs with `--frozen-lockfile`.
+Only esbuild is allowed to run its dependency build script.
