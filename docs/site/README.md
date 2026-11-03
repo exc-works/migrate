@@ -40,3 +40,31 @@ python3 scripts/test-docs-quick-start.py
 
 The release index is generated from `docs/releases/`; add new notes there rather
 than editing generated pages.
+
+## GitHub Pages
+
+After the PR stack is merged, enable **Settings → Pages → Build and deployment →
+Source: GitHub Actions** in the repository. The workflow publishes to
+https://exc-works.github.io/migrate/ after pushes to main. Run the `docs` workflow
+manually on main to retry deployment after enabling Pages. Other branches and PRs
+build and validate only. No personal access token or committed build output is needed.
+
+The deployment job requires both the site build/link check and the bilingual
+SQLite examples to pass. It uses the `github-pages` environment and grants Pages
+and OIDC write permissions only to the deployment job. Configure that environment
+to allow deployment from main. Existing Go CI gates remain in place.
+
+The artifact check can also be run locally after building:
+
+```sh
+python3 scripts/check-docs-site.py
+```
+
+It validates rendered pages, links, fragments and local resources under the
+configured project base. External sites are not fetched by this check. If the
+repository name or domain changes, update both the VitePress base and checker URL.
+
+If a page has a broken link or fragment, fix its canonical Markdown source. If a
+shared guide edit does not appear in preview, rebuild to refresh generated content.
+For a Pages 404, confirm the workflow source setting, deployment environment and
+project base, then check the `docs` workflow's deployment result.
