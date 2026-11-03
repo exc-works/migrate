@@ -126,6 +126,10 @@ MySQL, MariaDB and TiDB remain separate dialects despite sharing a driver.
 `db.dialect` always contains the canonical name: an `azuresql` input yields `mssql`.
 Capabilities text and JSON `aliases` fields list accepted aliases.
 
+MSSQL calls also reject semicolon-free batches and embedded transaction/session
+commands before reaching the driver. Direct CTE/DML and MERGE are supported; use SQL
+migration files for complex T-SQL batches and stored procedures.
+
 MSSQL MONEY/SMALLMONEY values remain exact strings. UNIQUEIDENTIFIER retains the
 driver's binary representation as copied bytes; use `CAST(id AS VARCHAR(36))` for
 formatted GUID text and bind GUID strings on writes. Rowversion/timestamp is binary;

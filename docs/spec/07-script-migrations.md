@@ -92,6 +92,12 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 - MSSQL uses the existing sqlserver driver and native `@p1` parameters, with the
   framework transaction shared by each script and history write. SQL batches,
   procedure calls and session/transaction commands remain outside the script API.
+  T-SQL permits semicolon-free batches: validate MSSQL tokens before either bridge
+  call, rejecting embedded transaction/session/dynamic commands and additional
+  top-level statements. Ignore quoted values/identifiers and nested comments when
+  examining keywords; retain direct CTE/DML and MERGE actions. Restore MERGE's
+  required terminator after generic single-statement validation. Real-driver tests
+  must cover a bound UPDATE followed by COMMIT, rollback and pending history.
   MONEY/SMALLMONEY remain exact strings, GUIDs retain the driver's copied binary
   representation (cast to VARCHAR(36) for formatted text), and timestamp/rowversion
   is binary only for this dialect. DATE/TIME values retain the existing time contract.
