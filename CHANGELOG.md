@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-03
+
 ### Added
 - Runnable SQLite examples for shared script modules, package.json/npm imports and
   embedded Go migrations, with bilingual instructions and a CI smoke check.
