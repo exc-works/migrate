@@ -15,6 +15,16 @@ import (
 
 const entryNamespace = "migration-entry"
 
+const (
+	extensionCJS  = ".cjs"
+	extensionJSON = ".json"
+	extensionTSX  = ".tsx"
+	extensionJSX  = ".jsx"
+	extensionCSS  = ".css"
+	extensionMTS  = ".mts"
+	extensionCTS  = ".cts"
+)
+
 // bundleModule resolves dependencies without evaluating JavaScript. The entry always
 // comes from the bytes used to calculate its history checksum, including back imports.
 func bundleModule(filename, source string, modules *migrationsource.ModuleContext) ([]byte, error) {
@@ -126,11 +136,11 @@ func moduleError(message string) api.OnResolveResult {
 
 func moduleLoader(filename string) (api.Loader, error) {
 	switch filepath.Ext(filename) {
-	case migrationsource.ExtensionJS, migrationsource.ExtensionMJS, ".cjs":
+	case migrationsource.ExtensionJS, migrationsource.ExtensionMJS, extensionCJS:
 		return api.LoaderJS, nil
 	case migrationsource.ExtensionTS:
 		return api.LoaderTS, nil
-	case ".json":
+	case extensionJSON:
 		return api.LoaderJSON, nil
 	default:
 		return api.LoaderNone, errors.New("unsupported module file type")
@@ -166,7 +176,7 @@ func diskEntryAlias(candidate, entry string) bool {
 
 // Keep entry overlays in step with esbuild's default file lookup: exact path,
 // appended extensions, then TypeScript's JavaScript-extension substitutions.
-var moduleExtensions = []string{".tsx", ".ts", ".jsx", ".js", ".css", ".json"}
+var moduleExtensions = []string{extensionTSX, migrationsource.ExtensionTS, extensionJSX, migrationsource.ExtensionJS, extensionCSS, extensionJSON}
 
 func moduleFileCandidates(candidate string) []string {
 	names := []string{candidate}
@@ -176,12 +186,12 @@ func moduleFileCandidates(candidate string) []string {
 	extension := filepath.Ext(candidate)
 	var replacements []string
 	switch extension {
-	case ".js", ".jsx":
-		replacements = []string{".ts", ".tsx"}
-	case ".mjs":
-		replacements = []string{".mts"}
-	case ".cjs":
-		replacements = []string{".cts"}
+	case migrationsource.ExtensionJS, extensionJSX:
+		replacements = []string{migrationsource.ExtensionTS, extensionTSX}
+	case migrationsource.ExtensionMJS:
+		replacements = []string{extensionMTS}
+	case extensionCJS:
+		replacements = []string{extensionCTS}
 	}
 	for _, replacement := range replacements {
 		names = append(names, strings.TrimSuffix(candidate, extension)+replacement)
