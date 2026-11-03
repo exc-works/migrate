@@ -25,8 +25,8 @@ func (s *moduleEntriesSource) LoadMigrationEntries() ([]source.MigrationEntry, e
 func TestModuleContextsFollowVersionSelection(t *testing.T) {
 	first, second := &source.ModuleContext{EntryPath: "first"}, &source.ModuleContext{EntryPath: "second"}
 	src := &moduleEntriesSource{entries: []source.MigrationEntry{
-		{Migration: source.Migration{"V2__second.sql", migrationSQL("SELECT 2;", "SELECT 2;")}, Modules: second},
-		{Migration: source.Migration{"V1__first.sql", migrationSQL("SELECT 1;", "SELECT 1;")}, Modules: first},
+		{Migration: source.Migration{Filename: "V2__second.sql", Source: migrationSQL("SELECT 2;", "SELECT 2;")}, Modules: second},
+		{Migration: source.Migration{Filename: "V1__first.sql", Source: migrationSQL("SELECT 1;", "SELECT 1;")}, Modules: first},
 	}}
 	svc := &Service{cfg: Config{MigrationSource: src}}
 	loaded, err := svc.loadMigrationSet(true, true)
@@ -49,7 +49,7 @@ func TestModuleContextsFollowVersionSelection(t *testing.T) {
 
 func TestModuleContextDoesNotChangeScriptHash(t *testing.T) {
 	text := "export function up(){}"
-	src := &moduleEntriesSource{entries: []source.MigrationEntry{{Migration: source.Migration{"V1__one.js", text}, Modules: &source.ModuleContext{EntryPath: "one"}}}}
+	src := &moduleEntriesSource{entries: []source.MigrationEntry{{Migration: source.Migration{Filename: "V1__one.js", Source: text}, Modules: &source.ModuleContext{EntryPath: "one"}}}}
 	svc := &Service{cfg: Config{MigrationSource: src}}
 	loaded, err := svc.loadMigrationSet(false, false)
 	if err != nil || loaded.migrations[0].Hash != fmt.Sprintf("%x", sha256.Sum256([]byte(text))) {
