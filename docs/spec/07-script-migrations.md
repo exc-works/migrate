@@ -30,9 +30,9 @@
 
 The `.mjs` extension is a JS alias with identical compilation, execution and restrictions;
 full builds advertise it in capabilities. SQL-only builds discover it and reject execution
-before writes. It does not enable imports, Node.js or a separate module loader.
+before writes. It does not enable Node.js or a separate runtime module loader.
 
-Scripts are independent UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
+Scripts are UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
 Missing down is irreversible, not a successful no-op. The runtime validates the entry
 before database writes; invalid exports anywhere in a rollback plan must not cause
 partial rollback. Ordinary synchronous return values are ignored without exporting or
@@ -40,9 +40,44 @@ inspecting object properties. Promise results and async/generator entrypoints re
 unsupported; the runtime does not await or consume returned work.
 
 ES module export syntax and TS syntax are transformed internally into a VM-loadable
-module. Imports, re-exports, dynamic imports, `require`, npm packages, asynchronous
-entrypoints and top-level await are unsupported. TS is transpiled without type checking;
-provide declarations for editor assistance. Do not advertise full Node.js compatibility.
+module. TS is transpiled without type checking; provide declarations for editor
+assistance. Do not advertise full Node.js compatibility.
+
+### Module import rollout
+
+The following is the target contract for the staged implementation in
+[08-script-modules-plan.md](08-script-modules-plan.md). At the contract-only stage,
+runtime compilation still rejects imports; subsequent layers enable disk-relative,
+installed-package and virtual-source imports in that order. User documentation must
+describe only the layers actually implemented on its branch.
+
+- Bundle static local imports and re-exports from JS/TS/MJS, installed npm packages
+  and statically resolvable CommonJS dependencies for execution in Goja. Installation
+  is the author's build/deployment step; migrate does not install or download packages.
+- Disk-relative paths resolve from their importing file, including paths outside the
+  migration directory. Bare package names use esbuild's installed-package resolver.
+  Use the neutral platform, main-field precedence `module`, then `main`, and explicit
+  empty custom conditions; import/require/default conditions remain applicable.
+  Preserve exports precedence and esbuild's extension rules. No automatic project
+  tsconfig loading or TypeScript path aliases are introduced.
+- Virtual sources resolve relative modules within their supplied filesystem and may
+  explicitly provide a disk dependency directory for installed packages. They never
+  implicitly use the process working directory. Fully virtual node_modules package
+  resolution is outside this rollout. Combined sources preserve each entry's context.
+- Keep the existing source interface and SourceFile field layout compatible. Legacy
+  sources without module context continue to support standalone scripts.
+- Compile the entry bytes loaded for hashing and retain each selected compiled
+  program for execution. Never reload modules during execution or share VM state
+  between migrations. Resolve and validate the selected plan before migration writes;
+  dry-run compiles without evaluating modules, while status/baseline inspect metadata.
+- Entry-source SHA-256 remains unchanged. Dependencies, package metadata, lockfiles
+  and bundle output are excluded; changing them does not invalidate checksums or replay
+  applied migrations. Authors maintain historical dependency behavior and versions.
+- Node built-ins, native addons, dynamic import, runtime dynamic require, top-level
+  await and asynchronous migration entrypoints remain unsupported. Resolving a package
+  does not certify that its runtime requirements are available in Goja.
+- Diagnostics identify logical module names and import locations without exposing
+  source excerpts, absolute local paths or raw filesystem errors.
 
 `db` is a narrow object with `dialect`, `query(sql, params?)` and `exec(sql, params?)`.
 Statements use native dialect placeholders and bound parameters; do not concatenate
