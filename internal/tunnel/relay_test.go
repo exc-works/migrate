@@ -16,6 +16,7 @@ import (
 
 	"github.com/exc-works/migrate/internal/testssh"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 func relayOptions(t *testing.T, s *testssh.Server) Options {
@@ -24,6 +25,70 @@ func relayOptions(t *testing.T, s *testssh.Server) Options {
 	p, _ := strconv.Atoi(port)
 	t.Setenv("MIGRATE_SSH_EXAMPLE_SECRET", "example")
 	return Options{Host: host, Port: p, User: "example", Auth: AuthOptions{Type: AuthPasswordMode, PasswordEnv: "MIGRATE_SSH_EXAMPLE_SECRET"}, KnownHostsFile: s.KnownHosts, KeepaliveInterval: "20ms", KeepaliveTimeout: "50ms"}
+}
+
+func TestRelayAgent(t *testing.T) {
+	s := testssh.New(t)
+	_, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ring := agent.NewKeyring()
+	if err := ring.Add(agent.AddedKey{PrivateKey: key}); err != nil {
+		t.Fatal(err)
+	}
+	s.Config.PasswordCallback = nil
+	s.Config.PublicKeyCallback = func(_ ssh.ConnMetadata, _ ssh.PublicKey) (*ssh.Permissions, error) { return nil, nil }
+	s.Serve()
+	socket := filepath.Join(t.TempDir(), "s")
+	l, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Skipf("Unix agent socket unavailable: %v", err)
+	}
+	defer l.Close()
+	go func() {
+		c, e := l.Accept()
+		if e == nil {
+			defer c.Close()
+			_ = agent.ServeAgent(ring, c)
+		}
+	}()
+	t.Setenv("SSH_AUTH_SOCK", socket)
+	o := relayOptions(t, s)
+	o.Auth = AuthOptions{Type: AuthAgent}
+	r, err := Start(context.Background(), o, "db.internal.example:5432", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Close()
+}
+
+func TestRelayPendingChannelTimeout(t *testing.T) {
+	s := testssh.New(t)
+	release := make(chan struct{})
+	defer close(release)
+	s.Forward = func(string) (net.Conn, error) { <-release; return nil, io.EOF }
+	s.Serve()
+	o := relayOptions(t, s)
+	o.ConnectTimeout = "50ms"
+	r, err := Start(context.Background(), o, "db.internal.example:5432", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	c, err := net.Dial("tcp", r.Address())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	select {
+	case <-r.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("pending channel open survived timeout")
+	}
+	if r.Err() == nil {
+		t.Fatal("channel timeout did not invalidate transport")
+	}
 }
 
 func TestRelayRoundtripAndClose(t *testing.T) {
