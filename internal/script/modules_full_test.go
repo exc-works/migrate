@@ -137,3 +137,16 @@ func TestDiskModuleUnsupportedLoading(t *testing.T) {
 		}
 	}
 }
+
+func TestExtensionlessCycleUsesSuppliedEntry(t *testing.T) {
+	root := t.TempDir()
+	writeModuleFiles(t, root, map[string]string{
+		"helper.ts": `import {marker} from './V1__entry';export function read(){return marker}`,
+	})
+	text := `import {read} from './helper.ts';export const marker=42;export function up(){if(read()!==42)throw Error('entry overlay')}`
+	p, err := Compile("V1__entry.ts", text, "up", Options{}, &migrationsource.ModuleContext{Directory: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runModuleProgram(t, p)
+}
