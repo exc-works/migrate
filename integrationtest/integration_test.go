@@ -322,6 +322,12 @@ func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
 
 func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, func()) {
 	t.Helper()
+	db, _, cleanup := startContainerDBWithDSN(t, flavor, d)
+	return db, cleanup
+}
+
+func startContainerDBWithDSN(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, string, func()) {
+	t.Helper()
 	ctx := context.Background()
 	requireProviderHealthy(t)
 
@@ -477,7 +483,8 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 		_ = container.Terminate(ctx)
 		t.Fatalf("resolve port: %v", err)
 	}
-	db, err := sql.Open(driverName, dsn(host, mapped.Port()))
+	connectionString := dsn(host, mapped.Port())
+	db, err := sql.Open(driverName, connectionString)
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("open db: %v", err)
@@ -491,7 +498,7 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 	}
 	t.Cleanup(cleanup)
 	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
-	return db, cleanup
+	return db, connectionString, cleanup
 }
 
 func startSQLiteDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {

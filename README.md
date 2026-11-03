@@ -22,6 +22,7 @@ Use `migrate capabilities` to inspect verification status and transaction limits
 - [SQL + JS/TS guide (English)](docs/script-migrations.en.md)
 - [Runnable script import examples](examples/script-imports/README.en.md) / [可运行示例](examples/script-imports/README.md)
 - [Migration API declarations](docs/migration-api.d.ts)
+- [SSH tunnels and proxies](docs/ssh-tunnel.en.md) / [SSH 隧道与代理](docs/ssh-tunnel.md)
 - [Changelog](CHANGELOG.md)
 
 ## Install
