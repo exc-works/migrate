@@ -6,6 +6,8 @@ Use `migrate capabilities` to inspect verification status and transaction limits
 
 ## Documentation
 
+- [Documentation website](https://exc-works.github.io/migrate/) / [中文文档站](https://exc-works.github.io/migrate/zh/)
+
 - [User Guide (中文)](docs/user-guide.md)
 - [User Guide (English)](docs/user-guide.en.md)
 - [User Guide (繁體中文)](docs/user-guide.zh-Hant.md)
