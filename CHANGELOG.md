@@ -21,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Ignore ordinary synchronous script return values and allow caught SQL failures to
-  recover with subsequent calls, while keeping Promise, cancellation, connection,
-  validation and resource-limit failures fatal.
+  recover with subsequent calls without classifying vendor error codes. Promise,
+  actual execution cancellation, overall timeout, validation and resource-limit
+  failures remain fatal; commit/history errors still fail the migration.
 - Reuse successful nontransactional script connections through the pool; discard only
   failed/panicked steps, preserving cleanup of unfinished manual transactions.
 - Forward script SQL unchanged to database drivers; remove keyword/single-statement

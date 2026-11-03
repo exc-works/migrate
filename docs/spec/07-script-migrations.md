@@ -143,26 +143,23 @@ commands do not evaluate config or validate dynamically computed export values.
   This can undo only changes still governed by its transaction; user SQL, procedures,
   implicit commits and nontransactional operations can defeat that guarantee. Capture
   unexpected callback panics, return a sanitized error and preserve rollback errors.
-- Ordinary SQL execution/query/iteration errors are sanitized exceptions that scripts
-  may catch and recover from. Subsequent DB calls are allowed; an uncaught error still
-  aborts the migration. Authors must repair transaction state where required (for
-  example ROLLBACK TO SAVEPOINT on PostgreSQL, or explicit ROLLBACK in manual mode).
-  If an error ended the entire managed transaction and a savepoint cannot recover it,
-  rethrow; do not silently continue outside the framework transaction. Full transaction
-  retries belong in explicit manual mode. Do not automatically replay SQL or commit
-  merely to clear errors.
-- Cancellation/deadlines, lost/finished connection handles and transport failures remain
-  fatal even if caught. Include structured server-native cancellation/timeout codes
-  (for example PostgreSQL 57014), not only Go context/network errors; classify errors
-  before removing driver details. Driver invalid-connection/protocol sentinels (such
-  as mysql.ErrInvalidConn) and invalid TDS streams are also fatal. Parameter/result validation, result limits, result-cleanup and
-  affected-row conversion failures also remain fatal. database/sql reports both late
-  SQL exceptions and automatic result-close errors through Rows.Err: only structured
-  native SQL exceptions there are recoverable; unclassified stream/cleanup errors are
-  fatal. Explicit Close failures remain fatal. Further DB calls after a fatal error
-  are blocked.
-  Classify driver errors before sanitizing, but never expose a raw driver error, cause
-  chain, SQL text or values to JS while making a SQL exception recoverable.
+- Driver errors from execution, affected-row retrieval, query metadata, scan,
+  iteration and result close are sanitized JS exceptions. Scripts may catch them
+  and make further DB calls, or rethrow to fail the migration. Do not classify
+  driver types, SQLSTATEs, vendor codes or connection/timeout sentinels to override
+  that choice. Catching an error and returning normally means the author accepts it;
+  the engine does not certify that the connection or transaction remains usable.
+- Authors must repair transaction state where required (for example ROLLBACK TO
+  SAVEPOINT on PostgreSQL, or explicit ROLLBACK in manual mode). If an error ended
+  the entire managed transaction and a savepoint cannot recover it, rethrow. Full
+  transaction retries belong in explicit manual mode. Do not automatically replay
+  SQL or replace a failed transaction. Commit and history errors still fail the step.
+- Cancellation of the actual execution context, the overall script deadline,
+  parameter/result validation and resource-limit failures remain fatal even when
+  caught, and block subsequent DB calls. A driver-reported timeout/cancellation
+  alone does not cancel the execution context and may be handled by the script.
+- Never expose raw driver errors, cause chains, SQL text or bound/result values to
+  JS. Each driver exception contains only a sanitized operation message.
 - Manual SQL transaction/session control requires config.transaction=false. Database
   permissions, SQL validity, balancing manual transactions and resetting desired session
   state are the migration author's responsibility; no SQL keyword enforcement is provided.

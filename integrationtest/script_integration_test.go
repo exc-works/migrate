@@ -185,7 +185,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 				t.Fatal(err)
 			}
 			defer conn.Close()
-			p, err := script.Compile("V0__lost_connection.js", `export function up(db){const id=db.query('SELECT CONNECTION_ID() AS id')[0].id;if(!/^[0-9]+$/.test(id))throw Error('invalid connection id');try{db.exec('KILL CONNECTION '+id)}catch(e){}}`, "up", script.Options{})
+			p, err := script.Compile("V0__lost_connection.js", `export function up(db){const id=db.query('SELECT CONNECTION_ID() AS id')[0].id;if(!/^[0-9]+$/.test(id))throw Error('invalid connection id');let caught=false;try{db.exec('KILL CONNECTION '+id)}catch(e){caught=true}if(!caught)throw Error('expected connection loss')}`, "up", script.Options{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -193,8 +193,21 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if err = i.Execute(ctx, conn, d.Name()); err != nil {
+				t.Fatalf("caught driver error failed invocation: %v", err)
+			}
+			// Catching the loss does not repair this pinned connection. The driver
+			// must still reject an unhandled call on it.
+			p, err = script.Compile("V0__dead_connection.js", `export function up(db){db.exec('SELECT 1')}`, "up", script.Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			i, err = p.Instantiate(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err = i.Execute(ctx, conn, d.Name()); err == nil {
-				t.Fatal("caught native connection loss returned success")
+				t.Fatal("unhandled error on dead connection returned success")
 			}
 		}()
 	}
@@ -234,7 +247,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 
 	if d.Name() == dialect.NamePostgres {
 		cancelledItems := append([]source.Migration(nil), items...)
-		body := `export const config={transaction:false};export function up(db){db.exec("SET statement_timeout='50ms'");db.exec('BEGIN');db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec('SAVEPOINT cancelled');try{db.query('SELECT pg_sleep(1)')}catch(e){try{db.exec('ROLLBACK TO SAVEPOINT cancelled')}catch(e){}try{db.exec(` + strconv.Quote(update) + `,['must-not-run','9007199254740993'])}catch(e){}try{db.exec('COMMIT')}catch(e){}}}`
+		body := `export const config={transaction:false};export function up(db){db.exec("SET statement_timeout='50ms'");db.exec('BEGIN');db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec('SAVEPOINT cancelled');try{db.query('SELECT pg_sleep(1)')}catch(e){db.exec('ROLLBACK TO SAVEPOINT cancelled');db.exec(` + strconv.Quote(update) + `,['recovered-timeout','9007199254740993']);db.exec('COMMIT')}db.exec('RESET statement_timeout')}export function down(db){return db.exec(` + strconv.Quote(update) + `,['new-ts','9007199254740993'])}`
 		cancelledItems = append(cancelledItems, source.Migration{Filename: "V4__cancelled.js", Source: body})
 		cancelledCfg := cfg
 		cancelledCfg.MigrationSource = source.StringSource{Migrations: cancelledItems}
@@ -242,14 +255,18 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = cancelled.Up(); err == nil {
-			t.Fatal("caught native cancellation recorded success")
+		if err = cancelled.Up(); err != nil {
+			t.Fatalf("server timeout recovery failed: %v", err)
 		}
-		assertScriptProfile(t, db, table, "new-ts")
+		assertScriptProfile(t, db, table, "recovered-timeout")
 		statuses, err = cancelled.Status()
-		if err != nil || statuses[len(statuses)-1].Status != migrate.StatusPending {
+		if err != nil || statuses[len(statuses)-1].Status != migrate.StatusApplied {
 			t.Fatalf("%+v %v", statuses, err)
 		}
+		if err = cancelled.Down("3", false); err != nil {
+			t.Fatal(err)
+		}
+		assertScriptProfile(t, db, table, "new-ts")
 	}
 
 	// Fail after a real update; an uncaught DB error must roll the update back.

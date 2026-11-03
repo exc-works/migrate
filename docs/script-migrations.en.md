@@ -97,16 +97,21 @@ connections. Driver reset behavior varies and may preserve session settings, so 
 any settings you change and do not depend on session state across migrations.
 Finish every manual transaction before returning successfully. Unfinished manual transactions on successful return are invalid
 usage. An uncaught or fatal failure discards the dedicated connection, closing any
-still-uncommitted transaction. Ordinary SQL execution/query errors may be caught and
-handled; recovery calls such as ROLLBACK can run afterwards. A caught SQL error does
-not automatically repair the database transaction: use a savepoint or manual rollback
-as required by the dialect. If an error ended the entire managed transaction, rethrow
-when it cannot be recovered with a savepoint; use explicit manual mode for full
-transaction retries. Uncaught errors still fail the migration. Cancellation,
-connection/transport failures, parameter/result validation and resource limits remain
-fatal even when caught, and prevent further DB calls. Unknown result-stream/cleanup
-errors also remain fatal: only structured native SQL exceptions reported during result
-iteration can recover. Driver details remain sanitized.
+still-uncommitted transaction.
+
+Driver errors from execution, affected-row retrieval, query metadata, scan, iteration
+and result close are sanitized exceptions that scripts can catch and handle. Further
+DB calls are allowed; the engine does not classify vendor errors or declare a
+connection healthy. Catching an error and returning normally means the author accepts
+it. Recovery calls such as ROLLBACK can run afterwards, but catching an error does not
+automatically repair a transaction. Use a savepoint or manual rollback as required by
+the dialect. If the entire managed transaction ended and cannot be repaired, rethrow;
+use explicit manual mode for full transaction retries. Uncaught exceptions, commit
+failures and history-write failures still fail the migration.
+Cancellation of the actual execution context, the overall script timeout,
+parameter/result validation and resource limits remain fatal even when caught, and
+prevent further DB calls. A driver-reported timeout alone is catchable. Driver errors
+never expose raw details or cause chains to JS.
 Nontransactional failures may leave committed changes without successful history;
 errors warn about partial state. Inspect data/history before retrying. In managed
 mode, do not issue your own BEGIN/COMMIT/ROLLBACK: these are forwarded, and can break
