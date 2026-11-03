@@ -104,7 +104,9 @@ as required by the dialect. If an error ended the entire managed transaction, re
 when it cannot be recovered with a savepoint; use explicit manual mode for full
 transaction retries. Uncaught errors still fail the migration. Cancellation,
 connection/transport failures, parameter/result validation and resource limits remain
-fatal even when caught, and prevent further DB calls. Driver details remain sanitized.
+fatal even when caught, and prevent further DB calls. Unknown result-stream/cleanup
+errors also remain fatal: only structured native SQL exceptions reported during result
+iteration can recover. Driver details remain sanitized.
 Nontransactional failures may leave committed changes without successful history;
 errors warn about partial state. Inspect data/history before retrying. In managed
 mode, do not issue your own BEGIN/COMMIT/ROLLBACK: these are forwarded, and can break

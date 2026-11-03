@@ -203,7 +203,10 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 		out = append(out, row)
 	}
 	if rowErr := rows.Err(); rowErr != nil {
-		return nil, databaseFailure(rowErr, "database iteration failed")
+		if nativeSQLStatementError(rowErr) {
+			return nil, databaseFailure(rowErr, "database iteration failed")
+		}
+		return nil, errors.New("database iteration or result close failed")
 	}
 	return out, nil
 }

@@ -107,7 +107,7 @@ func TestCaughtIterationErrorAllowsRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	mock.ExpectQuery("SELECT fixture").WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1).RowError(0, errors.New("private driver detail"))).RowsWillBeClosed()
+	mock.ExpectQuery("SELECT fixture").WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1).RowError(0, &pgconn.PgError{Code: "42P01", Message: "private driver detail"})).RowsWillBeClosed()
 	mock.ExpectExec("ROLLBACK").WillReturnResult(sqlmock.NewResult(0, 0))
 	err = runRecovery(t, db, `export function up(db){try{db.query('SELECT fixture')}catch(e){db.exec('ROLLBACK')}}`)
 	if err != nil {
@@ -160,5 +160,40 @@ func TestNativeOrdinarySQLFailuresRemainRecoverable(t *testing.T) {
 		if err != nil || db.calls != 2 {
 			t.Fatalf("%T calls=%d error=%v", cause, db.calls, err)
 		}
+	}
+}
+
+func TestCaughtAutomaticCloseFailureStaysFatal(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectQuery("SELECT fixture").WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1).CloseError(errors.New("private cleanup detail"))).RowsWillBeClosed()
+	err = runRecovery(t, db, `export function up(db){try{db.query('SELECT fixture')}catch(e){}try{db.exec('must not execute')}catch(e){}}`)
+	if err == nil || strings.Contains(err.Error(), "private cleanup detail") {
+		t.Fatalf("cleanup error escaped: %v", err)
+	}
+	if err = mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCaughtUnclassifiedIterationFailureStaysFatal(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	failures := []error{errors.New("private stream detail"), errors.Join(&pgconn.PgError{Code: "42P01", Message: "private SQL detail"}, errors.New("private cleanup detail"))}
+	for _, cause := range failures {
+		mock.ExpectQuery("SELECT fixture").WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1).RowError(0, cause)).RowsWillBeClosed()
+		err = runRecovery(t, db, `export function up(db){try{db.query('SELECT fixture')}catch(e){}try{db.exec('must not execute')}catch(e){}}`)
+		if err == nil || strings.Contains(err.Error(), "private") {
+			t.Fatalf("unknown stream error escaped: %v", err)
+		}
+	}
+	if err = mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }
