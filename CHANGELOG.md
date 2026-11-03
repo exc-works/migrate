@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Static JS/TS/MJS imports and re-exports, plus installed npm packages bundled for
+  Goja. Embedded and in-memory sources support relative modules and explicit disk
+  dependency directories; no Node runtime or package installation is added.
 - Per-script `export const config = { transaction: false }` for native SQL/manual
   transactions on a dedicated connection, with explicit partial-state diagnostics.
 - Experimental JS/TS/MJS migration execution for TiDB, Redshift, Oracle, ClickHouse and MSSQL.
@@ -34,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialize external SQL/full CI against each dedicated database to avoid fixture races.
 
 ### Compatibility
+- Script checksums continue to cover entry source only. Editing imported helpers or
+  packages does not trigger history mismatches or replay applied migrations; authors
+  retain historical dependency behavior and pin installed package versions.
 - Default builds remain SQL-only. Existing script_dialects JSON output is preserved;
   script_dialect_capabilities adds detailed status. New dialects remain experimental.
 - Oracle DDL implicitly commits. ClickHouse scripts cannot automatically roll back;

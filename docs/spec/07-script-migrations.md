@@ -45,10 +45,10 @@ assistance. Do not advertise full Node.js compatibility.
 
 ### Module import rollout
 
-The following is the target contract for the staged implementation in
-[08-script-modules-plan.md](08-script-modules-plan.md). Disk-relative, installed-package and virtual-source imports are implemented on
-this branch; the final workflow layer adds delivery verification. User documentation must
-describe only the layers actually implemented on its branch.
+The implementation stack is recorded in
+[08-script-modules-plan.md](08-script-modules-plan.md). Full builds implement
+static disk-relative, installed-package and virtual-source imports under the
+following contract.
 
 - Bundle static local imports and re-exports from JS/TS/MJS, installed npm packages
   and statically resolvable CommonJS dependencies for execution in Goja. Installation

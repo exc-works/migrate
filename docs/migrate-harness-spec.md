@@ -12,7 +12,7 @@
 6. [05-ci-install-release.md](./spec/05-ci-install-release.md)
 7. [06-reviewer-security-rules.md](./spec/06-reviewer-security-rules.md)
 8. [07-script-migrations.md](./spec/07-script-migrations.md)
-9. [08-script-modules-plan.md](./spec/08-script-modules-plan.md)（模块导入的后续 PR stack 计划，尚未实现）
+9. [08-script-modules-plan.md](./spec/08-script-modules-plan.md)（模块导入 PR stack 与验收记录）
 
 ## 使用方式
 
