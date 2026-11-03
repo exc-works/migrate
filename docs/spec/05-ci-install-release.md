@@ -42,3 +42,5 @@
 
 - 使用语义化 tag（例如 `v0.1.0`）。
 - 变更日志明确区分“行为修复”与“功能新增”。
+- 发布说明放在 `docs/releases/<tag>.md`，与归档到 CHANGELOG 的版本一致。
+  tag 发布流程从该文件填充 GitHub Release 正文；打 tag 前先合并发布准备 PR。
