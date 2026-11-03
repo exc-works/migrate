@@ -14,6 +14,7 @@ require (
 	github.com/sijms/go-ora/v3 v3.0.2-0.20260816063838-09c375d44d37
 	github.com/spf13/cobra v1.9.1
 	github.com/testcontainers/testcontainers-go v0.40.0
+	golang.org/x/net v0.50.0
 	modernc.org/sqlite v1.48.2
 )
 
