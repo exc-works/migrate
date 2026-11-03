@@ -168,3 +168,49 @@ func TestAsyncGeneratorRejectedBeforeExecution(t *testing.T) {
 		}
 	}
 }
+
+func TestScriptTransactionConfig(t *testing.T) {
+	for _, tc := range []struct {
+		config    string
+		want, bad bool
+	}{
+		{"", true, false}, {`export const config={}`, true, false},
+		{`export const config={transaction:true}`, true, false}, {`export const config={transaction:false}`, false, false},
+		{`export const config={transaction:undefined}`, true, false},
+		{`export const config=null`, false, true}, {`export const config=[]`, false, true},
+		{`export const config=false`, false, true}, {`export const config={transaction:'false'}`, false, true},
+		{`export const config={transaction:0}`, false, true},
+		{`export const config={transaction:{get nested(){throw Error('private value')}}}`, false, true}, {`export const config={transaction:null}`, false, true},
+		{`export const config={get transaction(){throw Error('private value')}}`, false, true},
+	} {
+		for _, direction := range []string{"up", "down"} {
+			t.Run(direction+"/"+tc.config, func(t *testing.T) {
+				p, err := Compile("V1__config.ts", tc.config+`;export function up(){};export function down(){}`, direction, Options{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				i, err := p.Instantiate(context.Background())
+				if (err != nil) != tc.bad || err != nil && strings.Contains(err.Error(), "private value") {
+					t.Fatalf("%v", err)
+				}
+				if err == nil && i.TransactionEnabled() != tc.want {
+					t.Fatalf("transaction=%v", i.TransactionEnabled())
+				}
+			})
+		}
+	}
+	p, err := Compile("V1__snapshot.js", `let reads=0;export const config={get transaction(){if(++reads>1)throw Error('read twice');return false}};export function up(){Object.defineProperty(config,'transaction',{value:true})}`, "up", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, err := p.Instantiate(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = i.Run(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if i.TransactionEnabled() {
+		t.Fatal("entrypoint changed preflight transaction policy")
+	}
+}

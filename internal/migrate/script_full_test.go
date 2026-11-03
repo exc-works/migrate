@@ -96,7 +96,7 @@ func testMixedLifecycleAndHashes(t *testing.T, extension string) {
 }
 
 func TestPreflightAndMetadataNeverPartiallyApply(t *testing.T) {
-	for _, sourceText := range []string{`export function up(`, `export const up=1`, `export async function* up(){yield 1}`} {
+	for _, sourceText := range []string{`export function up(`, `export const up=1`, `export async function* up(){yield 1}`, `export const config={transaction:"false"};export function up(){}`} {
 		t.Run(sourceText[:12], func(t *testing.T) {
 			items := mixedSources()
 			items[1].Source = sourceText

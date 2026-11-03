@@ -67,14 +67,37 @@ round large JSON numeric literals; use a lossless representation. SQLite NUMERIC
 affinity may store decimals as floats, which the runtime rejects; choose suitable
 storage types when exact decimal preservation is required.
 
-Each bridge call accepts one statement, with an optional trailing terminator and
-no embedded semicolons. Bind values containing semicolons. Only direct data/schema
-statements listed in the spec are accepted; dynamic SQL, procedure calls, administrative
-commands, manual transaction/session control and executable comments are rejected. Use SQL migration
-files for compound routine definitions. Alias duplicate result column names.
-SQL must start directly with a supported keyword after whitespace. Leading SQL comments
-are unsupported because dialects disagree about nesting and line endings. Place annotations
-in JS/TS comments.
+SQL is passed unchanged to the driver. Native comments, semicolons, batches,
+procedure definitions/calls and administrative SQL follow database permissions and
+driver support. The bridge does not split or validate SQL and does not interpret
+client separators such as GO. Preserve native terminators (including MERGE's `;`).
+MySQL batches may require driver DSN options. Alias duplicate column names; `query`
+returns only the first result set. Exec counts preserve the driver's batch semantics.
+
+Each script uses a framework transaction by default where supported. For SQL that
+must run outside it, manual transactions or session control, export:
+
+```js
+export const config = { transaction: false }; // applies to up and down
+export function up(db) {
+  db.exec("BEGIN TRANSACTION"); // use your dialect's native syntax
+  db.exec("UPDATE users SET profile=@p1", ["changed"]);
+  db.exec("COMMIT TRANSACTION");
+}
+```
+
+Omitted config/transaction defaults to true. A defined transaction value must be a
+boolean. Config is evaluated and snapshotted during actual execution preflight;
+status, baseline and dry-run do not evaluate it. All calls in an explicitly
+nontransactional step share one dedicated connection; it is discarded afterwards
+so session state cannot leak to the pool. Finish every manual transaction before
+returning successfully. Unfinished manual transactions on successful return are invalid
+usage. A bridge failure remains fatal and blocks later calls; the dedicated connection
+is discarded on failure, closing any still-uncommitted transaction.
+Nontransactional failures may leave committed changes without successful history;
+errors warn about partial state. Inspect data/history before retrying. In managed
+mode, do not issue your own BEGIN/COMMIT/ROLLBACK: these are forwarded, and can break
+the framework's rollback and history guarantees. Migration authors own their SQL.
 
 ## Limits and guarantees
 
@@ -126,19 +149,16 @@ MySQL, MariaDB and TiDB remain separate dialects despite sharing a driver.
 `db.dialect` always contains the canonical name: an `azuresql` input yields `mssql`.
 Capabilities text and JSON `aliases` fields list accepted aliases.
 
-MSSQL calls also reject semicolon-free batches and embedded transaction/session
-commands before reaching the driver. Direct CTE/DML, ALTER TABLE column/constraint changes (including foreign-key actions) and MERGE are supported; use SQL
-migration files for complex T-SQL batches and stored procedures.
-
 MSSQL MONEY/SMALLMONEY values remain exact strings. UNIQUEIDENTIFIER retains the
 driver's binary representation as copied bytes; use `CAST(id AS VARCHAR(36))` for
 formatted GUID text and bind GUID strings on writes. Rowversion/timestamp is binary;
 DATETIMEOFFSET and other time values follow the common time conversion contract.
-T-SQL batches, IF/BEGIN and procedure calls still require SQL migration files.
+Native T-SQL batches and procedure calls are supported by the driver.
 
-Where transactions are supported, script operations and successful history writes
-share a framework transaction. Caught database errors remain fatal. Implicit DDL
-commits and other engine limitations prevent universal rollback guarantees.
+In managed mode, script operations and successful history writes share the framework
+transaction. Caught bridge/database errors remain fatal. User transaction control,
+procedure side effects, implicit DDL commits and engine limitations prevent universal
+rollback guarantees. Nontransactional mode provides no data/history atomicity.
 
 Oracle uses pinned go-ora v3. NUMBER values remain exact strings; RAW becomes bytes
 and CLOB becomes text. BLOB results without type metadata require an explicit
@@ -146,7 +166,7 @@ projection, such as bounded `DBMS_LOB.SUBSTR` to RAW or `RAWTOHEX` to hex text.
 Do not infer ambiguous binary values. CLI connections disable v3 fast-login cookies
 by default for reliable reconnection, preserving explicit `FAST LOGIN` options.
 Go facade callers constructing their own DB should set `FAST+LOGIN=false` in the DSN.
-PL/SQL blocks and procedure calls still require SQL files. Redshift
+Native PL/SQL blocks and calls follow driver support. Redshift
 specific types may have unknown pgx metadata: explicitly convert them to supported
 scalars. For VARBYTE, write hex text with `FROM_HEX($1)` and read hex text with
 `FROM_VARBYTE(payload, 'hex')` rather than assuming BYTEA compatibility.
@@ -156,7 +176,7 @@ Unadapted values such as Array, Tuple, Map, UUID and IP require explicit SQL con
 to supported scalars. String must contain valid UTF-8; encode arbitrary binary data
 as hex text. `rowsAffected` preserves the driver count as a decimal string, including a ClickHouse driver value of `"0"`; the framework does not infer a replacement. Use statement-local
 `SETTINGS mutations_sync=2` when mutation completion is required; session settings
-are not exposed.
+must follow driver support; explicitly disable framework transactions for session control.
 
 A ClickHouse failure, timeout or history-write error can leave successful prior
 writes without successful history. Errors report possible partial changes. Down

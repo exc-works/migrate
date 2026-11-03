@@ -74,13 +74,7 @@ func TestBridgeFailuresAreStickyAndRollback(t *testing.T) {
 		{name: "unsafe number", body: `db.exec('UPDATE users SET id=?',[9007199254740993])`},
 		{name: "undefined", body: `db.exec('UPDATE users SET profile=?',[undefined])`},
 		{name: "object", body: `db.exec('UPDATE users SET profile=?',[{}])`},
-		{name: "abort alias", body: `db.exec('ABORT')`},
-		{name: "SQLite comment escape", body: `db.exec('/* outer /* inner */ COMMIT -- */ SELECT 1');throw Error("after control")`},
-		{name: "nested comment commit", body: `db.exec('/* outer /* inner */ ignored */ COMMIT')`},
-		{name: "prepare transaction", body: `db.exec("PREPARE TRANSACTION 'example'")`},
 		{name: "throwing parameter", body: `const p=[];Object.defineProperty(p,0,{get(){throw Error("private value")}});try{db.exec('SELECT ?',p)}catch(e){}`},
-		{name: "manual commit", body: `db.exec(' /* leading */ COMMIT')`},
-		{name: "multiple statements", body: `db.exec('SELECT 1; COMMIT')`},
 		{name: "row cap", body: `db.query('SELECT id FROM users UNION ALL SELECT id FROM users')`, options: Options{MaxRows: 1}},
 		{name: "byte cap", body: `db.query('SELECT profile FROM users')`, options: Options{MaxBytes: 2}},
 		{name: "duplicate columns", body: `db.query('SELECT id,id FROM users')`},
@@ -137,46 +131,42 @@ func TestBridgeExactMetadataAndCloseFailure(t *testing.T) {
 	}
 }
 
-func TestSingleStatementControl(t *testing.T) {
-	for _, q := range []string{"COMMIT", "-- comment\nROLLBACK", "/* comment */ BEGIN", "SET autocommit=1", "SELECT 1; COMMIT", "/* comment */ SELECT 1", "/*! COMMIT */", "SELECT ';'"} {
-		if _, err := singleStatement(q); err == nil {
-			t.Fatalf("accepted %q", q)
-		}
-	}
-	for _, q := range []string{"SELECT 1;", "UPDATE users SET profile=?"} {
-		if _, err := singleStatement(q); err != nil {
-			t.Fatalf("%q: %v", q, err)
+func TestBridgeSQLPassesUnchanged(t *testing.T) {
+	for _, dialect := range dbdialect.Names() {
+		for _, query := range []string{"-- native SQL\nSELECT ';' AS value;", "SELECT 1; SELECT 2;", "DECLARE @value INT; SET @value=1; SELECT @value", "EXEC native_procedure", "BEGIN; COMMIT;", "/*! native comment */ SELECT 1"} {
+			t.Run(dialect+"/"+query, func(t *testing.T) {
+				db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer db.Close()
+				mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(0, 0))
+				mock.ExpectQuery(query).WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow("native"))
+				p, err := Compile("V1__native.js", `export function up(db){db.exec(`+strconv.Quote(query)+`);db.query(`+strconv.Quote(query)+`)}`, "up", Options{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				i, err := p.Instantiate(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = i.Execute(context.Background(), db, dialect); err != nil {
+					t.Fatal(err)
+				}
+				if err = mock.ExpectationsWereMet(); err != nil {
+					t.Fatal(err)
+				}
+			})
 		}
 	}
 }
 
-func TestControlCommandsRejectedBeforeDriver(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	for _, query := range []string{"ABORT", "PREPARE TRANSACTION 'example'", "EXECUTE IMMEDIATE 'COMMIT'", "CALL commit_procedure()", "RESET QUERY CACHE", "/* outer /* inner */ ignored */ COMMIT", "/* outer /* inner */ COMMIT -- */ SELECT 1"} {
-		source := `export function up(db){db.exec(` + strconv.Quote(query) + `)}`
-		p, err := Compile("V1__control.js", source, "up", Options{})
-		if err != nil {
-			t.Fatal(err)
+func TestBridgeEmptySQLFailsBeforeDriver(t *testing.T) {
+	db := bridgeDB(t)
+	for _, text := range []string{"", " \n\t"} {
+		if err := bridgeRun(t, db, `export function up(db){try{db.exec(`+strconv.Quote(text)+`)}catch(e){}}`, Options{}); err == nil {
+			t.Fatal("empty SQL escaped sticky failure")
 		}
-		i, err := p.Instantiate(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = i.Execute(context.Background(), db, "postgres")
-		want := "manual transaction"
-		if strings.Contains(query, "/*") {
-			want = "leading SQL comments"
-		}
-		if err == nil || !strings.Contains(err.Error(), want) {
-			t.Fatalf("%q: %v", query, err)
-		}
-	}
-	if err = mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
 	}
 }
 

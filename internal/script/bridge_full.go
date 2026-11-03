@@ -39,7 +39,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if failure != nil {
 					return nil, failure
 				}
-				text, args, err := i.decodeCall(query, params, dialect)
+				text, args, err := i.decodeCall(query, params)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -60,7 +60,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if failure != nil {
 					return nil, failure
 				}
-				text, args, err := i.decodeCall(query, params, dialect)
+				text, args, err := i.decodeCall(query, params)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -80,12 +80,9 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 
 // Accessors and Export can throw inside reflected Go callbacks. Convert those
 // exceptions into ordinary errors so callers always record a sticky failure.
-func (i *Invocation) decodeCall(query, params goja.Value, dialectName string) (text string, args []any, err error) {
+func (i *Invocation) decodeCall(query, params goja.Value) (text string, args []any, err error) {
 	if exception := i.vm.Try(func() { text, args, err = decodeCall(query, params) }); exception != nil {
 		return "", nil, errors.New("SQL parameter access failed")
-	}
-	if err == nil && dialectName == dbdialect.NameMSSQL {
-		text, err = prepareMSSQL(text)
 	}
 	return
 }
@@ -98,9 +95,8 @@ func decodeCall(query, params goja.Value) (string, []any, error) {
 	if !ok {
 		return "", nil, errors.New("SQL must be a string")
 	}
-	text, err := singleStatement(text)
-	if err != nil {
-		return "", nil, err
+	if strings.TrimSpace(text) == "" {
+		return "", nil, errors.New("SQL must not be empty")
 	}
 	if params == nil || goja.IsUndefined(params) {
 		return text, nil, nil
@@ -119,46 +115,13 @@ func decodeCall(query, params goja.Value) (string, []any, error) {
 		if v == nil || goja.IsUndefined(v) {
 			return "", nil, errors.New("undefined SQL parameter")
 		}
+		var err error
 		args[index], err = parameterValue(v.Export())
 		if err != nil {
 			return "", nil, err
 		}
 	}
 	return text, args, nil
-}
-
-// The bridge deliberately accepts no embedded semicolons. A trailing terminator
-// is optional; use bound parameters for values containing semicolons. SQL files
-// remain the escape hatch for compound SQL and stored routine definitions.
-func singleStatement(query string) (string, error) {
-	query = strings.TrimSpace(query)
-	query = strings.TrimSpace(strings.TrimSuffix(query, ";"))
-	if query == "" || strings.Contains(query, ";") || strings.Contains(query, "/*!") || strings.Contains(query, "/*M!") || strings.Contains(query, "/*m!") {
-		return "", errors.New("expected one SQL statement; bind values containing semicolons")
-	}
-	prefix := query
-	// Do not interpret SQL comments: newline and nesting rules differ by engine.
-	// A directly leading keyword is unambiguous across all supported dialects.
-	if strings.HasPrefix(prefix, "--") || strings.HasPrefix(prefix, "#") || strings.HasPrefix(prefix, "/*") {
-		return "", errors.New("leading SQL comments are unsupported; place comments in the script")
-	}
-	n := 0
-	for n < len(prefix) && (prefix[n] >= 'a' && prefix[n] <= 'z' || prefix[n] >= 'A' && prefix[n] <= 'Z') {
-		n++
-	}
-	if n == 0 {
-		return "", errors.New("expected SQL statement")
-	}
-	// Use a positive set: aliases and dynamic execution must not be forwarded
-	// merely because they were absent from a transaction-command denylist.
-	switch strings.ToUpper(prefix[:n]) {
-	case "SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "VALUES", "TABLE",
-		"REPLACE", "MERGE", "CREATE", "ALTER", "DROP", "TRUNCATE", "COMMENT",
-		"REFRESH", "REINDEX", "EXPLAIN", "SHOW", "DESCRIBE", "DESC":
-		return query, nil
-	default:
-		return "", errors.New("manual transaction, session control or dynamic SQL is unsupported; use a direct data/schema statement")
-	}
 }
 
 func readRows(ctx context.Context, db Database, query string, args []any, options Options, dialectName string) (out []map[string]any, err error) {

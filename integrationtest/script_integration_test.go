@@ -54,6 +54,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	}
 	if d.Name() == dialect.NameMSSQL {
 		runMSSQLScalarScenario(t, db)
+		runMSSQLNativeScriptScenario(t, db, d)
 	}
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
@@ -200,48 +201,6 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		t.Fatal("expected timeout")
 	}
 	assertScriptProfile(t, db, table, "new-ts")
-
-	// Transaction control is rejected before it can release framework ownership.
-	var controls []string
-	if d.Name() == dialect.NameMSSQL {
-		controls = []string{"BEGIN TRANSACTION", "COMMIT", "ROLLBACK", "EXEC('COMMIT')", "SELECT 1 COMMIT TRANSACTION", "SELECT 1 ROLLBACK TRANSACTION", "SELECT 1 EXEC('COMMIT')", "SELECT 1 /* nested /* inner */ comment */ COMMIT TRANSACTION", update + " COMMIT TRANSACTION"}
-	}
-	if d.Name() == "postgres" || d.Name() == "redshift" {
-		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT", "-- comment\rCOMMIT /*\nSELECT 1 -- */"}
-	}
-	if d.Name() == "mariadb" {
-		controls = []string{"EXECUTE IMMEDIATE 'COMMIT'"}
-	}
-	if d.Name() == "sqlite" {
-		controls = []string{"/* outer /* inner */ COMMIT -- */ SELECT 1"}
-	}
-	for _, control := range controls {
-		params := ""
-		if strings.HasPrefix(control, update) {
-			params = `,['escaped','9007199254740993']`
-		}
-		broken[len(broken)-1].Source = `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);try{db.exec(` + strconv.Quote(control) + params + `)}catch(e){};throw Error('after control')}`
-		failedCfg.ScriptOptions = script.Options{}
-		failed, err = migrate.NewService(ctx, failedCfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := "manual transaction"
-		if strings.HasPrefix(control, "/*") || strings.HasPrefix(control, "--") {
-			want = "leading SQL comments"
-		}
-		if err = failed.Up(); err == nil || !strings.Contains(err.Error(), want) {
-			t.Fatalf("expected bridge transaction-control rejection: %v", err)
-		}
-		assertScriptProfile(t, db, table, "new-ts")
-		statuses, err = failed.Status()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(statuses) != len(broken) || statuses[len(statuses)-1].Status != migrate.StatusPending {
-			t.Fatalf("failed transaction control recorded successful history: %+v", statuses)
-		}
-	}
 
 	tampered := append([]source.Migration(nil), items...)
 	tampered[1].Source += "\n// changed"

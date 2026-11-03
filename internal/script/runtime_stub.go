@@ -18,3 +18,5 @@ func (*Program) Instantiate(context.Context) (*Invocation, error)        { retur
 func (*Invocation) Run(context.Context, func(context.Context) any) error { return ErrRequiresFull }
 
 func (*Invocation) Execute(context.Context, Database, string) error { return ErrRequiresFull }
+
+func (*Invocation) TransactionEnabled() bool { return true }

@@ -18,9 +18,16 @@ interface MigrationDB {
     params?: readonly MigrationSQLParameter[],
   ): Record<string, MigrationSQLValue>[];
 
-  /** Use native placeholders. Counts are driver-reported decimal strings. No manual transactions. */
+  /** Use native placeholders. Counts are driver-reported decimal strings. Native SQL is forwarded unchanged; use config.transaction=false for manual transactions. */
   exec(
     sql: string,
     params?: readonly MigrationSQLParameter[],
   ): { rowsAffected: string };
+}
+
+/** Optional module export: export const config: MigrationConfig = { transaction: false }.
+ * Applies to up/down. Defaults to true; false has no automatic rollback or data/history atomicity.
+ */
+interface MigrationConfig {
+  readonly transaction?: boolean;
 }
