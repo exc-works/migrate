@@ -27,6 +27,11 @@ for example_name in local npm; do
   "$example_run_dir/migrate" --working-dir "$example_source" up --dry-run
   "$example_run_dir/migrate" --working-dir "$example_source" up
   "$example_run_dir/migrate" --working-dir "$example_source" status
+  if [[ "$example_name" == local ]]; then
+    "$example_run_dir/migrate" --working-dir "$example_source" down 2
+    "$example_run_dir/migrate" --working-dir "$example_source" status
+    "$example_run_dir/migrate" --working-dir "$example_source" up
+  fi
   "$example_run_dir/migrate" --working-dir "$example_source" down --all
   "$example_run_dir/migrate" --working-dir "$example_source" status
   printf '%s example passed\n' "$example_name"
