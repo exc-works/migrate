@@ -91,6 +91,7 @@ workflow verification independently reviewable. Each targets its predecessor:
 | Driver routing and owned connection API | [#33](https://github.com/exc-works/migrate/pull/33) |
 | CLI interaction and cleanup | [#34](https://github.com/exc-works/migrate/pull/34) |
 | Native workflows and documentation | [#35](https://github.com/exc-works/migrate/pull/35) |
+| Remaining network database drivers and workflows | [#39](https://github.com/exc-works/migrate/pull/39) |
 
 Review head/base identities, findings, repairs and re-review triggers are recorded
 in each PR discussion. Current CI/review status remains authoritative there.
