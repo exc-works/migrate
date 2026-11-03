@@ -66,6 +66,11 @@ func TestSSHMigrationWorkflows(t *testing.T) {
 						}
 						o.Proxy = &tunnel.ProxyOptions{Type: route, Address: workflowProxy(t, route, net.JoinHostPort(o.Host, strconv.Itoa(o.Port)), s.Address), Username: "example", PasswordEnv: "MIGRATE_WORKFLOW_EXAMPLE_SECRET"}
 					}
+					// Building the CLI can take minutes on a cold CI cache; finish it
+					// before starting the independent cancellation/loss checks below.
+					if flavor == dialect.NamePostgres && route == tunnel.ProxyHTTP {
+						runSSHCLI(t, tunneled, o)
+					}
 					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 					defer cancel()
 					conn, err := public.OpenConnection(ctx, public.ConnectionOptions{Dialect: flavor, DataSourceName: tunneled, SSHTunnel: &o})
@@ -98,8 +103,8 @@ func TestSSHMigrationWorkflows(t *testing.T) {
 					if err := svc.Down("", true); err != nil {
 						t.Fatal(err)
 					}
-					if flavor == dialect.NamePostgres && route == tunnel.ProxyHTTP {
-						runSSHCLI(t, tunneled, o)
+					if err := conn.Context().Err(); err != nil {
+						t.Fatalf("connection expired before query cancellation: %v", err)
 					}
 					query := "SELECT pg_sleep(5)"
 					if flavor != dialect.NamePostgres {
@@ -111,6 +116,12 @@ func TestSSHMigrationWorkflows(t *testing.T) {
 					queryCancel()
 					if err == nil || time.Since(start) > 2*time.Second {
 						t.Fatalf("query cancellation failed: %v", err)
+					}
+					if err := conn.Context().Err(); err != nil {
+						t.Fatalf("connection expired before transport loss: %v", err)
+					}
+					if err := conn.DB.PingContext(conn.Context()); err != nil {
+						t.Fatalf("route unavailable before transport loss: %v", err)
 					}
 					s.Close()
 					select {
