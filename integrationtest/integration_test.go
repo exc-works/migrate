@@ -17,6 +17,7 @@ import (
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/docker/go-connections/nat"
+	"github.com/exc-works/migrate/internal/config"
 	"github.com/exc-works/migrate/internal/dialect"
 	"github.com/exc-works/migrate/internal/logger"
 	"github.com/exc-works/migrate/internal/migrate"
@@ -24,7 +25,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/microsoft/go-mssqldb"
-	_ "github.com/sijms/go-ora/v2"
+	_ "github.com/sijms/go-ora/v3"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	_ "modernc.org/sqlite"
@@ -435,6 +436,10 @@ func startOracleDB(t *testing.T, d dialect.Dialect, explicitlySelected bool) (*s
 	t.Helper()
 
 	dsn := requireExternalDSN(t, "oracle", envIntegrationOracle, explicitlySelected)
+	dsn, err := config.DriverDSN(d.DriverName(), dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	driverName := requireDriver(t, "oracle", true, d.DriverName(), "godror")
 	db, err := sql.Open(driverName, dsn)

@@ -129,3 +129,38 @@ func TestTimestampHistoricalOffsetPreservesInstant(t *testing.T) {
 		t.Fatalf("instant changed: %s %v", value, err)
 	}
 }
+
+func TestOracleResultTypes(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		value, want any
+	}{
+		{"NUMBER", "123456789012345678901234567890.12345678", "123456789012345678901234567890.12345678"},
+		{"VARCHAR2", []byte("text"), "text"},
+		{"NVARCHAR2", []byte("中文"), "中文"},
+		{"OCICLOBLOCATOR", []byte("large text"), "large text"},
+		{"OCIBLOBLOCATOR", []byte{0, 255}, []byte{0, 255}},
+		{"RAW", []byte{0, 255}, []byte{0, 255}},
+		{"LONGRAW", []byte{0, 255}, []byte{0, 255}},
+		{"IBFLOAT", float32(1.25), float64(1.25)},
+		{"IBDOUBLE", float64(1.25), float64(1.25)},
+		{"BINARY_FLOAT", []byte("1.25"), float64(1.25)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, _, err := resultValue(tc.value, tc.name)
+			if err != nil || !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got %#v, error=%v; want %#v", got, err, tc.want)
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name  string
+		value any
+	}{
+		{"NUMBER", float64(0.1)}, {"NUMBER", float32(0.1)}, {"IBFLOAT", float32(math.Inf(1))}, {"IBFLOAT", float32(math.NaN())},
+	} {
+		if _, _, err := resultValue(tc.value, tc.name); err == nil {
+			t.Fatalf("accepted inexact/non-finite %s", tc.name)
+		}
+	}
+}

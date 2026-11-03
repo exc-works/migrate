@@ -145,7 +145,7 @@ func (s *Service) Baseline() error {
 				Status:    StatusBaseline,
 				CreatedAt: time.Now().UTC(),
 			}
-			if _, err := runner.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, record.Status, record.CreatedAt); err != nil {
+			if _, err := runner.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, string(record.Status), record.CreatedAt); err != nil {
 				return fmt.Errorf("baseline %s: %w", record.Filename, err)
 			}
 		}
@@ -271,7 +271,7 @@ func (s *Service) applyUp(m Migration, step migrationStep, insertSQL string, nex
 			Status:    StatusApplied,
 			CreatedAt: time.Now().UTC(),
 		}
-		if _, err := runner.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, record.Status, record.CreatedAt); err != nil {
+		if _, err := runner.ExecContext(s.ctx, insertSQL, record.ID, record.Version, record.Filename, record.Hash, string(record.Status), record.CreatedAt); err != nil {
 			return fmt.Errorf("insert migration history %s: %w", m.Filename, err)
 		}
 		return nil

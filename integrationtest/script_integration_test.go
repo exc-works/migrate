@@ -34,9 +34,25 @@ func TestScriptMigrationsIntegration(t *testing.T) {
 func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	t.Helper()
 	ctx := context.Background()
+	if d.Name() == dialect.NameOracle {
+		query := `SELECT TO_CLOB('text') AS "text",DBMS_LOB.SUBSTR(TO_BLOB(HEXTORAW('00FF')),2,1) AS "payload",CAST(1.25 AS BINARY_FLOAT) AS "ratio",CAST('1234567890123456789012345678.123456789' AS NUMBER(38,10)) AS "amount" FROM dual`
+		p, err := script.Compile("V0__oracle_scalars.js", `export function up(db){const r=db.query(`+strconv.Quote(query)+`)[0];if(r.text!=='text'||r.payload.length!==2||r.payload[1]!==255||r.ratio!==1.25||r.amount!=='1234567890123456789012345678.123456789')throw Error('Oracle scalar fidelity')}`, "up", script.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		invocation, err := p.Instantiate(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = invocation.Execute(ctx, db, d.Name()); err != nil {
+			t.Fatal(err)
+		}
+	}
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
 	idType := "BIGINT"
+	profileType, ratioType := "TEXT", "DOUBLE PRECISION"
+	amountExpected := "12345678901234567890.1234567890"
 	if d.Name() == "mysql" || d.Name() == "mariadb" || d.Name() == "tidb" {
 		idType = "BIGINT UNSIGNED"
 	}
@@ -58,7 +74,13 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	if d.Name() == "sqlite" {
 		amountType = "TEXT"
 	}
-	create := fmt.Sprintf("CREATE TABLE %s (id %s PRIMARY KEY, amount %s, profile TEXT, payload %s, ratio DOUBLE PRECISION);", table, idType, amountType, binaryType)
+	if d.Name() == "oracle" {
+		idType, amountType, profileType, binaryType, ratioType = "NUMBER(20)", "NUMBER(30,10)", "VARCHAR2(200)", "RAW(16)", "BINARY_DOUBLE"
+		insertParams = ":1,:2,:3,:4,:5"
+		// Oracle NUMBER preserves the value, without retaining trailing zero scale.
+		amountExpected = "12345678901234567890.123456789"
+	}
+	create := fmt.Sprintf("CREATE TABLE %s (id %s PRIMARY KEY, amount %s, profile %s, payload %s, ratio %s);", table, idType, amountType, profileType, binaryType, ratioType)
 	insert := fmt.Sprintf("INSERT INTO %s VALUES (%s)", table, insertParams)
 	selectSQL := "SELECT id,amount,profile,payload,ratio FROM " + table
 	if d.Name() == "redshift" {
@@ -66,15 +88,20 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		// hex text instead of guessing the encoding of unknown driver values.
 		selectSQL = "SELECT id,amount,profile,FROM_VARBYTE(payload,'hex') AS payload,ratio FROM " + table
 	}
+	if d.Name() == "oracle" {
+		selectSQL = `SELECT id AS "id",amount AS "amount",profile AS "profile",payload AS "payload",ratio AS "ratio" FROM ` + table
+	}
 	update := "UPDATE " + table + " SET profile="
 	if d.Name() == "postgres" || d.Name() == "redshift" {
 		update += "$1 WHERE id=$2"
+	} else if d.Name() == "oracle" {
+		update += ":1 WHERE id=:2"
 	} else {
 		update += "? WHERE id=?"
 	}
 	items := []source.Migration{
 		{Filename: "V1__create.sql", Source: "-- +migrate Up\n" + create + "\n-- +migrate Down\nDROP TABLE " + table + ";\n"},
-		{Filename: "V2__seed.mjs", Source: `export function up(db){db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!=='12345678901234567890.1234567890'||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
+		{Filename: "V2__seed.mjs", Source: `export function up(db){db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!==` + strconv.Quote(amountExpected) + `||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
 		{Filename: "V3__transform.ts", Source: `export function up(db:any){const r=db.query(` + strconv.Quote(selectSQL) + `)[0];db.exec(` + strconv.Quote(update) + `,[r.profile+'-ts',r.id]);}export function down(db:any){db.exec(` + strconv.Quote(update) + `,['new','9007199254740993']);}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: randomName("script_history"), MigrationSource: source.StringSource{Migrations: items}}

@@ -177,6 +177,9 @@ func TestOracleDialectSQL(t *testing.T) {
 	if !strings.Contains(createSQL, "EXECUTE IMMEDIATE 'CREATE TABLE migration_schema") {
 		t.Fatalf("unexpected oracle create sql: %s", createSQL)
 	}
+	if !strings.Contains(createSQL, "TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL") {
+		t.Fatalf("Oracle DEFAULT must precede constraints: %s", createSQL)
+	}
 	if !strings.Contains(createSQL, "SQLCODE != -955") {
 		t.Fatalf("oracle create sql should handle existing table, got: %s", createSQL)
 	}
