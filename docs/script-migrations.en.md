@@ -127,7 +127,7 @@ MySQL, MariaDB and TiDB remain separate dialects despite sharing a driver.
 Capabilities text and JSON `aliases` fields list accepted aliases.
 
 MSSQL calls also reject semicolon-free batches and embedded transaction/session
-commands before reaching the driver. Direct CTE/DML, ALTER TABLE column/constraint changes and MERGE are supported; use SQL
+commands before reaching the driver. Direct CTE/DML, ALTER TABLE column/constraint changes (including foreign-key actions) and MERGE are supported; use SQL
 migration files for complex T-SQL batches and stored procedures.
 
 MSSQL MONEY/SMALLMONEY values remain exact strings. UNIQUEIDENTIFIER retains the

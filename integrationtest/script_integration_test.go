@@ -116,13 +116,31 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 	if d.Name() == dialect.NameMSSQL {
 		merge := "WITH s AS (SELECT CAST(@p1 AS BIGINT) AS id, CAST(@p2 AS NVARCHAR(200)) AS profile) MERGE " + table + " AS t USING s ON t.id=s.id WHEN MATCHED THEN UPDATE SET profile=s.profile;"
 		mergeCheck = `const merged=db.exec(` + strconv.Quote(merge) + `,['9007199254740993','old']);if(merged.rowsAffected!=='1')throw Error('MERGE count');`
-		for _, statement := range []string{
+		parent, view := table+"_parent", table+"_view"
+		statements := []string{
+			"CREATE OR ALTER VIEW " + view + " AS SELECT CAST(1 AS INT) AS id",
+			"CREATE OR ALTER VIEW " + view + " AS SELECT CAST(2 AS INT) AS id",
+			"DROP VIEW " + view,
 			"ALTER TABLE " + table + " ADD email NVARCHAR(20) NULL",
 			"ALTER TABLE " + table + " ALTER COLUMN email NVARCHAR(200) NULL",
 			"ALTER TABLE " + table + " ADD CONSTRAINT " + table + "_email CHECK (email IS NULL)",
 			"ALTER TABLE " + table + " DROP CONSTRAINT " + table + "_email",
 			"ALTER TABLE " + table + " DROP COLUMN email",
-		} {
+			"CREATE TABLE " + parent + " (id BIGINT PRIMARY KEY)",
+			"ALTER TABLE " + table + " ADD parent_id BIGINT NULL CONSTRAINT " + table + "_parent_default DEFAULT NULL",
+		}
+		for _, action := range []string{"ON DELETE CASCADE ON UPDATE NO ACTION", "ON DELETE NO ACTION ON UPDATE CASCADE", "ON DELETE SET NULL ON UPDATE SET NULL", "ON DELETE SET DEFAULT ON UPDATE SET DEFAULT"} {
+			statements = append(statements,
+				"ALTER TABLE "+table+" ADD CONSTRAINT "+table+"_fk FOREIGN KEY(parent_id) REFERENCES "+parent+"(id) "+action,
+				"ALTER TABLE "+table+" DROP CONSTRAINT "+table+"_fk",
+			)
+		}
+		statements = append(statements,
+			"ALTER TABLE "+table+" DROP CONSTRAINT "+table+"_parent_default",
+			"ALTER TABLE "+table+" DROP COLUMN parent_id",
+			"DROP TABLE "+parent,
+		)
+		for _, statement := range statements {
 			mergeCheck += `db.exec(` + strconv.Quote(statement) + `);`
 		}
 	}

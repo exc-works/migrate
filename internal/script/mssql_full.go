@@ -24,7 +24,7 @@ func prepareMSSQL(query string) (string, error) {
 	}
 	root := ""
 	alterTable := len(tokens) > 1 && tokens[0].word == "ALTER" && tokens[1].word == "TABLE"
-	updatePending, insertSource, setSelect := false, false, false
+	updatePending, insertSource, setSelect, referentialSet := false, false, false, false
 	previous := ""
 	for index, token := range tokens {
 		word := token.word
@@ -43,6 +43,10 @@ func prepareMSSQL(query string) (string, error) {
 		}
 		switch word {
 		case "SET":
+			if referentialSet {
+				referentialSet = false
+				break
+			}
 			if !updatePending {
 				return "", errors.New("MSSQL session control is unsupported; use SQL migrations for batches")
 			}
@@ -57,10 +61,9 @@ func prepareMSSQL(query string) (string, error) {
 			}
 		case "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP", "TRUNCATE", "REPLACE":
 			allowed := false
-			next := ""
-			if index+1 < len(tokens) && tokens[index+1].depth == 0 {
-				next = tokens[index+1].word
-			}
+			next, afterNext := mssqlTopLevelWord(tokens, index+1), mssqlTopLevelWord(tokens, index+2)
+			referential := alterTable && previous == "ON" && (word == "DELETE" || word == "UPDATE") &&
+				(next == "CASCADE" || next == "NO" && afterNext == "ACTION" || next == "SET" && (afterNext == "NULL" || afterNext == "DEFAULT"))
 			switch {
 			case root == "WITH":
 				root = word
@@ -68,6 +71,11 @@ func prepareMSSQL(query string) (string, error) {
 			case alterTable && (word == "ALTER" && next == "COLUMN" || word == "DROP" && (next == "COLUMN" || next == "CONSTRAINT")):
 				// These clauses cannot start a standalone T-SQL statement. Keep
 				// ALTER TABLE and DROP TABLE rejected as additional statements.
+				allowed = true
+			case referential:
+				allowed = true
+				referentialSet = next == "SET"
+			case root == "CREATE" && previous == "OR" && word == "ALTER" && next == "VIEW":
 				allowed = true
 			case word == "SELECT" && setSelect:
 				setSelect = false
@@ -83,7 +91,7 @@ func prepareMSSQL(query string) (string, error) {
 			if !allowed {
 				return "", errors.New("MSSQL scripts require one direct statement; use SQL migrations for batches")
 			}
-			if word == "UPDATE" {
+			if word == "UPDATE" && !referential {
 				updatePending = true
 			}
 		}
@@ -95,6 +103,13 @@ func prepareMSSQL(query string) (string, error) {
 		return query + "\n;", nil
 	}
 	return query, nil
+}
+
+func mssqlTopLevelWord(tokens []mssqlToken, index int) string {
+	if index < len(tokens) && tokens[index].depth == 0 {
+		return tokens[index].word
+	}
+	return ""
 }
 
 func mssqlTokens(query string) ([]mssqlToken, error) {

@@ -27,6 +27,11 @@ func TestMSSQLBatchesRejectedBeforeDriver(t *testing.T) {
 		"ALTER TABLE users DROP COLUMN email DROP TABLE other_users",
 		"ALTER TABLE users ALTER COLUMN email NVARCHAR(200) ALTER TABLE other_users ADD id INT",
 		"ALTER TABLE users DROP CONSTRAINT constraint_name COMMIT TRANSACTION",
+		"ALTER TABLE child ADD FOREIGN KEY(parent_id) REFERENCES parent(id) ON DELETE CASCADE DELETE FROM parent",
+		"ALTER TABLE child ADD FOREIGN KEY(parent_id) REFERENCES parent(id) ON UPDATE CASCADE SET XACT_ABORT OFF",
+		"ALTER TABLE child ADD FOREIGN KEY(parent_id) REFERENCES parent(id) ON DELETE SET NULL SET IMPLICIT_TRANSACTIONS ON",
+		"ALTER TABLE child ADD FOREIGN KEY(parent_id) REFERENCES parent(id) ON UPDATE NO ACTION COMMIT",
+		"CREATE OR ALTER VIEW current_users AS SELECT id FROM users DROP TABLE users",
 	} {
 		for _, method := range []string{"exec", "query"} {
 			t.Run(method+"/"+query, func(t *testing.T) {
@@ -64,6 +69,7 @@ func TestMSSQLDirectStatementsAndQuoting(t *testing.T) {
 		"WITH c AS (SELECT id FROM users) UPDATE users SET profile=@p1 WHERE id IN (SELECT id FROM c)",
 		"INSERT INTO users(id) SELECT id FROM other_users UNION SELECT id FROM more_users",
 		"CREATE VIEW current_users AS SELECT id FROM users",
+		"CREATE OR ALTER VIEW current_users AS SELECT id FROM users",
 		"DROP TABLE IF EXISTS users",
 		"ALTER TABLE users DROP COLUMN email",
 		"ALTER TABLE [users] ALTER COLUMN [email] NVARCHAR(200)",
@@ -73,6 +79,14 @@ func TestMSSQLDirectStatementsAndQuoting(t *testing.T) {
 	} {
 		if got, err := prepareMSSQL(query); err != nil || got != query {
 			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	for _, action := range []string{"CASCADE", "NO ACTION", "SET NULL", "SET DEFAULT"} {
+		for _, event := range []string{"DELETE", "UPDATE"} {
+			query := "ALTER TABLE child ADD CONSTRAINT fk_parent FOREIGN KEY(parent_id) REFERENCES parent(id) ON " + event + " " + action
+			if _, err := prepareMSSQL(query); err != nil {
+				t.Fatalf("rejected referential action %s: %v", query, err)
+			}
 		}
 	}
 	merge := "WITH c AS (SELECT @p1 AS id) MERGE users AS t USING c ON t.id=c.id WHEN MATCHED THEN UPDATE SET profile=@p2 WHEN NOT MATCHED THEN INSERT(id,profile) VALUES(c.id,@p2) -- trailing comment"

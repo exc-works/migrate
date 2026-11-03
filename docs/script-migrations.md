@@ -116,7 +116,7 @@ MySQL、MariaDB、TiDB 仍是独立方言；不要把共享驱动当成方言别
 `capabilities` 的文本输出和 JSON `aliases` 字段会列出接受的别名。
 
 MSSQL 还会在调用驱动前拦截无分号批处理以及内嵌的事务、会话命令。
-支持直接的 CTE/DML、ALTER TABLE 列/约束变更和 MERGE；复杂 T-SQL 批处理与存储过程请使用 SQL 迁移文件。
+支持直接的 CTE/DML、ALTER TABLE 列/约束变更（含外键引用动作）和 MERGE；复杂 T-SQL 批处理与存储过程请使用 SQL 迁移文件。
 
 MSSQL 金额类型 MONEY/SMALLMONEY 返回精确字符串。UNIQUEIDENTIFIER 保留驱动的二进制
 表示并复制为字节数组；需要标准 GUID 文本时使用 `CAST(id AS VARCHAR(36))`，写入可绑定
