@@ -91,7 +91,7 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 						return moduleError("Node built-in modules are unavailable in Goja"), nil
 					}
 					if args.Namespace == virtualNamespace {
-						if strings.HasPrefix(args.Path, "./") || strings.HasPrefix(args.Path, "../") {
+						if relativeModulePath(args.Path) {
 							resolved, err := resolveVirtualModule(modules.FS, path.Join(path.Dir(args.Importer), args.Path), entry)
 							if err != nil {
 								return moduleError(err.Error()), nil
@@ -206,21 +206,23 @@ func resolveVirtualModule(files fs.FS, candidate, entry string) (string, error) 
 	if !fs.ValidPath(candidate) || strings.Contains(candidate, "\\") {
 		return "", errors.New("module path leaves the supplied filesystem")
 	}
-	// Match esbuild's default extension search, with MJS/CJS remaining explicit.
-	extensions := []string{"", ".tsx", ".ts", ".jsx", ".js", ".css", ".json"}
-	for _, base := range []string{candidate, path.Join(candidate, "index")} {
-		for _, extension := range extensions {
-			name := base + extension
-			if name == entry {
-				return name, nil
-			}
-			info, err := fs.Stat(files, name)
-			if err == nil && !info.IsDir() {
-				return name, nil
-			}
-			if err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return "", errors.New("inspect module failed")
-			}
+	names := moduleFileCandidates(candidate)
+	if candidate == "." {
+		names = nil
+	}
+	for _, extension := range moduleExtensions {
+		names = append(names, path.Join(candidate, "index")+extension)
+	}
+	for _, name := range names {
+		if name == entry {
+			return name, nil
+		}
+		info, err := fs.Stat(files, name)
+		if err == nil && !info.IsDir() {
+			return name, nil
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return "", errors.New("inspect module failed")
 		}
 	}
 	return "", errors.New("module not found in supplied filesystem")

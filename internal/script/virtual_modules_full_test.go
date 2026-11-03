@@ -102,3 +102,34 @@ func TestImportedVirtualExceptionLocation(t *testing.T) {
 		t.Fatalf("virtual module location: %v", err)
 	}
 }
+
+func TestVirtualTypeScriptJavaScriptAliases(t *testing.T) {
+	files := fstest.MapFS{
+		"helper.ts": {Data: []byte(`import {marker} from './V1__virtual.js';export function read(){return marker}`)},
+	}
+	text := `import {read} from './helper.js';export const marker=42;export function up(){if(read()!==42)throw Error('TS alias')}`
+	p, err := Compile("V1__virtual.ts", text, "up", Options{}, &migrationsource.ModuleContext{FS: files})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runModuleProgram(t, p)
+}
+
+func TestVirtualDotImportsStayWithinFilesystem(t *testing.T) {
+	files := fstest.MapFS{
+		"index.js":        {Data: []byte(`export const value=42;`)},
+		"nested/index.js": {Data: []byte(`export const value=42;`)},
+	}
+	disk := t.TempDir()
+	writeModuleFiles(t, disk, map[string]string{"index.js": `throw Error('host fallback')`})
+	for _, specifier := range []string{".", ".."} {
+		p, err := Compile("V1__virtual.js", `import {value} from '`+specifier+`';export function up(){if(value!==42)throw Error('dot import')}`, "up", Options{}, &migrationsource.ModuleContext{FS: files, EntryPath: "nested/V1__virtual.js", DependencyDir: disk})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runModuleProgram(t, p)
+	}
+	if _, err := Compile("V1__virtual.js", `import {value} from '..';export function up(){return value}`, "up", Options{}, &migrationsource.ModuleContext{FS: files, DependencyDir: disk}); err == nil {
+		t.Fatal("relative traversal fell back to disk package lookup")
+	}
+}
