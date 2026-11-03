@@ -80,7 +80,13 @@ Checksums cover only original entry bytes. Editing a helper does not cause check
 mismatch or replay an applied migration. Keep historical helper behavior when old
 migrations must remain reproducible; add a new helper version when needed.
 
-Installed npm packages and virtual-source imports are enabled by later rollout layers.
+Installed npm packages also support bare imports such as
+`import { normalize } from "@company/migration-utils"`. Install dependencies before
+running migrate, for example with your project's lockfile-based package manager
+command. esbuild resolves package exports, subpaths, nested dependencies and static
+CommonJS imports, using neutral conditions and `module`, then `main` entry fields.
+Migrate does not install packages or enable Node APIs. Only packages compatible with
+Goja's synchronous runtime can execute. Virtual-source imports follow in the next layer.
 Node built-ins, native addons, dynamic import, dynamic require and asynchronous
 entrypoints remain unsupported. No runtime module loader is exposed.
 
