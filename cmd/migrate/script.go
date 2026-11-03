@@ -93,7 +93,7 @@ export const config = { transaction: true };
 
 /**
  * @param {MigrationDB} db
- * @returns {void}
+ * @returns {unknown} Synchronous return values are ignored.
  */
 export function up(db) {
   throw new Error("Implement this migration");
@@ -116,7 +116,7 @@ type MigrationDB = {
 // Set false for manual transactions or SQL that must run outside a transaction.
 export const config = { transaction: true };
 
-export function up(db: MigrationDB): void {
+export function up(db: MigrationDB): unknown {
   throw new Error("Implement this migration");
 }
 

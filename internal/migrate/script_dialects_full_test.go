@@ -38,7 +38,7 @@ func TestExperimentalScriptsUseFrameworkTransaction(t *testing.T) {
 				query := "UPDATE users SET profile=" + placeholder
 				body := fmt.Sprintf(`export function up(db){if(db.dialect!==%q)throw Error('dialect');db.exec(%q,['changed']);`, d.Name(), query)
 				if fail {
-					body += `try{db.query('SELECT broken')}catch(e){}`
+					body += `db.query('SELECT broken')`
 				}
 				body += `}`
 				var logs bytes.Buffer

@@ -47,7 +47,9 @@ export function up(db) {
 
 Export synchronous `down(db)` only when reversal is implemented. Missing down
 blocks the selected rollback range; an empty function does not reverse an up.
-Generated up functions throw until implemented.
+Generated up functions throw until implemented. Ordinary synchronous return values
+are ignored, so `export const up = db => db.exec(...)` is supported. Promise results
+and async/generator entrypoints remain unsupported; returned work is not awaited.
 
 JS templates define `MigrationDB` in JSDoc and annotate `db`; TS templates provide
 equivalent declarations. Both describe database methods, parameters and result types
@@ -94,8 +96,15 @@ the pool for reuse; database/sql and driver validity/reset hooks handle unhealth
 connections. Driver reset behavior varies and may preserve session settings, so restore
 any settings you change and do not depend on session state across migrations.
 Finish every manual transaction before returning successfully. Unfinished manual transactions on successful return are invalid
-usage. A bridge failure remains fatal and blocks later calls; the dedicated connection
-is discarded on failure, closing any still-uncommitted transaction.
+usage. An uncaught or fatal failure discards the dedicated connection, closing any
+still-uncommitted transaction. Ordinary SQL execution/query errors may be caught and
+handled; recovery calls such as ROLLBACK can run afterwards. A caught SQL error does
+not automatically repair the database transaction: use a savepoint or manual rollback
+as required by the dialect. If an error ended the entire managed transaction, rethrow
+when it cannot be recovered with a savepoint; use explicit manual mode for full
+transaction retries. Uncaught errors still fail the migration. Cancellation,
+connection/transport failures, parameter/result validation and resource limits remain
+fatal even when caught, and prevent further DB calls. Driver details remain sanitized.
 Nontransactional failures may leave committed changes without successful history;
 errors warn about partial state. Inspect data/history before retrying. In managed
 mode, do not issue your own BEGIN/COMMIT/ROLLBACK: these are forwarded, and can break
@@ -158,7 +167,8 @@ DATETIMEOFFSET and other time values follow the common time conversion contract.
 Native T-SQL batches and procedure calls are supported by the driver.
 
 In managed mode, script operations and successful history writes share the framework
-transaction. Caught bridge/database errors remain fatal. User transaction control,
+transaction. Handled SQL errors can recover; uncaught errors and fatal bridge failures
+abort execution. User transaction control,
 procedure side effects, implicit DDL commits and engine limitations prevent universal
 rollback guarantees. Nontransactional mode provides no data/history atomicity.
 

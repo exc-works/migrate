@@ -176,9 +176,42 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		}
 	}
 
-	// Fail after a real update; even a caught DB error must roll the update back.
+	// Real-driver recovery must repair the database's transaction state explicitly.
+	if d.Name() == dialect.NamePostgres || d.Name() == dialect.NameMSSQL {
+		save, rollback, release := "SAVEPOINT script_recovery", "ROLLBACK TO SAVEPOINT script_recovery", "RELEASE SAVEPOINT script_recovery"
+		if d.Name() == dialect.NameMSSQL {
+			save, rollback, release = "SAVE TRANSACTION script_recovery", "ROLLBACK TRANSACTION script_recovery", ""
+		}
+		recoveredItems := append([]source.Migration(nil), items...)
+		body := `export function up(db){db.exec(` + strconv.Quote(save) + `);let recovered=false;try{db.query('SELECT * FROM missing_script_recovery_table')}catch(e){db.exec(` + strconv.Quote(rollback) + `);recovered=true}if(!recovered)throw Error('expected SQL failure');`
+		if release != "" {
+			body += `db.exec(` + strconv.Quote(release) + `);`
+		}
+		body += `return db.exec(` + strconv.Quote(update) + `,['recovered','9007199254740993'])}export const down=db=>db.exec(` + strconv.Quote(update) + `,['new-ts','9007199254740993']);`
+		recoveredItems = append(recoveredItems, source.Migration{Filename: "V4__recovery.js", Source: body})
+		recoveryCfg := cfg
+		recoveryCfg.MigrationSource = source.StringSource{Migrations: recoveredItems}
+		recovery, err := migrate.NewService(ctx, recoveryCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = recovery.Up(); err != nil {
+			t.Fatal(err)
+		}
+		assertScriptProfile(t, db, table, "recovered")
+		statuses, err = recovery.Status()
+		if err != nil || statuses[len(statuses)-1].Status != migrate.StatusApplied {
+			t.Fatalf("%+v %v", statuses, err)
+		}
+		if err = recovery.Down("3", false); err != nil {
+			t.Fatal(err)
+		}
+		assertScriptProfile(t, db, table, "new-ts")
+	}
+
+	// Fail after a real update; an uncaught DB error must roll the update back.
 	broken := append([]source.Migration(nil), items...)
-	broken = append(broken, source.Migration{Filename: "V4__failure.js", Source: `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);try{db.query('SELECT * FROM missing_script_table')}catch(e){}}`})
+	broken = append(broken, source.Migration{Filename: "V4__failure.js", Source: `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.query('SELECT * FROM missing_script_table')}`})
 	failedCfg := cfg
 	failedCfg.MigrationSource = source.StringSource{Migrations: broken}
 	failed, err := migrate.NewService(ctx, failedCfg)
@@ -186,7 +219,7 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		t.Fatal(err)
 	}
 	if err = failed.Up(); err == nil {
-		t.Fatal("caught DB failure recorded success")
+		t.Fatal("uncaught DB failure recorded success")
 	}
 	assertScriptProfile(t, db, table, "new-ts")
 

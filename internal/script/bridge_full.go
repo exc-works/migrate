@@ -5,8 +5,11 @@ package script
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,6 +30,9 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 	}
 	var failure error
 	remember := func(err error) error {
+		if _, recoverable := err.(statementError); recoverable {
+			return err
+		}
 		if failure == nil {
 			failure = err
 		}
@@ -48,7 +54,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				}
 				result, err := db.ExecContext(runCtx, text, args...)
 				if err != nil {
-					return nil, remember(errors.New("database execution failed"))
+					return nil, remember(databaseFailure(err, "database execution failed"))
 				}
 				count, err := result.RowsAffected()
 				if err != nil {
@@ -76,6 +82,25 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 		}
 	})
 	return errors.Join(err, failure)
+}
+
+// statementError contains only a public message, never a wrapped driver error:
+// Goja exposes returned Go errors to script code, including exported methods.
+type statementError string
+
+func (e statementError) Error() string { return string(e) }
+
+// SQL failures may be handled by the migration (for example with a savepoint).
+// Cancellation and lost/finished connections remain fatal, as do bridge validation
+// and resource failures. Recovering SQL does not itself repair a database transaction.
+func databaseFailure(err error, message string) error {
+	var networkError net.Error
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, driver.ErrBadConn) || errors.Is(err, sql.ErrConnDone) || errors.Is(err, sql.ErrTxDone) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, net.ErrClosed) || errors.As(err, &networkError) {
+		return errors.New(message)
+	}
+	return statementError(message)
 }
 
 // Accessors and Export can throw inside reflected Go callbacks. Convert those
@@ -127,7 +152,7 @@ func decodeCall(query, params goja.Value) (string, []any, error) {
 func readRows(ctx context.Context, db Database, query string, args []any, options Options, dialectName string) (out []map[string]any, err error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, errors.New("database query failed")
+		return nil, databaseFailure(err, "database query failed")
 	}
 	defer func() {
 		if rows.Close() != nil {
@@ -177,8 +202,8 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 		}
 		out = append(out, row)
 	}
-	if rows.Err() != nil {
-		return nil, errors.New("database iteration failed")
+	if rowErr := rows.Err(); rowErr != nil {
+		return nil, databaseFailure(rowErr, "database iteration failed")
 	}
 	return out, nil
 }

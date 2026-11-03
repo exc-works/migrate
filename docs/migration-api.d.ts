@@ -9,6 +9,9 @@ type MigrationSQLParameter =
 
 type MigrationSQLValue = string | number | boolean | null | number[];
 
+/** Ordinary SQL errors can be caught for recovery. Cancellation, connection loss,
+ * parameter/result validation and resource-limit failures remain fatal.
+ */
 interface MigrationDB {
   readonly dialect: "postgres" | "mysql" | "mariadb" | "sqlite" | "tidb" | "redshift" | "oracle" | "clickhouse" | "mssql";
 
@@ -31,3 +34,6 @@ interface MigrationDB {
 interface MigrationConfig {
   readonly transaction?: boolean;
 }
+
+/** Synchronous return values are ignored. Promise results are unsupported. */
+type MigrationEntrypoint = (db: MigrationDB) => unknown;

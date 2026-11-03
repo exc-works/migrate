@@ -65,12 +65,15 @@ func TestBridgeQueryTransformWrite(t *testing.T) {
 	}
 }
 
-func TestBridgeFailuresAreStickyAndRollback(t *testing.T) {
+func TestFatalBridgeFailuresRollback(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string
 		options    Options
 	}{
-		{name: "database", body: `try{db.query('SELECT * FROM missing')}catch(e){} db.exec('UPDATE users SET profile=?',['changed'])`},
+		{name: "uncaught database", body: `db.query('SELECT * FROM missing');db.exec('UPDATE users SET profile=?',['must not execute'])`},
+		{name: "caught unsafe number", body: `try{db.exec('UPDATE users SET id=?',[9007199254740993])}catch(e){}`},
+		{name: "caught row cap", body: `try{db.query('SELECT id FROM users UNION ALL SELECT id FROM users')}catch(e){}`, options: Options{MaxRows: 1}},
+		{name: "caught byte cap", body: `try{db.query('SELECT profile FROM users')}catch(e){}`, options: Options{MaxBytes: 2}},
 		{name: "unsafe number", body: `db.exec('UPDATE users SET id=?',[9007199254740993])`},
 		{name: "undefined", body: `db.exec('UPDATE users SET profile=?',[undefined])`},
 		{name: "object", body: `db.exec('UPDATE users SET profile=?',[{}])`},
