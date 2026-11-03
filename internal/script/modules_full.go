@@ -144,16 +144,47 @@ func moduleDisplayName(filename string) string {
 // Overlay the loaded entry at the position where the native extension search would
 // find it. Existing higher-priority files still resolve through esbuild normally.
 func diskEntryAlias(candidate, entry string) bool {
-	for _, base := range []string{candidate, filepath.Join(candidate, "index")} {
-		for _, extension := range []string{"", ".tsx", ".ts", ".jsx", ".js", ".css", ".json"} {
-			name := base + extension
-			if name == entry {
-				return true
-			}
-			if info, err := os.Stat(name); err == nil && !info.IsDir() {
-				return false
-			}
+	for _, name := range moduleFileCandidates(candidate) {
+		if name == entry {
+			return true
+		}
+		if info, err := os.Stat(name); err == nil && !info.IsDir() {
+			return false
+		}
+	}
+	for _, extension := range moduleExtensions {
+		name := filepath.Join(candidate, "index") + extension
+		if name == entry {
+			return true
+		}
+		if info, err := os.Stat(name); err == nil && !info.IsDir() {
+			return false
 		}
 	}
 	return false
+}
+
+// Keep entry overlays in step with esbuild's default file lookup: exact path,
+// appended extensions, then TypeScript's JavaScript-extension substitutions.
+var moduleExtensions = []string{".tsx", ".ts", ".jsx", ".js", ".css", ".json"}
+
+func moduleFileCandidates(candidate string) []string {
+	names := []string{candidate}
+	for _, extension := range moduleExtensions {
+		names = append(names, candidate+extension)
+	}
+	extension := filepath.Ext(candidate)
+	var replacements []string
+	switch extension {
+	case ".js", ".jsx":
+		replacements = []string{".ts", ".tsx"}
+	case ".mjs":
+		replacements = []string{".mts"}
+	case ".cjs":
+		replacements = []string{".cts"}
+	}
+	for _, replacement := range replacements {
+		names = append(names, strings.TrimSuffix(candidate, extension)+replacement)
+	}
+	return names
 }
