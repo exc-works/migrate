@@ -99,6 +99,29 @@ Go API 对应 `migrate.Config.ScriptOptions` 和 `migrate.ScriptOptions`；业�
 | Redshift | 实验性，真实实例未验证 | `$1` | 事务能力取决于语句；不能视为完全等同 PostgreSQL |
 | Oracle | 实验性，仅 Oracle Free 验证 | `:1` | DML 使用框架事务；DDL 隐式提交 |
 | ClickHouse | 实验性 | `?` | 非事务执行；无自动回滚 |
+| MSSQL / SQL Server | 实验性 | `@p1` | 使用框架事务；Azure SQL 实例未验证 |
+
+数据库名称忽略大小写及首尾空白；配置、CLI、Go facade 和脚本能力检查共用同一套别名：
+
+| 规范名称 | 接受的别名 |
+| --- | --- |
+| `postgres` | `pg`、`pgsql`、`postgresql`、`pgx` |
+| `mssql` | `sqlserver`、`azuresql` |
+| `oracle` | `orcl`、`ora`、`go-ora`、`goora`、`godror` |
+| `sqlite` | `sqlite3` |
+| `mysql`、`mariadb`、`tidb`、`redshift`、`clickhouse` | 无额外别名 |
+
+MySQL、MariaDB、TiDB 仍是独立方言；不要把共享驱动当成方言别名。
+`db.dialect` 始终返回规范名称，例如 `azuresql` 配置会得到 `mssql`。
+`capabilities` 的文本输出和 JSON `aliases` 字段会列出接受的别名。
+
+MSSQL 还会在调用驱动前拦截无分号批处理以及内嵌的事务、会话命令。
+支持直接的 CTE/DML、ALTER TABLE 列/约束变更（含外键引用动作）和 MERGE；复杂 T-SQL 批处理与存储过程请使用 SQL 迁移文件。
+
+MSSQL 金额类型 MONEY/SMALLMONEY 返回精确字符串。UNIQUEIDENTIFIER 保留驱动的二进制
+表示并复制为字节数组；需要标准 GUID 文本时使用 `CAST(id AS VARCHAR(36))`，写入可绑定
+GUID 字符串。rowversion/timestamp 是二进制值；DATETIMEOFFSET 等日期时间沿用通用时间
+转换约定。T-SQL 批处理、IF/BEGIN 和存储过程调用仍应使用 SQL 迁移文件。
 
 支持事务的路径中，数据操作与成功记录共用框架事务。数据库异常即使被脚本捕获仍会使
 迁移失败；DDL 隐式提交等限制仍然存在，不能承诺所有操作都可完整回滚。
@@ -121,10 +144,10 @@ ClickHouse 脚本失败、超时或历史写入失败后，先前成功的写入
 错误会提示可能存在部分变更。down 也没有自动回滚保障。重试前检查数据与迁移历史，按实际
 状态恢复；不要自动重跑，也不要为了消除错误盲目 baseline。
 
-可使用以下命令运行新增的容器验证；TiDB/ClickHouse 的外部 DSN 优先于临时容器：
+可使用以下命令运行新增的容器验证；TiDB/ClickHouse/MSSQL 的外部 DSN 优先于临时容器：
 
 ```bash
-INTEGRATION_DB=clickhouse,tidb go test -tags=integration,full ./integrationtest/...
+INTEGRATION_DB=clickhouse,tidb,mssql go test -tags=integration,full ./integrationtest/...
 ```
 
 Oracle/Redshift 通过 `INTEGRATION_ORACLE_DSN` / `INTEGRATION_REDSHIFT_DSN` 运行可选验证。

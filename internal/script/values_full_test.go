@@ -202,3 +202,20 @@ func TestClickHouseScalarValues(t *testing.T) {
 		}
 	}
 }
+
+func TestMSSQLValueFidelity(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		value, want any
+		bad         bool
+	}{
+		{"UNIQUEIDENTIFIER", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, false},
+		{"IMAGE", []byte{0, 255}, []byte{0, 255}, false},
+		{"NTEXT", []byte("中文"), "中文", false}, {"XML", []byte("<root/>"), "<root/>", false},
+	} {
+		got, _, err := resultValue(tc.value, tc.name)
+		if (err != nil) != tc.bad || !tc.bad && !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("%s got=%#v error=%v want=%#v", tc.name, got, err, tc.want)
+		}
+	}
+}

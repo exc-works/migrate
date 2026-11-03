@@ -237,6 +237,9 @@ func selectedFlavors() []string {
 			if p == "all" {
 				return append([]string(nil), defaultIntegrationFlavors...)
 			}
+			if d, err := dialect.FromName(p); err == nil {
+				p = d.Name()
+			}
 			if _, ok := seen[p]; ok {
 				continue
 			}
@@ -288,6 +291,10 @@ func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
 		db, cleanup := startOracleDB(t, d, explicitlySelected)
 		return db, d, cleanup
 	case "mssql":
+		if explicitlySelected && strings.TrimSpace(os.Getenv(envIntegrationMSSQL)) == "" {
+			db, cleanup := startContainerDB(t, flavor, d)
+			return db, d, cleanup
+		}
 		db, cleanup := startMSSQLDB(t, d, explicitlySelected)
 		return db, d, cleanup
 	case "clickhouse":
@@ -419,6 +426,32 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 		dsn = func(host, mappedPort string) string {
 			// The isolated bootstrap account is local to this disposable test server.
 			return fmt.Sprintf("root@tcp(%s)/test?parseTime=true&multiStatements=true", net.JoinHostPort(host, mappedPort))
+		}
+	case "mssql":
+		adminPass := "Tc1!" + rootPass
+		request = testcontainers.ContainerRequest{
+			Image:         "mcr.microsoft.com/mssql/server:2022-CU22-ubuntu-22.04",
+			ImagePlatform: "linux/amd64",
+			ExposedPorts:  []string{"1433/tcp"},
+			Env: map[string]string{
+				"ACCEPT_EULA":       "Y",
+				"MSSQL_PID":         "Developer",
+				"MSSQL_SA_PASSWORD": adminPass,
+			},
+			WaitingFor: wait.ForLog("SQL Server is now ready for client connections").WithStartupTimeout(3 * time.Minute),
+		}
+		port = "1433/tcp"
+		dsn = func(host, mappedPort string) string {
+			connection := url.URL{
+				Scheme: "sqlserver",
+				User:   url.UserPassword("sa", adminPass),
+				Host:   net.JoinHostPort(host, mappedPort),
+			}
+			options := connection.Query()
+			options.Set("database", "master")
+			options.Set("encrypt", "disable")
+			connection.RawQuery = options.Encode()
+			return connection.String()
 		}
 	default:
 		t.Fatalf("unsupported flavor: %s", flavor)
@@ -687,13 +720,11 @@ func isOptionalFlavor(flavor string) bool {
 }
 
 func isFlavorExplicitlySelected(flavor string) bool {
-	v := strings.TrimSpace(os.Getenv(envIntegrationDB))
-	if v == "" {
+	if strings.TrimSpace(os.Getenv(envIntegrationDB)) == "" {
 		return false
 	}
-	for _, part := range strings.Split(v, ",") {
-		candidate := strings.ToLower(strings.TrimSpace(part))
-		if candidate == "all" || candidate == flavor {
+	for _, candidate := range selectedFlavors() {
+		if candidate == flavor {
 			return true
 		}
 	}

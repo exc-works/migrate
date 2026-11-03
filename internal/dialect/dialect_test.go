@@ -363,3 +363,44 @@ func TestDialectIdentifierValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCanonicalNamesAndAliases(t *testing.T) {
+	for _, tc := range []struct{ input, canonical, driver string }{
+		{"pg", "postgres", "pgx"}, {" PGSQL ", "postgres", "pgx"}, {"PostgreSQL", "postgres", "pgx"}, {"pgx", "postgres", "pgx"},
+		{"sqlserver", "mssql", "sqlserver"}, {" AzureSQL ", "mssql", "sqlserver"}, {" MSSQL ", "mssql", "sqlserver"},
+		{"MySQL", "mysql", "mysql"}, {"MariaDB", "mariadb", "mysql"}, {"TiDB", "tidb", "mysql"},
+		{"SQLITE3", "sqlite", "sqlite"}, {" ORA ", "oracle", "oracle"}, {"godror", "oracle", "oracle"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			d, err := FromName(tc.input)
+			if err != nil || d.Name() != tc.canonical || d.DriverName() != tc.driver {
+				t.Fatalf("%+v %v", d, err)
+			}
+			name, ok := CanonicalName(tc.input)
+			if !ok || name != tc.canonical {
+				t.Fatalf("%q %t", name, ok)
+			}
+		})
+	}
+	seen := map[string]string{}
+	for _, canonical := range Names() {
+		for _, name := range append([]string{canonical}, Aliases(canonical)...) {
+			if previous, ok := seen[name]; ok {
+				t.Fatalf("%s maps to %s and %s", name, previous, canonical)
+			}
+			seen[name] = canonical
+			resolved, ok := CanonicalName(name)
+			if !ok || resolved != canonical {
+				t.Fatalf("%s resolves to %s", name, resolved)
+			}
+		}
+	}
+	if _, ok := CanonicalName("unknown"); ok {
+		t.Fatal("accepted unknown dialect")
+	}
+	aliases := Aliases(NamePostgres)
+	aliases[0] = "changed"
+	if Aliases(NamePostgres)[0] == "changed" {
+		t.Fatal("shared mutable aliases")
+	}
+}

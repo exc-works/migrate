@@ -17,7 +17,7 @@ import (
 )
 
 func TestExperimentalScriptsUseFrameworkTransaction(t *testing.T) {
-	for _, d := range []dialect.Dialect{dialect.TiDBDialect{}, dialect.RedshiftDialect{}, dialect.OracleDialect{}} {
+	for _, d := range []dialect.Dialect{dialect.TiDBDialect{}, dialect.RedshiftDialect{}, dialect.OracleDialect{}, dialect.MSSQLDialect{}} {
 		for _, fail := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/fail=%t", d.Name(), fail), func(t *testing.T) {
 				db, mock, err := sqlmock.New()
@@ -31,6 +31,9 @@ func TestExperimentalScriptsUseFrameworkTransaction(t *testing.T) {
 				}
 				if d.Name() == dialect.NameOracle {
 					placeholder = ":1"
+				}
+				if d.Name() == dialect.NameMSSQL {
+					placeholder = "@p1"
 				}
 				query := "UPDATE users SET profile=" + placeholder
 				body := fmt.Sprintf(`export function up(db){if(db.dialect!==%q)throw Error('dialect');db.exec(%q,['changed']);`, d.Name(), query)

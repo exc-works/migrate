@@ -76,7 +76,7 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
 
 - Each invocation owns a fresh VM; runtime values never cross invocations.
 - Verified script support covers PostgreSQL, MySQL, MariaDB and SQLite.
-- TiDB, Redshift, Oracle and ClickHouse are executable experimental dialects using their existing
+- TiDB, Redshift, Oracle, ClickHouse and MSSQL are executable experimental dialects using their existing
   drivers. Compatibility does not establish broad deployment verification. Oracle uses
   pinned go-ora v3 (required for Oracle 23ai authentication) and native `:1`
   placeholders; NUMBER stays exact text, RAW is bytes and CLOB is text. BLOB values
@@ -89,6 +89,27 @@ annotations in JS/TS comments. SQL files retain their existing parser behavior.
   binary and text conversion; keep ambiguous non-Oracle byte values rejected.
   Redshift-specific values with unknown pgx type metadata require explicit SQL casts;
   use FROM_VARBYTE/FROM_HEX for binary values through hex text.
+- MSSQL uses the existing sqlserver driver and native `@p1` parameters, with the
+  framework transaction shared by each script and history write. SQL batches,
+  procedure calls and session/transaction commands remain outside the script API.
+  T-SQL permits semicolon-free batches: validate MSSQL tokens before either bridge
+  call, rejecting embedded transaction/session/dynamic commands and additional
+  top-level statements. Ignore quoted values/identifiers and nested comments when
+  examining keywords; retain direct CTE/DML, ALTER TABLE column/constraint/referential clauses,
+  CREATE OR ALTER VIEW and MERGE actions. MSSQL scalar REPLACE calls must not be
+  confused with other dialects' REPLACE statement. Restore MERGE's
+  required terminator after generic single-statement validation. Real-driver tests
+  must cover a bound UPDATE followed by COMMIT, rollback and pending history.
+  MONEY/SMALLMONEY remain exact strings, GUIDs retain the driver's copied binary
+  representation (cast to VARCHAR(36) for formatted text), and timestamp/rowversion
+  is binary only for this dialect. DATE/TIME values retain the existing time contract.
+- Database name resolution has one owning alias catalog, shared by SQL, script
+  capability checks and runtime execution. Accept trimmed, case-insensitive aliases;
+  expose only canonical names in `db.dialect` and generated result types.
+  Empty SQL configuration keeps its existing PostgreSQL default; empty explicit
+  script capability names are rejected. MySQL/MariaDB/TiDB remain distinct dialects.
+- Capability metadata and text output list accepted aliases alongside canonical
+  names. Test coverage must catch any SQL dialect or alias missing script support.
 - Capabilities preserve `script_dialects` and add per-dialect verification, transaction
   mode and notes. Text output shows the same distinctions. SQL-only builds report no
   script dialects. Generated declarations include every executable dialect.
@@ -154,10 +175,10 @@ write successful migration history. It does not predict dynamically generated SQ
 - Cover conversion fidelity, driver errors, timeout, cancellation, sticky failures,
   resource caps, module restrictions, isolated VM state and original TS error locations.
 - Use testcontainers for PostgreSQL/MySQL/MariaDB and temporary SQLite files.
-- Explicit ClickHouse/TiDB selection without an external DSN uses disposable pinned
+- Explicit ClickHouse/TiDB/MSSQL selection without an external DSN uses disposable pinned
   containers; TiDB uses Unistore, not a verified distributed TiKV deployment. Preserve
   external DSN overrides and default optional-database skips.
-- CI covers ClickHouse/TiDB SQL and full builds. Oracle/Redshift SQL/full checks are
+- CI covers ClickHouse/TiDB/MSSQL SQL and full builds. Oracle/Redshift and external MSSQL SQL/full checks are
   conditional on dedicated external DSNs; skipped jobs are not real-instance verification.
 - New dialects remain experimental despite limited container coverage; keep capability
   notes accurate about what has been exercised.

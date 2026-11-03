@@ -1,6 +1,10 @@
 package script
 
-import "github.com/exc-works/migrate/internal/dialect"
+import (
+	"strings"
+
+	"github.com/exc-works/migrate/internal/dialect"
+)
 
 const (
 	VerificationVerified     = "verified"
@@ -12,16 +16,17 @@ const (
 // DialectCapability separates driver verification from transaction behavior.
 // Framework transactions cannot undo implicitly committing DDL.
 type DialectCapability struct {
-	Name            string `json:"name"`
-	Verification    string `json:"verification"`
-	TransactionMode string `json:"transaction_mode"`
-	Notes           string `json:"notes,omitempty"`
+	Name            string   `json:"name"`
+	Aliases         []string `json:"aliases,omitempty"`
+	Verification    string   `json:"verification"`
+	TransactionMode string   `json:"transaction_mode"`
+	Notes           string   `json:"notes,omitempty"`
 }
 
 // Dialects returns a fresh list of executable script dialects. Only full builds
 // expose these capabilities to users; SQL-only execution still fails preflight.
 func Dialects() []DialectCapability {
-	return []DialectCapability{
+	capabilities := []DialectCapability{
 		{
 			Name:            dialect.NamePostgres,
 			Verification:    VerificationVerified,
@@ -68,10 +73,28 @@ func Dialects() []DialectCapability {
 			TransactionMode: TransactionNone,
 			Notes:           "limited database/version coverage; no migration transaction or automatic rollback; failures may leave partial changes without history; affected-row counts are driver-reported",
 		},
+		{
+			Name:            dialect.NameMSSQL,
+			Verification:    VerificationExperimental,
+			TransactionMode: TransactionFramework,
+			Notes:           "limited SQL Server coverage; Azure SQL deployments remain unverified; batches and procedure calls require SQL migrations",
+		},
 	}
+	for i := range capabilities {
+		capabilities[i].Aliases = dialect.Aliases(capabilities[i].Name)
+	}
+	return capabilities
 }
 
 func Capability(name string) (DialectCapability, bool) {
+	if strings.TrimSpace(name) == "" {
+		return DialectCapability{}, false
+	}
+	canonical, ok := dialect.CanonicalName(name)
+	if !ok {
+		return DialectCapability{}, false
+	}
+	name = canonical
 	for _, capability := range Dialects() {
 		if capability.Name == name {
 			return capability, true

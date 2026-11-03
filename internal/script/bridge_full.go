@@ -17,9 +17,11 @@ import (
 
 // Execute binds only a narrow, synchronous database capability to the entrypoint.
 func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) error {
-	if !SupportedDialect(dialect) {
+	capability, supported := Capability(dialect)
+	if !supported {
 		return errors.New("script dialect is unsupported")
 	}
+	dialect = capability.Name
 	if db == nil {
 		return errors.New("script database is required")
 	}
@@ -37,7 +39,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if failure != nil {
 					return nil, failure
 				}
-				text, args, err := i.decodeCall(query, params)
+				text, args, err := i.decodeCall(query, params, dialect)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -58,7 +60,7 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 				if failure != nil {
 					return nil, failure
 				}
-				text, args, err := i.decodeCall(query, params)
+				text, args, err := i.decodeCall(query, params, dialect)
 				if err != nil {
 					return nil, remember(err)
 				}
@@ -78,9 +80,12 @@ func (i *Invocation) Execute(ctx context.Context, db Database, dialect string) e
 
 // Accessors and Export can throw inside reflected Go callbacks. Convert those
 // exceptions into ordinary errors so callers always record a sticky failure.
-func (i *Invocation) decodeCall(query, params goja.Value) (text string, args []any, err error) {
+func (i *Invocation) decodeCall(query, params goja.Value, dialectName string) (text string, args []any, err error) {
 	if exception := i.vm.Try(func() { text, args, err = decodeCall(query, params) }); exception != nil {
 		return "", nil, errors.New("SQL parameter access failed")
+	}
+	if err == nil && dialectName == dbdialect.NameMSSQL {
+		text, err = prepareMSSQL(text)
 	}
 	return
 }
@@ -220,6 +225,14 @@ func readRows(ctx context.Context, db Database, query string, args []any, option
 // Keep this fallback scoped to Oracle; other ambiguous byte results still fail.
 func resultColumnType(column *sql.ColumnType, dialectName string) string {
 	name := column.DatabaseTypeName()
+	if dialectName == dbdialect.NameMSSQL {
+		switch strings.ToUpper(name) {
+		case "TIMESTAMP", "ROWVERSION":
+			return "BINARY"
+		case "MONEY", "SMALLMONEY":
+			return "DECIMAL"
+		}
+	}
 	if name != "" || dialectName != dbdialect.NameOracle {
 		return name
 	}

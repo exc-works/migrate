@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        db: [postgres, mysql, mariadb, sqlite, clickhouse, tidb]
+        db: [postgres, mysql, mariadb, sqlite, clickhouse, tidb, mssql]
         build: [sql, full]
     steps:
       - uses: actions/checkout@v6
@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        db: [oracle, redshift]
+        db: [oracle, redshift, mssql]
     # Both builds share the dedicated external schema, so run them in order.
     # Also prevent another workflow run from modifying that schema concurrently.
     concurrency:
@@ -74,6 +74,7 @@ jobs:
     env:
       INTEGRATION_ORACLE_DSN: ${{ secrets.INTEGRATION_ORACLE_DSN }}
       INTEGRATION_REDSHIFT_DSN: ${{ secrets.INTEGRATION_REDSHIFT_DSN }}
+      INTEGRATION_MSSQL_DSN: ${{ secrets.INTEGRATION_MSSQL_DSN }}
     steps:
       - name: Check external DSN
         id: dsn
@@ -83,6 +84,7 @@ jobs:
           case "$DB_FLAVOR" in
             oracle) selected_dsn="${INTEGRATION_ORACLE_DSN:-}" ;;
             redshift) selected_dsn="${INTEGRATION_REDSHIFT_DSN:-}" ;;
+            mssql) selected_dsn="${INTEGRATION_MSSQL_DSN:-}" ;;
           esac
           if [ -n "$selected_dsn" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"

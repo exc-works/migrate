@@ -52,6 +52,9 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			t.Fatal(err)
 		}
 	}
+	if d.Name() == dialect.NameMSSQL {
+		runMSSQLScalarScenario(t, db)
+	}
 	table := randomName("script_users")
 	amountType, binaryType := "DECIMAL(30,10)", "BLOB"
 	idType := "BIGINT"
@@ -84,6 +87,10 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		// Oracle NUMBER preserves the value, without retaining trailing zero scale.
 		amountExpected = "12345678901234567890.123456789"
 	}
+	if d.Name() == dialect.NameMSSQL {
+		profileType, binaryType, ratioType = "NVARCHAR(200)", "VARBINARY(16)", "FLOAT"
+		insertParams = "@p1,@p2,@p3,@p4,@p5"
+	}
 	create := fmt.Sprintf("CREATE TABLE %s (id %s PRIMARY KEY, amount %s, profile %s, payload %s, ratio %s);", table, idType, amountType, profileType, binaryType, ratioType)
 	insert := fmt.Sprintf("INSERT INTO %s VALUES (%s)", table, insertParams)
 	selectSQL := "SELECT id,amount,profile,payload,ratio FROM " + table
@@ -100,12 +107,48 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		update += "$1 WHERE id=$2"
 	} else if d.Name() == "oracle" {
 		update += ":1 WHERE id=:2"
+	} else if d.Name() == dialect.NameMSSQL {
+		update += "@p1 WHERE id=@p2"
 	} else {
 		update += "? WHERE id=?"
 	}
+	mergeCheck := ""
+	if d.Name() == dialect.NameMSSQL {
+		merge := "WITH s AS (SELECT CAST(@p1 AS BIGINT) AS id, CAST(@p2 AS NVARCHAR(200)) AS profile) MERGE " + table + " AS t USING s ON t.id=s.id WHEN MATCHED THEN UPDATE SET profile=s.profile;"
+		replaceUpdate := "UPDATE " + table + " SET profile=REPLACE(profile,@p1,@p2)"
+		replaceQuery := "SELECT profile,REPLACE(@p1,@p2,@p3) AS value FROM " + table
+		mergeCheck = `db.exec(` + strconv.Quote(replaceUpdate) + `,['old','transformed']);const transformed=db.query(` + strconv.Quote(replaceQuery) + `,['old','old','expected'])[0];if(transformed.profile!=='transformed'||transformed.value!=='expected')throw Error('REPLACE function');const merged=db.exec(` + strconv.Quote(merge) + `,['9007199254740993','old']);if(merged.rowsAffected!=='1')throw Error('MERGE count');`
+		parent, view := table+"_parent", table+"_view"
+		statements := []string{
+			"CREATE OR ALTER VIEW " + view + " AS SELECT CAST(1 AS INT) AS id",
+			"CREATE OR ALTER VIEW " + view + " AS SELECT CAST(2 AS INT) AS id",
+			"DROP VIEW " + view,
+			"ALTER TABLE " + table + " ADD email NVARCHAR(20) NULL",
+			"ALTER TABLE " + table + " ALTER COLUMN email NVARCHAR(200) NULL",
+			"ALTER TABLE " + table + " ADD CONSTRAINT " + table + "_email CHECK (email IS NULL)",
+			"ALTER TABLE " + table + " DROP CONSTRAINT " + table + "_email",
+			"ALTER TABLE " + table + " DROP COLUMN email",
+			"CREATE TABLE " + parent + " (id BIGINT PRIMARY KEY)",
+			"ALTER TABLE " + table + " ADD parent_id BIGINT NULL CONSTRAINT " + table + "_parent_default DEFAULT NULL",
+		}
+		for _, action := range []string{"ON DELETE CASCADE ON UPDATE NO ACTION", "ON DELETE NO ACTION ON UPDATE CASCADE", "ON DELETE SET NULL ON UPDATE SET NULL", "ON DELETE SET DEFAULT ON UPDATE SET DEFAULT"} {
+			statements = append(statements,
+				"ALTER TABLE "+table+" ADD CONSTRAINT "+table+"_fk FOREIGN KEY(parent_id) REFERENCES "+parent+"(id) "+action,
+				"ALTER TABLE "+table+" DROP CONSTRAINT "+table+"_fk",
+			)
+		}
+		statements = append(statements,
+			"ALTER TABLE "+table+" DROP CONSTRAINT "+table+"_parent_default",
+			"ALTER TABLE "+table+" DROP COLUMN parent_id",
+			"DROP TABLE "+parent,
+		)
+		for _, statement := range statements {
+			mergeCheck += `db.exec(` + strconv.Quote(statement) + `);`
+		}
+	}
 	items := []source.Migration{
 		{Filename: "V1__create.sql", Source: "-- +migrate Up\n" + create + "\n-- +migrate Down\nDROP TABLE " + table + ";\n"},
-		{Filename: "V2__seed.mjs", Source: `export function up(db){db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!==` + strconv.Quote(amountExpected) + `||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
+		{Filename: "V2__seed.mjs", Source: `export function up(db){const seeded=db.exec(` + strconv.Quote(insert) + `,['9007199254740993','12345678901234567890.1234567890','old',` + binaryParam + `,1.25]);if(db.dialect==='mssql'&&seeded.rowsAffected!=='1')throw Error('driver count');` + mergeCheck + `const r=db.query(` + strconv.Quote(selectSQL) + `)[0];if(r.id!=='9007199254740993'||r.amount!==` + strconv.Quote(amountExpected) + `||` + binaryCheck + `||r.ratio!==1.25)throw Error('value fidelity');db.exec(` + strconv.Quote(update) + `,['new',r.id]);}export function down(db){db.exec('DELETE FROM ` + table + `')}`},
 		{Filename: "V3__transform.ts", Source: `export function up(db:any){const r=db.query(` + strconv.Quote(selectSQL) + `)[0];db.exec(` + strconv.Quote(update) + `,[r.profile+'-ts',r.id]);}export function down(db:any){db.exec(` + strconv.Quote(update) + `,['new','9007199254740993']);}`},
 	}
 	cfg := migrate.Config{DB: db, Dialect: d, SchemaName: randomName("script_history"), MigrationSource: source.StringSource{Migrations: items}}
@@ -160,6 +203,9 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 
 	// Transaction control is rejected before it can release framework ownership.
 	var controls []string
+	if d.Name() == dialect.NameMSSQL {
+		controls = []string{"BEGIN TRANSACTION", "COMMIT", "ROLLBACK", "EXEC('COMMIT')", "SELECT 1 COMMIT TRANSACTION", "SELECT 1 ROLLBACK TRANSACTION", "SELECT 1 EXEC('COMMIT')", "SELECT 1 /* nested /* inner */ comment */ COMMIT TRANSACTION", update + " COMMIT TRANSACTION"}
+	}
 	if d.Name() == "postgres" || d.Name() == "redshift" {
 		controls = []string{"ABORT", "/* outer /* inner */ ignored */ COMMIT", "-- comment\rCOMMIT /*\nSELECT 1 -- */"}
 	}
@@ -170,7 +216,11 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 		controls = []string{"/* outer /* inner */ COMMIT -- */ SELECT 1"}
 	}
 	for _, control := range controls {
-		broken[len(broken)-1].Source = `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);db.exec(` + strconv.Quote(control) + `);throw Error('after control')}`
+		params := ""
+		if strings.HasPrefix(control, update) {
+			params = `,['escaped','9007199254740993']`
+		}
+		broken[len(broken)-1].Source = `export function up(db){db.exec(` + strconv.Quote(update) + `,['temporary','9007199254740993']);try{db.exec(` + strconv.Quote(control) + params + `)}catch(e){};throw Error('after control')}`
 		failedCfg.ScriptOptions = script.Options{}
 		failed, err = migrate.NewService(ctx, failedCfg)
 		if err != nil {
@@ -184,6 +234,13 @@ func runScriptScenario(t *testing.T, db *sql.DB, d dialect.Dialect) {
 			t.Fatalf("expected bridge transaction-control rejection: %v", err)
 		}
 		assertScriptProfile(t, db, table, "new-ts")
+		statuses, err = failed.Status()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(statuses) != len(broken) || statuses[len(statuses)-1].Status != migrate.StatusPending {
+			t.Fatalf("failed transaction control recorded successful history: %+v", statuses)
+		}
 	}
 
 	tampered := append([]source.Migration(nil), items...)

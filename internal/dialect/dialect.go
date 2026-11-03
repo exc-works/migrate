@@ -417,20 +417,24 @@ func (RedshiftDialect) SelectSchemaSQL(schemaName string) (string, error) {
 }
 
 func FromName(name string) (Dialect, error) {
-	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", NamePostgres, "pgsql", "postgresql":
+	canonical, ok := CanonicalName(name)
+	if !ok {
+		return nil, fmt.Errorf("unsupported dialect: %s", name)
+	}
+	switch canonical {
+	case NamePostgres:
 		return PostgresDialect{}, nil
 	case NameMySQL:
 		return MySQLDialect{}, nil
 	case NameMariaDB:
 		return MariaDBDialect{}, nil
-	case NameMSSQL, "sqlserver", "azuresql":
+	case NameMSSQL:
 		return MSSQLDialect{}, nil
-	case NameOracle, "orcl", "ora", "go-ora", "goora", "godror":
+	case NameOracle:
 		return OracleDialect{}, nil
 	case NameClickHouse:
 		return ClickHouseDialect{}, nil
-	case NameSQLite, "sqlite3":
+	case NameSQLite:
 		return SQLiteDialect{}, nil
 	case NameTiDB:
 		return TiDBDialect{}, nil
