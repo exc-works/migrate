@@ -72,7 +72,7 @@ func bundleModule(filename, source string, modules *migrationsource.ModuleContex
 						return moduleError("Node built-in modules are unavailable in Goja"), nil
 					}
 					// Handle back imports even when a supplied string entry has no disk file.
-					if diskEntryAlias(filepath.Clean(filepath.Join(args.ResolveDir, args.Path)), entry) {
+					if (strings.HasPrefix(args.Path, "./") || strings.HasPrefix(args.Path, "../") || filepath.IsAbs(args.Path)) && diskEntryAlias(filepath.Clean(filepath.Join(args.ResolveDir, args.Path)), entry) {
 						return api.OnResolveResult{
 							Path:      entry,
 							Namespace: namespace,
