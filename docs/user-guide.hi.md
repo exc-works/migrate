@@ -190,7 +190,7 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. टूल को स्वयं अपग्रेड या डाउनग्रेड करें
+## 7. टूल का वर्शन देखें
 
 ```bash
 migrate version

@@ -190,7 +190,7 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. ツール自体のアップグレード/ダウングレード
+## 7. ツールのバージョンを確認
 
 ```bash
 migrate version

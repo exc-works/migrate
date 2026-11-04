@@ -190,7 +190,7 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. Обновление или откат версии самого инструмента
+## 7. Проверка версии
 
 ```bash
 migrate version

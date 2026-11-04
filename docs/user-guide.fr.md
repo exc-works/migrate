@@ -190,7 +190,7 @@ Statuts courants :
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. Mettre à niveau ou rétrograder l’outil lui-même
+## 7. Vérifier la version
 
 ```bash
 migrate version

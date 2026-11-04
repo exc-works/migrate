@@ -190,7 +190,7 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. 도구 자체 업그레이드 또는 다운그레이드
+## 7. 도구 버전 확인
 
 ```bash
 migrate version

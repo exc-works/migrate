@@ -190,7 +190,7 @@ Status comuns:
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. Fazer upgrade ou downgrade da própria ferramenta
+## 7. Verificar a versão
 
 ```bash
 migrate version

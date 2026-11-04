@@ -98,9 +98,10 @@ See the [embedded example](../examples/script-imports/embedded/main.go) for the 
 | Task | Call |
 | --- | --- |
 | Query rows | `db.query(sql, [parameters])` returns an array of rows |
-| Execute SQL | `db.exec(sql, [parameters])` returns the affected-row count as a string |
+| Execute SQL | `db.exec(sql, [parameters])` returns an object with a `rowsAffected` string |
 | Choose dialect syntax | `db.dialect` returns the canonical database name |
 
+Read the count with `db.exec(sql, parameters).rowsAffected`.
 Use native database placeholders and unique query-column names.
 SQL follows the driver's native syntax; `query` reads the first result set.
 

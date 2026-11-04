@@ -94,9 +94,10 @@ source := migrate.WithModules{
 | 操作 | 调用 |
 | --- | --- |
 | 查询行 | `db.query(sql, [参数])`，返回行数组 |
-| 执行 SQL | `db.exec(sql, [参数])`，返回字符串形式的受影响行数 |
+| 执行 SQL | `db.exec(sql, [参数])`，返回包含 `rowsAffected` 字符串的对象 |
 | 选择方言语法 | `db.dialect`，返回规范数据库名称 |
 
+通过 `db.exec(sql, 参数数组).rowsAffected` 读取受影响行数。
 使用数据库原生占位符，给查询列设置唯一名称。SQL 按驱动原生语法执行，`query` 读取第一个结果集。
 
 整数和精确 decimal 结果以字符串返回，计算和存储时保留精确表示。
