@@ -11,13 +11,28 @@ pnpm --dir docs/site run dev
 
 ## Edit
 
-- Edit user guides and script guides in `docs/`, and runnable examples in `examples/`.
-- Add website pages in `docs/site/pages/`.
-- Register a language in `locales.mjs`; its guide is published from the existing translation.
-- Register other shared documents in `content.mjs`.
-- Add release notes in `docs/releases/`; the index is generated automatically.
-- Restart `dev` after editing shared documents to refresh generated content.
-- Commit `pnpm-lock.yaml` when changing dependencies. `pnpm-workspace.yaml` pins Vite and permits esbuild's build script.
+- Author user documentation in `pages/`, with matching topic filenames under `pages/zh/`.
+  Organize content around reader tasks in `navigation.mjs`, keeping tutorials,
+  operational guides and references on separate pages.
+- Register languages in `locales.mjs`. Every language has an authored website entry;
+  English and Simplified Chinese have complete topic navigation. Other entries link
+  to existing repository translations until their topic pages are written.
+- The website does not import old user guides, script guides or example READMEs.
+  Link to GitHub when readers need source code, original translations or example projects.
+- `content.mjs` shares only CHANGELOG and release records. Add release notes in
+  `docs/releases/`; the release index is generated automatically.
+- `prepare.mjs` assembles content in ignored `.generated`. Do not edit generated
+  files. Restart `dev` after editing content to refresh the assembled pages.
+- Topic links are relative to website pages. Links in release records are resolved
+  from their original repository paths; edit links point to the actual source.
+- The API declaration is copied as a download. Specs and validation notes stay out
+  of the website and search index.
+- Commit `pnpm-lock.yaml` when changing dependencies. `pnpm-workspace.yaml` pins
+  Vite and permits esbuild's build script.
+
+Documentation follows main. Use `migrate version` and release notes to identify
+features shipped in an installed binary. The language menu opens each language's
+homepage because shared release records have no translated counterparts.
 
 ## Verify
 
@@ -29,11 +44,18 @@ python3 scripts/test-docs-quick-start.py
 pnpm --dir docs/site run preview
 ```
 
+The artifact check validates rendered pages, local resources, links and fragments.
+It does not fetch external websites. Rebuild before previewing changed content.
+The onboarding runner checks the English and Chinese SQLite walkthroughs and
+repository script-guide examples against freshly built binaries.
+
 ## Publish
 
 Set **Settings → Pages → Source: GitHub Actions** and allow `main` in the
 `github-pages` environment. Push to main, or run the `docs` workflow on main.
-The site is published at https://exc-works.github.io/migrate/.
+The site is published at https://exc-works.github.io/migrate/ after the site checks
+and executable onboarding examples pass. Other branches and PRs validate only.
 
-For a deployment error, check the `docs` workflow logs, Pages source and environment settings.
-When changing the domain or repository name, update the VitePress base and the URL in `scripts/check-docs-site.py`.
+For a deployment error, check the `docs` workflow logs, Pages source and environment
+settings. When changing the domain or repository name, update the VitePress base
+and the URL in `scripts/check-docs-site.py`.

@@ -7,24 +7,14 @@ Use `migrate capabilities` to inspect verification status and transaction limits
 ## Documentation
 
 - [Documentation website](https://exc-works.github.io/migrate/) / [中文文档站](https://exc-works.github.io/migrate/zh/)
-
-- [User Guide (中文)](docs/user-guide.md)
-- [User Guide (English)](docs/user-guide.en.md)
-- [User Guide (繁體中文)](docs/user-guide.zh-Hant.md)
-- [User Guide (日本語)](docs/user-guide.ja.md)
-- [User Guide (한국어)](docs/user-guide.ko.md)
-- [User Guide (Español)](docs/user-guide.es.md)
-- [User Guide (Français)](docs/user-guide.fr.md)
-- [User Guide (Deutsch)](docs/user-guide.de.md)
-- [User Guide (Português do Brasil)](docs/user-guide.pt-BR.md)
-- [User Guide (Русский)](docs/user-guide.ru.md)
-- [User Guide (العربية)](docs/user-guide.ar.md)
-- [User Guide (हिन्दी)](docs/user-guide.hi.md)
-- [SQL + JS/TS guide (中文)](docs/script-migrations.md)
-- [SQL + JS/TS guide (English)](docs/script-migrations.en.md)
+- [Quick start](https://exc-works.github.io/migrate/quick-start) / [快速开始](https://exc-works.github.io/migrate/zh/quick-start)
+- [CLI reference](https://exc-works.github.io/migrate/commands) / [命令行参考](https://exc-works.github.io/migrate/zh/commands)
+- [JavaScript and TypeScript](https://exc-works.github.io/migrate/scripting) / [JavaScript 与 TypeScript](https://exc-works.github.io/migrate/zh/scripting)
+- [Go integration](https://exc-works.github.io/migrate/go-library) / [Go 集成](https://exc-works.github.io/migrate/zh/go-library)
+- [SSH tunnels and proxies](https://exc-works.github.io/migrate/ssh-tunnels) / [SSH 隧道与代理](https://exc-works.github.io/migrate/zh/ssh-tunnels)
+- [Other language guides](https://exc-works.github.io/migrate/languages)
 - [Runnable script import examples](examples/script-imports/README.en.md) / [可运行示例](examples/script-imports/README.md)
 - [Migration API declarations](docs/migration-api.d.ts)
-- [SSH tunnels and proxies](docs/ssh-tunnel.en.md) / [SSH 隧道与代理](docs/ssh-tunnel.md)
 - [Changelog](CHANGELOG.md)
 
 ## Install
