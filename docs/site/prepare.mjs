@@ -19,7 +19,7 @@ const releases = [...sourceRoutes]
 await writeFile(new URL('releases.md', output), [
   '# Release notes / 发布说明',
   '',
-  'This website follows main. Select the release matching `migrate version` for shipped behavior.',
+  'Run `migrate version`, then choose its release notes below.',
   '',
   ...releases.map(route => `- [${route.split('/').pop().slice(0, -3)}](./${route.slice(0, -3)})`),
   '',

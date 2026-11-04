@@ -1,7 +1,5 @@
 # migrate 使用指南
 
-本指南面向首次使用者。命令與旗標以目前實作（`cmd/migrate`）為準。
-
 ## 1. 安裝
 
 ### 1.1 從 module 安裝
@@ -159,7 +157,6 @@ migrate down 202604140001
 migrate down --all
 ```
 
-注意：`migrate down <to-version>` 與 `migrate down --all` 互斥。
 
 ### 5.3 Dry-run 回滾
 
@@ -193,40 +190,11 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. 升級或降級工具本身
-
-### 7.1 升級工具版本
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@latest
-```
-
-### 7.2 降級工具版本
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
-```
-
-範例：
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
-```
-
-若 repo 為私有，且無法使用 `go install github.com/...@...`，請在原始碼中 checkout 目標版本
-並執行：
-
-```bash
-go install ./cmd/migrate
-```
-
-### 7.3 檢查目前工具版本
+## 7. 查看工具版本
 
 ```bash
 migrate version
 ```
-
-注意：release artifacts 會印出 release 版本；透過 `go install ./cmd/migrate` 的本機原始碼建置通常會印出 `dev`。
 
 ## 8. 環境變數範本
 
@@ -252,105 +220,7 @@ migrate status
 
 ## 9. 10 分鐘首次執行示範（SQLite）
 
-### 9.1 準備目錄與設定
-
-先確認命令可用：
-
-```bash
-migrate --help
-```
-
-建立示範目錄（macOS/Linux）：
-
-```bash
-mkdir -p ./migrate-demo
-cd ./migrate-demo
-migrate new config
-```
-
-Windows PowerShell 對應：
-
-```powershell
-mkdir .\migrate-demo
-cd .\migrate-demo
-migrate new config
-```
-
-將 `migration_config.json` 更新為：
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
-```
-
-### 9.2 初始化並建立 migration 檔案
-
-```bash
-migrate create
-migrate new version init_users -v 202604140001
-migrate new version add_email -v 202604140002
-```
-
-編輯 `migrations/V202604140001__init_users.sql`：
-
-```sql
--- +migrate Up
-CREATE TABLE users
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +migrate Down
-DROP TABLE IF EXISTS users;
-```
-
-編輯 `migrations/V202604140002__add_email.sql`：
-
-```sql
--- +migrate Up
-ALTER TABLE users
-    ADD COLUMN email TEXT;
-
--- +migrate Down
-CREATE TABLE users_tmp
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-INSERT INTO users_tmp (id, name)
-SELECT id, name
-FROM users;
-DROP TABLE users;
-ALTER TABLE users_tmp
-    RENAME TO users;
-```
-
-### 9.3 套用、檢查狀態與回滾
-
-```bash
-migrate up --dry-run
-migrate up
-migrate status
-migrate down 202604140001 --dry-run
-migrate down 202604140001
-migrate status
-migrate down --all
-migrate status
-```
-
-預期：
-
-- `up` 之後：兩個版本都是 `applied`
-- `down 202604140001` 之後：`202604140001=applied`、`202604140002=pending`
-- `down --all` 之後：兩個版本都是 `pending`
+[10 分鐘首次執行示範（SQLite） · English](site/pages/quick-start.md)
 
 ## 10. 全域旗標
 
@@ -410,7 +280,7 @@ migrate -w ./deploy up
 
 修復：
 
-- 不要編輯已套用的 migration 檔案
+- 先從版本控制還原原始 migration 檔案
 - 變更請建立新且更高版本的 migration
 
 ## 12. 作為 Go 函式庫嵌入使用
@@ -488,57 +358,4 @@ func main() {
 - 來源：`DirectorySource`（讀取檔案系統）、`StringSource`（記憶體陣列）、`FSSource`（任意 `fs.FS`，例如 `//go:embed` 或 `os.DirFS`）、`CombinedSource`（合併多個來源）
 - 日誌：`migrate.NoopLogger{}`（預設）、`migrate.NewStdLogger("info", os.Stdout)`，或自行實作 `migrate.Logger` 介面
 
-### 12.4 測試友善：StringSource + 記憶體版 SQLite
-
-```go
-src := migrate.StringSource{Migrations: []migrate.SourceFile{{
-    Filename: "V1__init.sql",
-    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
-}}}
-
-db, _ := sql.Open("sqlite", ":memory:")
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewSQLiteDialect(),
-    DB:              db,
-    MigrationSource: src,
-})
-```
-
-不依賴檔案系統，可直接在單元測試中執行。
-
-### 12.5 用 //go:embed 將 migration 打包進二進位
-
-利用 Go 的 embed 能力，把 migration SQL 直接打進程式的二進位檔：
-
-```go
-import "embed"
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// 在服務中這樣接入：
-// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
-```
-
-`FSSource` 接受任意 `fs.FS`，所以 `os.DirFS` 和 `fstest.MapFS` 也都能用 — 測試時可換成合成檔案系統。
-
-### 12.6 預覽 SQL（DryRun）
-
-```go
-var buf bytes.Buffer
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewPostgresDialect(),
-    DB:              db,
-    MigrationSource: src,
-    DryRun:          true,
-    DryRunOutput:    &buf,
-})
-_ = svc.Create() // Create() 不受 DryRun 影響，用於建立歷史表
-_ = svc.Up()     // 使用者 migration SQL 僅寫入 buf，不會實際建表
-```
-
-### 12.7 穩定性承諾
-
-- `github.com/exc-works/migrate`（根套件）為對外公開 API，依 SemVer 維護
-- `internal/*` 不在穩定性承諾內，請勿直接 import
-- 完整可執行範例位於 repository 根目錄下的 `example_test.go`
+[Go API](../migrate.go) · [Go example](../example_test.go)

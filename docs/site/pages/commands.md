@@ -1,7 +1,6 @@
 # Command reference
 
-Run `migrate --help` and `migrate <command> --help` for the exact flags supported
-by your installed version. Use `migrate version` to identify it.
+Run `migrate <command> --help` to see its options.
 
 | Task | Command | Details |
 | --- | --- | --- |
@@ -15,8 +14,7 @@ by your installed version. Use `migrate version` to identify it.
 | Inspect build/database support | `migrate capabilities --output json` | [Capabilities](./databases) |
 
 `down <version>` rolls back versions above the target and keeps the target applied.
-`baseline` records history without executing the migrations; confirm the existing
-schema already matches the versions being adopted.
+To adopt an existing database, match its schema to the migration files, then run `baseline` to record them.
 
 Use `--dry-run` before up/down. [Global flags](./guide#_10-global-flags) cover
 configuration selection and logging. [Troubleshooting](./guide#_11-common-errors-and-troubleshooting)

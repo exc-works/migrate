@@ -1,74 +1,39 @@
 # Documentation website
 
-The site uses VitePress and requires Node.js 22 or newer and pnpm 10.21.0.
-Use the version pinned in `package.json` (`corepack enable` if pnpm is not installed). From the repository root:
+Use Node.js 22+ and the pnpm version pinned in `package.json`.
+
+## Run locally
 
 ```sh
 pnpm --dir docs/site install --frozen-lockfile
 pnpm --dir docs/site run dev
+```
+
+## Edit
+
+- Edit user guides and script guides in `docs/`, and runnable examples in `examples/`.
+- Add website pages in `docs/site/pages/`.
+- Register a language in `locales.mjs`; its guide is published from the existing translation.
+- Register other shared documents in `content.mjs`.
+- Add release notes in `docs/releases/`; the index is generated automatically.
+- Restart `dev` after editing shared documents to refresh generated content.
+- Commit `pnpm-lock.yaml` when changing dependencies. `pnpm-workspace.yaml` pins Vite and permits esbuild's build script.
+
+## Verify
+
+```sh
 pnpm --dir docs/site test
 pnpm --dir docs/site run build
+python3 scripts/check-docs-site.py
+python3 scripts/test-docs-quick-start.py
 pnpm --dir docs/site run preview
 ```
 
-Edit existing guides, examples and release notes at their original repository paths.
-`content.mjs` is the explicit map of public source documents to website routes.
-`prepare.mjs` recreates ignored `.generated` content before development and builds.
-Website-only pages live in `pages/`; do not edit generated files.
+## Publish
 
-Relative links in shared documents are resolved from the canonical source path.
-Published documents become website links; specs and source files link to GitHub.
-The type declaration is copied as a downloadable asset. Specs and validation notes
-are not included in the website build or search index.
+Set **Settings → Pages → Source: GitHub Actions** and allow `main` in the
+`github-pages` environment. Push to main, or run the `docs` workflow on main.
+The site is published at https://exc-works.github.io/migrate/.
 
-Documents follow main, rather than claiming all described features exist in every
-release. Check release notes when using an older binary. Other translations remain
-available from the repository README until they are ported to the website.
-
-VitePress is pinned to its stable release. The override in `pnpm-workspace.yaml` selects the patched
-6.4 maintenance line because VitePress 1.x otherwise installs Vite 5. Validate
-site builds, development and preview when updating either dependency.
-
-The language menu opens each locale's homepage, because shared release/changelog
-pages do not have translated counterparts. Restart `dev` after changing a shared
-repository document so the generated copy is refreshed.
-
-Run the actual bilingual SQLite onboarding examples with:
-
-```sh
-python3 scripts/test-docs-quick-start.py
-```
-
-The release index is generated from `docs/releases/`; add new notes there rather
-than editing generated pages.
-
-Commit `pnpm-lock.yaml` when dependencies change. CI installs with `--frozen-lockfile`.
-Only esbuild is allowed to run its dependency build script.
-
-## GitHub Pages
-
-After the PR stack is merged, enable **Settings → Pages → Build and deployment →
-Source: GitHub Actions** in the repository. The workflow publishes to
-https://exc-works.github.io/migrate/ after pushes to main. Run the `docs` workflow
-manually on main to retry deployment after enabling Pages. Other branches and PRs
-build and validate only. No personal access token or committed build output is needed.
-
-The deployment job requires both the site build/link check and the bilingual
-SQLite examples to pass. It uses the `github-pages` environment and grants Pages
-and OIDC write permissions only to the deployment job. Configure that environment
-to allow deployment from main. Existing Go CI gates remain in place.
-
-The artifact check can also be run locally after building:
-
-```sh
-python3 scripts/check-docs-site.py
-```
-
-It validates rendered pages, links, fragments and local resources under the
-configured project base. External sites are not fetched by this check. If the
-repository name or domain changes, update both the VitePress base and checker URL.
-
-If a page has a broken link or fragment, fix its canonical Markdown source. If a
-shared guide edit does not appear in preview, rebuild to refresh generated content.
-For a Pages 404, confirm the workflow source setting, deployment environment and
-project base, then check the `docs` workflow's deployment result.
+For a deployment error, check the `docs` workflow logs, Pages source and environment settings.
+When changing the domain or repository name, update the VitePress base and the URL in `scripts/check-docs-site.py`.

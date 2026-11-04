@@ -1,7 +1,5 @@
 # migrate User Guide
 
-This guide is for first-time users. Commands and flags are based on the current implementation (`cmd/migrate`).
-
 ## 1. Installation
 
 ### 1.1 Install from module
@@ -16,7 +14,7 @@ Install a specific version:
 go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
 ```
 
-Replace `vX.Y.Z` with a real version, for example `v0.2.3`.
+Replace `vX.Y.Z` with a version from [Releases](https://github.com/exc-works/migrate/releases).
 
 ### 1.2 Install from local source (private repo or internal network)
 
@@ -81,13 +79,13 @@ Default config template:
 migrate create
 ```
 
-`create` may succeed without output. Confirm with:
+Check migration status:
 
 ```bash
 migrate status
 ```
 
-If you have an existing schema and do not want to replay old SQL, use:
+To adopt an existing database, match its schema to the migration files, then record a baseline:
 
 ```bash
 migrate baseline
@@ -141,7 +139,7 @@ Then check status:
 migrate status
 ```
 
-`up` may succeed without output. Use `status` as the source of truth.
+Applied versions appear as `applied` in the status output.
 
 ## 5. Rollback
 
@@ -159,7 +157,6 @@ Semantics: only applied versions greater than `202604140001` are rolled back.
 migrate down --all
 ```
 
-Note: `migrate down <to-version>` and `migrate down --all` are mutually exclusive.
 
 ### 5.3 Dry-run rollback
 
@@ -168,7 +165,7 @@ migrate down 202604140001 --dry-run
 migrate down --all --dry-run
 ```
 
-`down` may succeed without output. Run `migrate status` to verify.
+Run `migrate status` and confirm the rolled-back versions are `pending`.
 
 ## 6. Check status
 
@@ -176,7 +173,7 @@ migrate down --all --dry-run
 migrate status
 ```
 
-Machine-readable output (recommended for scripts and AI agents):
+Read JSON from a script:
 
 ```bash
 migrate status --output json
@@ -193,40 +190,11 @@ Common statuses:
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. Upgrade or downgrade the tool itself
-
-### 7.1 Upgrade tool version
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@latest
-```
-
-### 7.2 Downgrade tool version
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
-```
-
-Example:
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
-```
-
-If the repo is private and `go install github.com/...@...` is not available, check out the target version in source code
-and run:
-
-```bash
-go install ./cmd/migrate
-```
-
-### 7.3 Check current tool version
+## 7. Check tool version
 
 ```bash
 migrate version
 ```
-
-Note: release artifacts print the release version; local source builds from `go install ./cmd/migrate` usually print `dev`.
 
 ## 8. Environment variable templates
 
@@ -252,105 +220,7 @@ migrate status
 
 ## 9. 10-minute first-run demo (SQLite)
 
-### 9.1 Prepare directory and config
-
-First verify command availability:
-
-```bash
-migrate --help
-```
-
-Create demo directory (macOS/Linux):
-
-```bash
-mkdir -p ./migrate-demo
-cd ./migrate-demo
-migrate new config
-```
-
-Windows PowerShell equivalent:
-
-```powershell
-mkdir .\migrate-demo
-cd .\migrate-demo
-migrate new config
-```
-
-Update `migration_config.json` to:
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
-```
-
-### 9.2 Initialize and create migration files
-
-```bash
-migrate create
-migrate new version init_users -v 202604140001
-migrate new version add_email -v 202604140002
-```
-
-Edit `migrations/V202604140001__init_users.sql`:
-
-```sql
--- +migrate Up
-CREATE TABLE users
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +migrate Down
-DROP TABLE IF EXISTS users;
-```
-
-Edit `migrations/V202604140002__add_email.sql`:
-
-```sql
--- +migrate Up
-ALTER TABLE users
-    ADD COLUMN email TEXT;
-
--- +migrate Down
-CREATE TABLE users_tmp
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-INSERT INTO users_tmp (id, name)
-SELECT id, name
-FROM users;
-DROP TABLE users;
-ALTER TABLE users_tmp
-    RENAME TO users;
-```
-
-### 9.3 Apply, check status, and rollback
-
-```bash
-migrate up --dry-run
-migrate up
-migrate status
-migrate down 202604140001 --dry-run
-migrate down 202604140001
-migrate status
-migrate down --all
-migrate status
-```
-
-Expected:
-
-- after `up`: both versions are `applied`
-- after `down 202604140001`: `202604140001=applied`, `202604140002=pending`
-- after `down --all`: both versions are `pending`
+[10-minute first-run demo (SQLite)](site/pages/quick-start.md)
 
 ## 10. Global flags
 
@@ -369,53 +239,17 @@ migrate -w ./deploy up
 
 ## 11. Common errors and troubleshooting
 
-### 11.1 Config file not found
-
-Error: `config file ... no such file or directory`
-
-Fix:
-
-- make sure `migration_config.json` exists in current directory
-- or pass the config path with `-c`
-
-### 11.2 Missing environment variable
-
-Error: `can't find env value for XXX`
-
-Fix:
-
-- `export XXX=...`
-- or use `${XXX:default}`
-
-### 11.3 Incomplete `down` arguments
-
-Error: `to-version must be set, or use --all`
-
-Fix:
-
-- use `migrate down <version>`
-- or use `migrate down --all`
-
-### 11.4 Unsupported dialect
-
-Error: `unsupported dialect: xxx`
-
-Fix: use one of:
-
-- `postgres` `mysql` `mariadb` `oracle` `sqlite` `mssql` `clickhouse` `tidb` `redshift`
-
-### 11.5 Migration metadata mismatch
-
-Error: `hash mismatch` or `filename mismatch`
-
-Fix:
-
-- do not edit already applied migration files
-- create a new higher version migration for changes
+| Message | Action |
+| --- | --- |
+| `config file ... no such file or directory` | Run `migrate new config`, or select an existing file with `-c`. |
+| `can't find env value for XXX` | Set environment variable `XXX`, or use `${XXX:default}` in the configuration. |
+| `to-version must be set, or use --all` | Choose `migrate down <version>` or `migrate down --all`. |
+| `unsupported dialect: xxx` | Set `dialect` to a database name listed in section 2. |
+| `hash mismatch` / `filename mismatch` | Restore the original migration from version control, then add a new version for your change. |
 
 ## 12. Embedding migrate as a Go library
 
-Besides the CLI, `github.com/exc-works/migrate` can be imported directly from your service code to run migrations — useful for unit tests, process startup hooks, or admin panels.
+Run migrations from a Go application:
 
 ### 12.1 Installation
 
@@ -423,7 +257,7 @@ Besides the CLI, `github.com/exc-works/migrate` can be imported directly from yo
 go get github.com/exc-works/migrate
 ```
 
-Import the database driver you need (the library does not pin one):
+Import your database driver:
 
 ```go
 import (
@@ -488,61 +322,7 @@ Common types:
 - Sources: `DirectorySource` (filesystem), `StringSource` (in-memory slice), `FSSource` (any `fs.FS`, e.g. `//go:embed` or `os.DirFS`), `CombinedSource` (merges several sources)
 - Loggers: `migrate.NoopLogger{}` (default), `migrate.NewStdLogger("info", os.Stdout)`, or any type implementing `migrate.Logger`
 
-### 12.4 Test-friendly: StringSource + in-memory SQLite
-
-```go
-src := migrate.StringSource{Migrations: []migrate.SourceFile{{
-    Filename: "V1__init.sql",
-    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
-}}}
-
-db, _ := sql.Open("sqlite", ":memory:")
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewSQLiteDialect(),
-    DB:              db,
-    MigrationSource: src,
-})
-```
-
-No filesystem dependency — runs straight from a unit test.
-
-### 12.5 Embedding migrations with //go:embed
-
-Ship migration SQL inside your binary using Go's embed feature:
-
-```go
-import "embed"
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// then wire it into your service:
-// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
-```
-
-`FSSource` accepts any `fs.FS`, so `os.DirFS` and `fstest.MapFS` work the same way — tests can swap in a synthetic filesystem.
-
-### 12.6 Previewing SQL (DryRun)
-
-```go
-var buf bytes.Buffer
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewPostgresDialect(),
-    DB:              db,
-    MigrationSource: src,
-    DryRun:          true,
-    DryRunOutput:    &buf,
-})
-_ = svc.Create() // Create() is not affected by DryRun; sets up the history table
-_ = svc.Up()     // user-migration SQL goes to buf; no user tables are created
-```
-
-### 12.7 Stability contract
-
-- `github.com/exc-works/migrate` (root package) is the public API and follows SemVer
-- `internal/*` is not covered by the stability contract — do not import it directly
-- A complete runnable example lives in `example_test.go` at the repository root
-
+[Go API](../migrate.go) · [Go example](../example_test.go)
 
 ## SQL, JS and TS migrations
 

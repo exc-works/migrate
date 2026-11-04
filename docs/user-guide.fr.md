@@ -1,7 +1,5 @@
 # Guide utilisateur de migrate
 
-Ce guide est destiné aux utilisateurs qui démarrent. Les commandes et flags sont basés sur l’implémentation actuelle (`cmd/migrate`).
-
 ## 1. Installation
 
 ### 1.1 Installer depuis le module
@@ -159,7 +157,6 @@ Sémantique : seules les versions appliquées supérieures à `202604140001` son
 migrate down --all
 ```
 
-Remarque : `migrate down <to-version>` et `migrate down --all` sont mutuellement exclusifs.
 
 ### 5.3 Rollback en dry run
 
@@ -193,40 +190,11 @@ Statuts courants :
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. Mettre à niveau ou rétrograder l’outil lui-même
-
-### 7.1 Mettre à niveau la version de l’outil
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@latest
-```
-
-### 7.2 Rétrograder la version de l’outil
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
-```
-
-Exemple :
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
-```
-
-Si le dépôt est privé et que `go install github.com/...@...` n’est pas disponible, récupérez la version cible dans le code source
-puis exécutez :
-
-```bash
-go install ./cmd/migrate
-```
-
-### 7.3 Vérifier la version actuelle de l’outil
+## 7. Vérifier la version
 
 ```bash
 migrate version
 ```
-
-Remarque : les artefacts de release affichent la version de release ; les builds locaux depuis `go install ./cmd/migrate` affichent généralement `dev`.
 
 ## 8. Modèles de variables d’environnement
 
@@ -252,105 +220,7 @@ migrate status
 
 ## 9. Démo premier lancement en 10 minutes (SQLite)
 
-### 9.1 Préparer le répertoire et la configuration
-
-Vérifiez d’abord la disponibilité de la commande :
-
-```bash
-migrate --help
-```
-
-Créer le répertoire de démo (macOS/Linux) :
-
-```bash
-mkdir -p ./migrate-demo
-cd ./migrate-demo
-migrate new config
-```
-
-Équivalent Windows PowerShell :
-
-```powershell
-mkdir .\migrate-demo
-cd .\migrate-demo
-migrate new config
-```
-
-Mettez à jour `migration_config.json` en :
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
-```
-
-### 9.2 Initialiser et créer les fichiers de migration
-
-```bash
-migrate create
-migrate new version init_users -v 202604140001
-migrate new version add_email -v 202604140002
-```
-
-Modifiez `migrations/V202604140001__init_users.sql` :
-
-```sql
--- +migrate Up
-CREATE TABLE users
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +migrate Down
-DROP TABLE IF EXISTS users;
-```
-
-Modifiez `migrations/V202604140002__add_email.sql` :
-
-```sql
--- +migrate Up
-ALTER TABLE users
-    ADD COLUMN email TEXT;
-
--- +migrate Down
-CREATE TABLE users_tmp
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-INSERT INTO users_tmp (id, name)
-SELECT id, name
-FROM users;
-DROP TABLE users;
-ALTER TABLE users_tmp
-    RENAME TO users;
-```
-
-### 9.3 Appliquer, vérifier le statut et rollback
-
-```bash
-migrate up --dry-run
-migrate up
-migrate status
-migrate down 202604140001 --dry-run
-migrate down 202604140001
-migrate status
-migrate down --all
-migrate status
-```
-
-Attendu :
-
-- après `up` : les deux versions sont `applied`
-- après `down 202604140001` : `202604140001=applied`, `202604140002=pending`
-- après `down --all` : les deux versions sont `pending`
+[Démo premier lancement en 10 minutes (SQLite) · English](site/pages/quick-start.md)
 
 ## 10. Flags globaux
 
@@ -410,7 +280,7 @@ Erreur : `hash mismatch` ou `filename mismatch`
 
 Correction :
 
-- ne modifiez pas les fichiers de migration déjà appliqués
+- restaurez le fichier original depuis le contrôle de version
 - créez une nouvelle migration avec un numéro de version supérieur pour vos changements
 
 ## 12. Utiliser migrate comme bibliothèque Go
@@ -488,57 +358,4 @@ Types courants :
 - Sources : `DirectorySource` (système de fichiers), `StringSource` (slice en mémoire), `FSSource` (n’importe quel `fs.FS`, par ex. `//go:embed` ou `os.DirFS`), `CombinedSource` (fusionne plusieurs sources)
 - Loggers : `migrate.NoopLogger{}` (par défaut), `migrate.NewStdLogger("info", os.Stdout)`, ou tout type implémentant `migrate.Logger`
 
-### 12.4 Adapté aux tests : StringSource + SQLite en mémoire
-
-```go
-src := migrate.StringSource{Migrations: []migrate.SourceFile{{
-    Filename: "V1__init.sql",
-    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
-}}}
-
-db, _ := sql.Open("sqlite", ":memory:")
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewSQLiteDialect(),
-    DB:              db,
-    MigrationSource: src,
-})
-```
-
-Aucune dépendance au système de fichiers — s’exécute directement depuis un test unitaire.
-
-### 12.5 Embarquer les migrations avec //go:embed
-
-Intégrez le SQL des migrations directement dans votre binaire grâce à la fonctionnalité embed de Go :
-
-```go
-import "embed"
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// puis branchez-le dans votre service :
-// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
-```
-
-`FSSource` accepte n’importe quel `fs.FS`, donc `os.DirFS` et `fstest.MapFS` fonctionnent pareil — pratique pour les tests qui injectent un système de fichiers synthétique.
-
-### 12.6 Aperçu du SQL (DryRun)
-
-```go
-var buf bytes.Buffer
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewPostgresDialect(),
-    DB:              db,
-    MigrationSource: src,
-    DryRun:          true,
-    DryRunOutput:    &buf,
-})
-_ = svc.Create() // Create() n’est pas affecté par DryRun ; crée la table d’historique
-_ = svc.Up()     // le SQL des migrations va dans buf ; aucune table utilisateur n’est créée
-```
-
-### 12.7 Contrat de stabilité
-
-- `github.com/exc-works/migrate` (paquet racine) est l’API publique et suit SemVer
-- `internal/*` n’est pas couvert par le contrat de stabilité — ne pas importer directement
-- Un exemple complet et exécutable se trouve dans `example_test.go` à la racine du dépôt
+[Go API](../migrate.go) · [Go example](../example_test.go)
