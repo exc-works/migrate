@@ -47,6 +47,9 @@ func (s *Service) Config() Config {
 	return s.cfg
 }
 
+// Context includes cancellation supplied by an owned database transport.
+func (s *Service) Context() context.Context { return s.ctx }
+
 func NewService(ctx context.Context, cfg Config) (*Service, error) {
 	if ctx == nil {
 		ctx = context.Background()
