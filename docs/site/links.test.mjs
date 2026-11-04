@@ -32,5 +32,6 @@ test('missing repository targets fail instead of producing broken links', () => 
 
 test('edit links address canonical source files', () => {
   assert.equal(sourceForRoute('zh/guide.md'), 'docs/user-guide.md')
-  assert.equal(sourceForRoute('en/index.md'), 'docs/site/pages/en/index.md')
+  assert.equal(sourceForRoute('index.md'), 'docs/site/pages/index.md')
+  assert.equal(sourceForRoute('releases.md'), 'docs/site/prepare.mjs')
 })

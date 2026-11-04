@@ -29,5 +29,18 @@ VitePress is pinned to its stable release. The override in `pnpm-workspace.yaml`
 6.4 maintenance line because VitePress 1.x otherwise installs Vite 5. Validate
 site builds, development and preview when updating either dependency.
 
+The language menu opens each locale's homepage, because shared release/changelog
+pages do not have translated counterparts. Restart `dev` after changing a shared
+repository document so the generated copy is refreshed.
+
+Run the actual bilingual SQLite onboarding examples with:
+
+```sh
+python3 scripts/test-docs-quick-start.py
+```
+
+The release index is generated from `docs/releases/`; add new notes there rather
+than editing generated pages.
+
 Commit `pnpm-lock.yaml` when dependencies change. CI installs with `--frozen-lockfile`.
 Only esbuild is allowed to run its dependency build script.

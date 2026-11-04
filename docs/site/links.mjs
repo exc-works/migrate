@@ -5,6 +5,7 @@ import { repository, repositoryRoot, sourceRoutes } from './content.mjs'
 const routeSources = new Map([...sourceRoutes].map(([source, route]) => [route, source]))
 
 export function sourceForRoute(route) {
+  if (route === 'releases.md') return 'docs/site/prepare.mjs'
   return routeSources.get(route) ?? `docs/site/pages/${route}`
 }
 
