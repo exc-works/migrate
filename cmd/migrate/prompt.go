@@ -3,16 +3,16 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"unicode/utf8"
 
-	"golang.org/x/term"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 )
 
-// terminalSecret owns terminal state until it returns, including cancellation.
-// Raw reads are polled so Ctrl+C/context cancellation cannot leave a blocked reader.
-func terminalSecret(ctx context.Context, out io.Writer, label string) (value []byte, err error) {
+const maxSecretBytes = 64 * 1024
+
+// terminalSecret delegates editing, hidden input and terminal restoration to Huh.
+func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -23,53 +23,70 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) (value []b
 	defer file.Close()
 	stopSignals := protectPromptOutput()
 	defer stopSignals()
-	state, err := term.MakeRaw(int(file.Fd()))
-	if err != nil {
-		return nil, errors.New("cannot disable terminal echo")
+	promptCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	output := &secretPromptOutput{
+		Writer: out,
+		cancel: cancel,
 	}
-	defer func() {
-		if restoreErr := term.Restore(int(file.Fd()), state); restoreErr != nil {
-			err = errors.Join(err, errors.New("cannot restore terminal state"))
+	var value string
+	keys := huh.NewDefaultKeyMap()
+	keys.Quit.SetKeys("ctrl+c", "ctrl+d")
+	keys.Input.Submit.SetKeys("enter", "ctrl+j")
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title(label).Inline(true).Prompt(": ").
+			EchoMode(huh.EchoModeNone).Value(&value),
+	)).
+		WithShowHelp(false).WithTheme(huh.ThemeBase()).
+		WithKeyMap(keys)
+	form.SubmitCmd = tea.Quit
+	form.CancelCmd = tea.Quit
+	program := tea.NewProgram(form, tea.WithInput(file), tea.WithOutput(output), tea.WithoutSignalHandler())
+	// Run Huh as a Bubble Tea model so cancellation uses graceful Quit. Its
+	// RunWithContext kills the program and can close the reader before it exits.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-promptCtx.Done():
+			program.Quit()
+		case <-done:
 		}
-		_, _ = fmt.Fprintln(out)
 	}()
-	if _, err := fmt.Fprintf(out, "%s: ", label); err != nil {
-		return nil, errors.New("cannot write secret prompt")
+	_, err = program.Run()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
-	for {
-		data, err := readSecretTerminal(ctx, file)
-		if err != nil {
-			return nil, err
-		}
-		for _, ch := range data {
-			switch ch {
-			case 3, 4:
-				return nil, errors.New("secret input canceled")
-			case '\r', '\n':
-				return value, nil
-			case 8, 127:
-				if len(value) > 0 {
-					_, size := utf8.DecodeLastRune(value)
-					value = value[:len(value)-size]
-				}
-			case 21:
-				value = value[:0]
-			default:
-				if ch >= 32 {
-					value = append(value, ch)
-				}
-				if len(value) > 65536 {
-					return nil, errors.New("secret input is too long")
-				}
-			}
-		}
+	if err != nil || promptCtx.Err() != nil {
+		return nil, errors.New("secret input failed")
 	}
+	if form.State != huh.StateCompleted {
+		return nil, errors.New("secret input canceled")
+	}
+	if len(value) > maxSecretBytes {
+		return nil, errors.New("secret input is too long")
+	}
+	return []byte(value), nil
 }
 
-func repeatConsoleRune(ch rune, count uint16) []byte {
-	var data []byte
-	for i := uint16(0); i < count; i++ {
-		data = utf8.AppendRune(data, ch)
+// Bubble Tea ignores renderer write errors; cancel the form if stderr closes.
+// Preserve Fd so its terminal setup still works on Windows consoles.
+type secretPromptOutput struct {
+	io.Writer
+	cancel context.CancelFunc
+}
+
+func (w *secretPromptOutput) Write(data []byte) (int, error) {
+	n, err := w.Writer.Write(data)
+	if err != nil {
+		w.cancel()
 	}
-	return data
+	return n, err
+}
+
+func (w *secretPromptOutput) Fd() uintptr {
+	if file, ok := w.Writer.(interface{ Fd() uintptr }); ok {
+		return file.Fd()
+	}
+	return ^uintptr(0)
 }

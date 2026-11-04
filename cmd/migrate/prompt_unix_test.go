@@ -10,7 +10,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -23,28 +25,38 @@ func TestTerminalSecretHelper(t *testing.T) {
 		return
 	}
 	ctx := context.Background()
-	if mode == "cancel" {
+	if mode == "cancel" || mode == "dumb" {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 200*time.Millisecond)
 		defer cancel()
 	}
-	output := os.Stdout
-	if mode == "broken" {
-		output = os.Stderr
+	if mode == "signal" {
+		var stop context.CancelFunc
+		ctx, stop = signal.NotifyContext(ctx, syscall.SIGTERM)
+		defer stop()
+	}
+	output := os.Stderr
+	markerOutput := os.Stdout
+	if mode == "stderr" {
+		markerOutput = os.Stderr
 	}
 	secret, err := terminalSecret(ctx, output, "SSH password")
-	if mode == "cancel" || mode == "broken" {
+	if mode == "cancel" || mode == "broken" || mode == "dumb" || mode == "ctrl_c" || mode == "ctrl_d" || mode == "signal" || mode == "notty" {
 		if err == nil {
 			os.Exit(3)
 		}
 		fmt.Fprintln(os.Stdout, "canceled")
 	} else {
-		if err != nil || string(secret) != "example value" {
+		want := os.Getenv("MIGRATE_TEST_TERMINAL_EXPECTED")
+		if want == "" {
+			want = "example value"
+		}
+		if err != nil || string(secret) != want {
 			os.Exit(4)
 		}
 		fmt.Fprintln(os.Stdout, "accepted")
 	}
-	fmt.Fprintln(os.Stdout, "restored")
+	fmt.Fprintln(markerOutput, "restored")
 	line, e := bufio.NewReader(os.Stdin).ReadString('\n')
 	if e != nil || line != "echo-check\n" {
 		os.Exit(6)
@@ -53,12 +65,28 @@ func TestTerminalSecretHelper(t *testing.T) {
 }
 
 func TestTerminalNoEchoAndCancellation(t *testing.T) {
-	for _, mode := range []string{"input", "cancel", "broken"} {
+	for _, tc := range []struct{ mode, input, want string }{
+		{"input", "example value\n", "example value"},
+		{"stderr", "example value\r", "example value"},
+		{"spaces", " example value \r", " example value "},
+		{"unicode", "wrong\x15密碼🙂x\x7f value\r", "密碼🙂 value"},
+		{"ctrl_c", "\x03", ""}, {"ctrl_d", "\x04", ""},
+		{"cancel", "", ""}, {"dumb", "", ""},
+		{"signal", "", ""}, {"broken", "", ""},
+	} {
+		mode := tc.mode
 		t.Run(mode, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestTerminalSecretHelper$")
-			cmd.Env = append(os.Environ(), "MIGRATE_TEST_TERMINAL_HELPER="+mode)
+			cmd.Env = append(os.Environ(), "MIGRATE_TEST_TERMINAL_HELPER="+mode, "MIGRATE_TEST_TERMINAL_EXPECTED="+tc.want)
+			if mode == "dumb" {
+				cmd.Env = append(cmd.Env, "TERM=dumb")
+			}
+			var stdout bytes.Buffer
+			if mode == "stderr" {
+				cmd.Stdout = &stdout
+			}
 			if mode == "broken" {
 				reader, writer, err := os.Pipe()
 				if err != nil {
@@ -86,8 +114,13 @@ func TestTerminalNoEchoAndCancellation(t *testing.T) {
 				}
 				output.Write(one[:n])
 			}
-			if mode == "input" {
-				if _, err := io.WriteString(terminal, "example value\n"); err != nil {
+			if tc.input != "" {
+				if _, err := io.WriteString(terminal, tc.input); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode == "signal" {
+				if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -108,12 +141,38 @@ func TestTerminalNoEchoAndCancellation(t *testing.T) {
 			if err := cmd.Wait(); err != nil {
 				t.Fatalf("helper failed: %v output=%q", err, output.String())
 			}
-			if strings.Contains(output.String(), "example value") {
+			if (tc.want != "" && strings.Contains(output.String(), tc.want)) || strings.Contains(output.String(), "wrong") {
 				t.Fatal("password echoed")
 			}
-			if !strings.Contains(output.String(), map[string]string{"input": "accepted", "cancel": "canceled", "broken": "canceled"}[mode]) {
-				t.Fatalf("unexpected output: %q", output.String())
+			if mode == "stderr" {
+				if stdout.String() != "accepted\n" {
+					t.Fatalf("prompt polluted stdout: %q", stdout.String())
+				}
+			} else {
+				marker := "canceled"
+				if tc.want != "" {
+					marker = "accepted"
+				}
+				if !strings.Contains(output.String(), marker) {
+					t.Fatalf("unexpected output: %q", output.String())
+				}
 			}
 		})
+	}
+}
+
+func TestTerminalSecretWithoutControllingTerminal(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestTerminalSecretHelper$")
+	cmd.Env = append(os.Environ(), "MIGRATE_TEST_TERMINAL_HELPER=notty")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Stdin = strings.NewReader("echo-check\n")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("no-terminal helper: %v output=%q", err, output)
+	}
+	if strings.Contains(string(output), "SSH password") || !strings.Contains(string(output), "canceled") {
+		t.Fatalf("no-terminal input was prompted: %q", output)
 	}
 }
