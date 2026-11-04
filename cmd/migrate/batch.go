@@ -54,7 +54,7 @@ func runMultiCommand(cmd *cobra.Command, args []string, cfg *config.FileConfig, 
 		op.toVersion = args[0]
 	}
 	output := "table"
-	if op.name == "status" {
+	if op.name == commandStatus {
 		output, _ = cmd.Flags().GetString("output")
 		output = strings.ToLower(strings.TrimSpace(output))
 		if output != "json" && output != "table" && output != "" {
@@ -120,11 +120,11 @@ func runMultiCommand(cmd *cobra.Command, args []string, cfg *config.FileConfig, 
 
 func executeOperation(svc *migrate.Service, op commandOperation) ([]migrate.MigrationStatus, error) {
 	switch op.name {
-	case "create":
+	case commandCreate:
 		return nil, svc.Create()
-	case "baseline":
+	case commandBaseline:
 		return nil, svc.Baseline()
-	case "status":
+	case commandStatus:
 		return svc.Status()
 	case parser.DirectionUpName:
 		return nil, svc.Up()
@@ -150,7 +150,7 @@ func printBatchResults(out io.Writer, results []batch.Result, payloads map[strin
 				item.Error = "operation canceled; inspect this database and migration history before retrying"
 			}
 		}
-		if op.name == "status" && result.Status == batch.StatusSucceeded {
+		if op.name == commandStatus && result.Status == batch.StatusSucceeded {
 			statuses := statusOutputItems(payloads[result.Name].migrations)
 			item.Migrations = &statuses
 		}
@@ -173,13 +173,13 @@ func printBatchResults(out io.Writer, results []batch.Result, payloads map[strin
 	}
 	for _, item := range items {
 		payload := payloads[item.DataSource]
-		if op.name != "status" && !op.dryRun {
+		if op.name != commandStatus && !op.dryRun {
 			continue
 		}
 		if _, err := fmt.Fprintf(out, "\nData source %q\n", item.DataSource); err != nil {
 			return errors.Join(overall, err)
 		}
-		if op.name == "status" && item.Status == batch.StatusSucceeded {
+		if op.name == commandStatus && item.Status == batch.StatusSucceeded {
 			if err := printStatus(out, payload.migrations, "table"); err != nil {
 				return errors.Join(overall, err)
 			}

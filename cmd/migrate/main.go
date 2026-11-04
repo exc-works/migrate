@@ -31,6 +31,12 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const (
+	commandCreate   = "create"
+	commandBaseline = "baseline"
+	commandStatus   = "status"
+)
+
 var (
 	buildVersion = "dev"
 	openDB       = sql.Open
@@ -114,7 +120,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	})
 
 	root.AddCommand(&cobra.Command{
-		Use:     "create",
+		Use:     commandCreate,
 		Short:   "Create migration schema table",
 		PreRunE: preRun,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -123,7 +129,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	})
 
 	root.AddCommand(&cobra.Command{
-		Use:     "baseline",
+		Use:     commandBaseline,
 		Short:   "Mark all pending migration files as baseline",
 		PreRunE: preRun,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -132,7 +138,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	})
 
 	statusCmd := &cobra.Command{
-		Use:     "status",
+		Use:     commandStatus,
 		Short:   "Show migration status",
 		Example: "  migrate status\n  migrate status --output json",
 		PreRunE: preRun,
@@ -171,7 +177,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	root.AddCommand(upCmd)
 
 	downCmd := &cobra.Command{
-		Use:     "down [to-version]",
+		Use:     parser.DirectionDownName + " [to-version]",
 		Short:   "Rollback migrations",
 		Example: "  migrate down 202604140001\n  migrate down --all\n  migrate down --all --dry-run",
 		Args: func(cmd *cobra.Command, args []string) error {
