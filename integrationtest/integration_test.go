@@ -326,7 +326,7 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 	return db, cleanup
 }
 
-func startContainerDBWithDSN(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, string, func()) {
+func startContainerDBWithDSN(t *testing.T, flavor string, d dialect.Dialect, protocols ...string) (*sql.DB, string, func()) {
 	t.Helper()
 	ctx := context.Background()
 	requireProviderHealthy(t)
@@ -399,21 +399,26 @@ func startContainerDBWithDSN(t *testing.T, flavor string, d dialect.Dialect) (*s
 			return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", userName, userPass, host, mappedPort, dbName)
 		}
 	case "clickhouse":
+		port = "9000/tcp"
+		scheme := "clickhouse"
+		if len(protocols) > 0 && protocols[0] == "http" {
+			port = "8123/tcp"
+			scheme = "http"
+		}
 		request = testcontainers.ContainerRequest{
 			Image:        "clickhouse/clickhouse-server:25.8.4.13-alpine",
-			ExposedPorts: []string{"9000/tcp"},
+			ExposedPorts: []string{port},
 			Env: map[string]string{
 				"CLICKHOUSE_DB":                        dbName,
 				"CLICKHOUSE_USER":                      userName,
 				"CLICKHOUSE_PASSWORD":                  userPass,
 				"CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT": "1",
 			},
-			WaitingFor: wait.ForListeningPort("9000/tcp"),
+			WaitingFor: wait.ForListeningPort(nat.Port(port)),
 		}
-		port = "9000/tcp"
 		dsn = func(host, mappedPort string) string {
 			connection := url.URL{
-				Scheme: "clickhouse",
+				Scheme: scheme,
 				User:   url.UserPassword(userName, userPass),
 				Host:   net.JoinHostPort(host, mappedPort),
 				Path:   dbName,

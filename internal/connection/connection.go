@@ -47,7 +47,7 @@ func (c *Connection) Close() error {
 }
 
 // Open constructs a pool; callers must PingContext before treating it as ready.
-// Other direct drivers must be registered by the caller as with sql.Open.
+// SQLite's driver must be registered by the caller as with sql.Open.
 func Open(ctx context.Context, o Options) (*Connection, error) {
 	if ctx == nil {
 		return nil, errors.New("connection context is required")
@@ -72,12 +72,18 @@ func Open(ctx context.Context, o Options) (*Connection, error) {
 	}
 	canonical, _ := dialect.CanonicalName(o.Dialect)
 	switch canonical {
-	case dialect.NamePostgres:
+	case dialect.NamePostgres, dialect.NameRedshift:
 		return openPostgres(ctx, o)
-	case dialect.NameMySQL, dialect.NameMariaDB:
+	case dialect.NameMySQL, dialect.NameMariaDB, dialect.NameTiDB:
 		return openMySQL(ctx, o)
+	case dialect.NameMSSQL:
+		return openMSSQL(ctx, o)
+	case dialect.NameOracle:
+		return openOracle(ctx, o)
+	case dialect.NameClickHouse:
+		return openClickHouse(ctx, o)
 	default:
-		return nil, errors.New("SSH tunnels support only PostgreSQL, MySQL and MariaDB single TCP targets")
+		return nil, errors.New("SSH tunnels require a supported network database; SQLite has no TCP target")
 	}
 }
 

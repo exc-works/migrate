@@ -1,6 +1,7 @@
 # SSH tunnels and proxies
 
-Both builds support a single Go-owned SSH tunnel for PostgreSQL, MySQL and MariaDB.
+Both builds support a single Go-owned SSH tunnel for PostgreSQL, MySQL, MariaDB,
+MSSQL, Oracle, ClickHouse, TiDB and Redshift.
 Keep the original database address and TLS settings in the DSN. An optional SOCKS5
 or HTTP CONNECT proxy reaches the SSH server; no external ssh executable or OpenSSH
 config is used. See the [configuration example](ssh-tunnel.md).
@@ -31,8 +32,17 @@ setup. Channel-open timeout invalidates the whole SSH route to release the pendi
 request. Existing query/context deadlines apply to normal TCP connections exposed
 to drivers. Transport loss cancels execution without reconnecting or replaying SQL.
 DDL or COMMIT might already have completed; inspect database/history before recovery.
-Multi-host DSNs, Unix sockets and other tunneled dialects fail explicitly; direct
-connections retain their existing support.
+Multi-host DSNs, Unix sockets, redirects to other endpoints and SQLite tunnel
+settings fail explicitly; direct connections retain their existing support.
+
+TiDB reuses MySQL routing; Redshift reuses PostgreSQL routing. MSSQL requires a TCP
+host/port (default 1433), without named-instance discovery, failover or explicit
+MultiSubnetFailover. Oracle accepts a single-host `oracle://` URL with a port and
+TCP/TCPS, without descriptors, extra SERVER entries, OOB or external authentication.
+ClickHouse supports Native and HTTP(S); database `http_proxy` options are rejected
+and HTTP_PROXY/HTTPS_PROXY are disabled for database requests. Keep the original
+database TLS identity in the DSN. Oracle/Redshift workflow tests require external
+test DSNs; the other additional dialects use disposable containers.
 
 Prompts go to stderr. Input supports backspace, Ctrl+U and Ctrl+C/Ctrl+D cancellation
 and restores echo. Version/capabilities/new do not start SSH; status/baseline/dry-run
@@ -42,5 +52,5 @@ Native PTY behavior is tested on Unix; Windows console input is cross-build chec
 For Go callers, `migrate.OpenConnection` returns an owned pool and optional tunnel.
 Ping `Connection.DB` with `Connection.Context()`, pass that DB/context to NewService,
 and close Connection after migration execution. `ConnectionOptions.Prompt` is opt-in.
-PG/MySQL drivers are registered by the helper; other direct drivers require caller
+Network database drivers are registered by the helper; SQLite requires caller
 registration as with sql.Open. The existing caller-supplied DB API is unchanged.

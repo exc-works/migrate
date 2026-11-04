@@ -1,6 +1,7 @@
 # SSH 隧道与代理
 
-SQL 和 full 构建均支持通过单台 SSH 堡垒机连接 PostgreSQL、MySQL、MariaDB。
+SQL 和 full 构建均支持通过单台 SSH 堡垒机连接 PostgreSQL、MySQL、MariaDB、
+MSSQL、Oracle、ClickHouse、TiDB 和 Redshift。
 可选 SOCKS5 或 HTTP CONNECT 代理用于连接堡垒机。所有连接由 Go 管理，无需安装 ssh。
 配置中的数据库地址始终填写从堡垒机访问的原始数据库地址，TLS 参数保持原样。
 
@@ -67,8 +68,18 @@ SSH 文件路径支持 `~` 和 `~/...`，指向运行工具的用户主目录；
 查询超时继续使用驱动/context 机制。一个 channel 建立超时会使整个隧道失效，避免遗留
 无法单独取消的 SSH channel 请求。
 
-只支持一个 TCP 数据库目标；多主机 DSN、Unix socket 和其他数据库的 SSH 配置会明确
-报错。未配置 SSH 时继续使用原来的直连功能。SSH 中断后停止后续操作，不重连、不重放 SQL。
+只支持一个 TCP 数据库目标；多主机 DSN、Unix socket、跳转到其他数据库地址和
+SQLite 的 SSH 配置会明确报错。
+
+TiDB 复用 MySQL 接线，Redshift 复用 PostgreSQL 接线。MSSQL 使用明确的 TCP host/port
+（默认 1433），不支持命名实例发现、failover 或显式开启 MultiSubnetFailover。
+Oracle 使用带端口的单主机 `oracle://` URL，支持 TCP/TCPS，不支持连接描述符、
+额外 SERVER、OOB 和外部认证。ClickHouse 支持 Native 和 HTTP(S)；不支持 DSN 中的
+`http_proxy`，也不会为数据库请求读取 `HTTP_PROXY`/`HTTPS_PROXY`。数据库 TLS 保留
+原目标域名校验，不需要将 DSN 改为本地转发地址。Oracle、Redshift 的完整工作流测试
+需要外部测试 DSN，其余新增类型使用容器验证。
+
+未配置 SSH 时继续使用原来的直连功能。SSH 中断后停止后续操作，不重连、不重放 SQL。
 断线可能发生在数据库已经完成 DDL/COMMIT 之后，请检查数据库和迁移记录再决定如何恢复。
 
 `version`、`capabilities`、`new` 不启动隧道。`status`、`baseline`、`--dry-run` 保留原有

@@ -4,4 +4,4 @@ package integrationtest
 
 import "github.com/exc-works/migrate/internal/source"
 
-func sshScriptMigrations(string) []source.Migration { return nil }
+func sshScriptMigrations(string, ...string) []source.Migration { return nil }
