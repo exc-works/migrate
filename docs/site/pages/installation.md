@@ -27,7 +27,10 @@ migrate version
 migrate capabilities --output json
 ```
 
-`version` identifies the binary; source installations commonly report `dev`.
+`version` reports the release version for downloaded binaries and the installed
+module version for `go install ...@version`. Local development builds report `dev`.
+For older versions that report `dev` after `go install`, use `go version -m <binary>`
+to inspect the installed module version.
 `capabilities` lists formats, database verification and transaction limits without
 connecting to a database. See [Database capabilities](./databases) for interpretation.
 

@@ -11,6 +11,13 @@
 - `new version <desc> [-v version]`：创建迁移文件。
 - `new config [filename]`：创建配置文件。
 
+## 版本来源
+
+- `version` 和 `capabilities` 使用相同的版本来源。
+- 优先使用发布构建显式注入的版本号。
+- 未注入版本号时，读取 Go 构建信息中的主模块版本，使 `go install ...@版本` 显示实际安装版本。
+- 本地开发构建或缺少模块版本信息时显示 `dev`。
+
 ## 迁移文件语法
 
 需兼容：
