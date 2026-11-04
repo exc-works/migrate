@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -16,13 +20,13 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, e
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	file, err := openSecretTerminal()
-	if err != nil {
-		return nil, errors.New("no terminal available; set the secret environment variable or use non-interactive mode")
+	// A broken stderr pipe must return EPIPE so Bubble Tea can restore the
+	// terminal before returning. Windows does not generate SIGPIPE.
+	if runtime.GOOS != "windows" {
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGPIPE)
+		defer signal.Stop(signals)
 	}
-	defer file.Close()
-	stopSignals := protectPromptOutput()
-	defer stopSignals()
 	promptCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	output := &secretPromptOutput{
@@ -41,7 +45,7 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, e
 		WithKeyMap(keys)
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Quit
-	program := tea.NewProgram(form, tea.WithInput(file), tea.WithOutput(output), tea.WithoutSignalHandler())
+	program := tea.NewProgram(form, tea.WithInputTTY(), tea.WithOutput(output), tea.WithoutSignalHandler())
 	// Run Huh as a Bubble Tea model so cancellation uses graceful Quit. Its
 	// RunWithContext kills the program and can close the reader before it exits.
 	done := make(chan struct{})
@@ -53,12 +57,12 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, e
 		case <-done:
 		}
 	}()
-	_, err = program.Run()
+	_, err := program.Run()
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
 	if err != nil || promptCtx.Err() != nil {
-		return nil, errors.New("secret input failed")
+		return nil, errors.New("secret input failed; set the secret environment variable or use non-interactive mode")
 	}
 	if form.State != huh.StateCompleted {
 		return nil, errors.New("secret input canceled")
