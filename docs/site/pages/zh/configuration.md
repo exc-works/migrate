@@ -1,6 +1,6 @@
 # 配置
 
-在迁移项目目录运行命令。migrate 默认读取 `migration_config.json`，可先生成配置：
+在迁移项目目录运行命令。migrate 默认依次查找 YAML 和 JSON 配置，当前可先生成 JSON 配置：
 
 ```sh
 migrate new config
@@ -8,6 +8,17 @@ migrate new config
 
 指定其他文件名可以使用 `migrate new config dev.json`。
 已有文件只有在显式传入 `--force` 时才会被覆盖。
+
+## YAML 与 JSON 查找
+
+读取器支持 YAML 和 JSON。未显式传入 `-c` 时，依次查找
+`migration_config.yml`、`migration_config.yaml`、`migration_config.json`。
+只有文件不存在才回退；YAML 无效或不可读时直接报错。显式 `-c` 只读取指定文件。
+YAML 使用原生 `#` 注释，JSON 保持严格语法。两种格式共享字段名、默认值、环境变量
+和相对路径规则，嵌套 SSH/proxy 的字段名也一致。
+
+读取器同时识别 `data_sources` 及共享 SSH 默认配置。批量命令在后续编排层接入；
+当前中间层会在连接数据库之前明确拒绝多源数据库命令。
 
 ## 连接数据库
 
