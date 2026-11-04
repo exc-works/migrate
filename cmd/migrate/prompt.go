@@ -41,7 +41,7 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, e
 		huh.NewInput().Title(label).Inline(true).Prompt(": ").
 			EchoMode(huh.EchoModeNone).Value(&value),
 	)).
-		WithShowHelp(false).WithTheme(huh.ThemeBase()).
+		WithShowHelp(false).
 		WithKeyMap(keys)
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Quit
