@@ -30,6 +30,12 @@ migrate new version <description> [-v <version>] [--format sql|js|ts|mjs]
 `--format` 默认为 `sql`。
 参见 [SQL 迁移](./sql-migrations)或[脚本迁移](./scripting)。
 
+## 多数据库
+
+配置 `data_sources` 后，create/baseline/status/up/down 自动遍历全部数据源，
+均支持 `--parallel N`（默认 8）。单库失败不取消其他目标，结果按数据源汇总；
+任一失败返回非零退出码。共享 SSH 与 JSON 输出结构见[配置](./configuration)。
+
 ## create
 
 ```sh

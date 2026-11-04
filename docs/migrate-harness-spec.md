@@ -14,7 +14,7 @@
 8. [07-script-migrations.md](./spec/07-script-migrations.md)
 9. [08-script-modules-plan.md](./spec/08-script-modules-plan.md)（模块导入 PR stack 与验收记录）
 10. [09-ssh-tunnel.md](./spec/09-ssh-tunnel.md)（SSH 隧道、代理与交付约束）
-11. [10-multi-database-migrations.md](./spec/10-multi-database-migrations.md)（同一套迁移并发执行到多库的技术方案草案）
+11. [10-multi-database-migrations.md](./spec/10-multi-database-migrations.md)（同一套迁移并发执行到多库的技术方案）
 12. [11-multi-database-pr-stack.md](./spec/11-multi-database-pr-stack.md)（多库编排 PR stack 与分层验收计划）
 
 ## 使用方式

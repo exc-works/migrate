@@ -1,6 +1,6 @@
 # 同一套迁移并发执行到多个数据库
 
-状态：技术方案草案，尚未实现。PR 拆分见
+状态：已在堆叠 PR 中实现，等待各层当前 head/base 的 CI 与审核收口。交付记录见
 [11-multi-database-pr-stack.md](11-multi-database-pr-stack.md)。
 
 ## 实现原则

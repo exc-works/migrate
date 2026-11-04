@@ -29,6 +29,13 @@ migrate new version <description> [-v <version>] [--format sql|js|ts|mjs]
 Create a version file in the migration directory. `--version` / `-v` overrides the
 generated version; `--format` defaults to `sql`. See [SQL migrations](./sql-migrations) or [script migrations](./scripting).
 
+## Multiple databases
+
+With `data_sources` configured, create/baseline/status/up/down visit every source.
+Each accepts `--parallel N` (default 8). One failure does not cancel other targets;
+results are grouped by source and any failure yields a nonzero exit. See
+[configuration](./configuration) for shared SSH settings and JSON result shapes.
+
 ## create
 
 ```sh
