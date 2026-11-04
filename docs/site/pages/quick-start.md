@@ -18,8 +18,10 @@ source installation and PATH setup, or [database capabilities](./databases) for 
 ```sh
 mkdir migrate-demo
 cd migrate-demo
-migrate new config
+migrate new config --format json
 ```
+
+This example selects JSON explicitly. The default initializer produces commented YAML.
 
 Replace the generated `migration_config.json` with:
 

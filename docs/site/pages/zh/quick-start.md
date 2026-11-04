@@ -18,8 +18,10 @@ migrate version
 ```sh
 mkdir migrate-demo
 cd migrate-demo
-migrate new config
+migrate new config --format json
 ```
+
+此示例显式选择 JSON；默认初始化命令会生成带注释的 YAML。
 
 将生成的 `migration_config.json` 替换为：
 
