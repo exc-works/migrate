@@ -24,7 +24,7 @@ jobs:
           cache-dependency-path: docs/site/pnpm-lock.yaml
       - name: Install documentation dependencies
         run: pnpm --dir docs/site install --frozen-lockfile
-      - name: Test shared Markdown links
+      - name: Test documentation navigation and release links
         run: pnpm --dir docs/site test
       - name: Build documentation
         run: pnpm --dir docs/site run build

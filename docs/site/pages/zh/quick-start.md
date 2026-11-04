@@ -10,7 +10,7 @@ migrate --help
 migrate version
 ```
 
-该命令安装 SQL 版。源码安装和 PATH 设置见[用户指南](./guide#_1-安装)，
+该命令安装 SQL 版。源码安装和 PATH 设置见[安装](./installation)，
 完整构建见[数据库能力](./databases)。
 
 ## 配置
@@ -75,5 +75,5 @@ migrate status
 
 确认示例表已删除，版本恢复为 `pending`。
 
-继续阅读[命令参考](./commands)、[配置说明](./guide#_2-初始化)
+继续阅读[编写 SQL 迁移](./sql-migrations)、[配置说明](./configuration)
 或 [JavaScript 和 TypeScript 迁移](./scripting)。

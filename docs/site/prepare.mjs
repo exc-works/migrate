@@ -1,7 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { repositoryRoot, sourceRoutes } from './content.mjs'
 
-// Only the explicit public content map is copied; specs and validation notes stay out.
+// Topic pages own website content; only release records come from elsewhere.
 const output = new URL('.generated/', import.meta.url)
 await rm(output, { recursive: true, force: true })
 await cp(new URL('pages/', import.meta.url), output, { recursive: true })
@@ -26,4 +26,4 @@ await writeFile(new URL('releases.md', output), [
   '[Changelog](./changelog) · [Downloads](https://github.com/exc-works/migrate/releases)',
   ''
 ].join('\n'))
-console.log(`Prepared ${sourceRoutes.size} repository documents.`)
+console.log(`Prepared website topics and ${sourceRoutes.size} release records.`)

@@ -1,22 +1,93 @@
-# 命令参考
+# 命令行参考
 
-运行 `migrate <command> --help` 查看命令参数。
+通过 `migrate --help` 或 `migrate <command> --help` 确认已安装版本的参数，
+通过 `migrate version` 查看二进制版本。
 
-| 任务 | 命令 | 说明 |
+## 全局选项
+
+| 选项 | 默认值 | 含义 |
 | --- | --- | --- |
-| 生成配置 | `migrate new config` | [初始化](./guide#_2-初始化) |
-| 创建历史表 | `migrate create` | [初始化](./guide#_2-初始化) |
-| 接管已有数据库 | `migrate baseline` | [基线](./guide#_2-初始化) |
-| 创建版本文件 | `migrate new version <description>` | [版本文件](./guide#_3-创建版本文件) |
-| 执行待应用版本 | `migrate up` | [升级](./guide#_4-升级-数据库迁移) |
-| 回退版本 | `migrate down <version>` 或 `migrate down --all` | [回退](./guide#_5-回退-数据库迁移) |
-| 查看迁移历史 | `migrate status` | [状态](./guide#_6-查看状态) |
-| 查看构建与数据库支持 | `migrate capabilities --output json` | [能力查询](./databases) |
+| `--config`、`-c` | `migration_config.json` | 配置文件路径 |
+| `--working-dir`、`-w` | 当前目录 | 从该目录解析配置，并覆盖迁移工作目录 |
+| `--non-interactive` | `false` | 缺少凭据或遇到未知 SSH 主机密钥时失败，不请求交互输入或批准 |
 
-`down <version>` 回退高于目标的版本，目标版本保持已应用。
-接管已有数据库时，先确认结构与迁移文件一致，再运行 `baseline` 登记历史。
+## new config
 
-执行 up/down 前先使用 `--dry-run`。[全局参数](./guide#_10-全局参数)介绍配置选择与日志设置；
-[常见错误排查](./guide#_11-常见错误排查)涵盖配置缺失、环境变量和历史不一致。
+```sh
+migrate new config [filename] [--force]
+```
 
-在 Go 应用中嵌入工具，见[作为 Go 库使用](./guide#_12-作为-go-库嵌入使用)。
+生成 JSON 配置，默认文件名为 `migration_config.json`。
+`--force` 允许覆盖已有文件。参见[配置](./configuration)。
+
+## new version
+
+```sh
+migrate new version <description> [-v <version>] [--format sql|js|ts|mjs]
+```
+
+在迁移目录创建版本文件。`--version` / `-v` 覆盖自动生成的版本，
+`--format` 默认为 `sql`，生成脚本需要完整构建。
+参见 [SQL 迁移](./sql-migrations)或[脚本迁移](./scripting)。
+
+## create
+
+```sh
+migrate create
+```
+
+幂等创建历史表，不执行用户迁移文件。
+
+## baseline
+
+```sh
+migrate baseline
+```
+
+将待执行迁移登记为基线，不执行内容。先确认现有数据库已与这些文件一致。
+参见[历史与基线](./history)。
+
+## up
+
+```sh
+migrate up [--dry-run]
+```
+
+按顺序应用待执行版本。Dry-run 输出 SQL 或脚本计划，不执行用户迁移，
+但可能连接数据库读取历史。参见[执行迁移](./applying)。
+
+## down
+
+```sh
+migrate down <to-version> [--dry-run]
+migrate down --all [--dry-run]
+```
+
+回退高于目标的版本并保留目标，或回退全部已应用版本。
+目标和 `--all` 互斥，必须选择其一。参见[回退迁移](./rollback)。
+
+## status
+
+```sh
+migrate status [--output table|json]
+```
+
+对比文件和数据库历史，`--output` / `-o` 默认为 `table`。
+状态含义见[历史与基线](./history)。
+
+## capabilities
+
+```sh
+migrate capabilities [--output text|json]
+```
+
+列出构建格式、别名、脚本验证状态及事务限制，无须读取配置或连接数据库。
+`--output` / `-o` 默认为 `text`。参见[数据库能力](./databases)。
+
+## version
+
+```sh
+migrate version
+```
+
+输出 CLI 版本，无须读取配置或连接数据库。这里显示的是工具版本，不是数据库最新迁移版本。
