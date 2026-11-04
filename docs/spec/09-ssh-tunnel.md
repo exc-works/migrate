@@ -69,3 +69,21 @@ MariaDB migrations. Exercise remote DNS, TLS hostname verification, driver timeo
 query cancellation and no reconnect after failure. Generate test keys at runtime;
 commit no private keys. Container DB tests use testcontainers and existing CI matrix.
 Run all five merge gates in default/full builds; report skipped external tests honestly.
+
+## Implementation stack
+
+The layers were split further to keep database routing, terminal interaction and
+workflow verification independently reviewable. Each targets its predecessor:
+
+| Layer | PR |
+| --- | --- |
+| Contract | [#29](https://github.com/exc-works/migrate/pull/29) |
+| Settings and secrets | [#30](https://github.com/exc-works/migrate/pull/30) |
+| Proxy dialing | [#31](https://github.com/exc-works/migrate/pull/31) |
+| SSH authentication and relay | [#32](https://github.com/exc-works/migrate/pull/32) |
+| Driver routing and owned connection API | [#33](https://github.com/exc-works/migrate/pull/33) |
+| CLI interaction and cleanup | [#34](https://github.com/exc-works/migrate/pull/34) |
+| Native workflows and documentation | [#35](https://github.com/exc-works/migrate/pull/35) |
+
+Review head/base identities, findings, repairs and re-review triggers are recorded
+in each PR discussion. Current CI/review status remains authoritative there.
