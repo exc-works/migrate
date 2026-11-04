@@ -27,7 +27,7 @@ migrate new version <description> [-v <version>] [--format sql|js|ts|mjs]
 ```
 
 Create a version file in the migration directory. `--version` / `-v` overrides the
-generated version; `--format` defaults to `sql`. All formats are included by default. See [SQL migrations](./sql-migrations) or [script migrations](./scripting).
+generated version; `--format` defaults to `sql`. See [SQL migrations](./sql-migrations) or [script migrations](./scripting).
 
 ## create
 

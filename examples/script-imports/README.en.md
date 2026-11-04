@@ -1,7 +1,6 @@
 # Script module import examples
 
-Run these commands from the repository root. All examples use SQLite and the default
-build; no database server is needed. [中文说明](README.md).
+Run these commands from the repository root. All examples use SQLite; no database server is needed. [中文说明](README.md).
 
 | Directory | Demonstrates | Prerequisites |
 | --- | --- | --- |

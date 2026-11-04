@@ -1,7 +1,7 @@
 # 编写脚本迁移
 
 当数据转换更适合通过代码表达时，可以使用 JavaScript 或 TypeScript。
-默认构建内嵌 esbuild 和 Goja，同步执行脚本，无须 Node.js 运行时。
+脚本通过内嵌引擎同步执行，无须 Node.js 运行时。
 开始前先[安装工具](./installation)。
 
 ## 创建脚本
@@ -12,7 +12,6 @@ migrate new version normalize_names --format ts
 
 支持 `js`、`ts` 和 `mjs`；`.mjs` 与 `.js` 的运行时限制相同。
 文件名采用 `V<version>__<description>.<format>`，与 SQL 文件共用版本序列及历史。
-默认构建会发现并执行全部支持的迁移格式。
 
 ## 实现入口函数
 

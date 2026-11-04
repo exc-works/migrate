@@ -9,7 +9,7 @@ go install github.com/exc-works/migrate/cmd/migrate@latest
 migrate capabilities
 ```
 
-The default installation and release binaries embed the script engine and run SQL, JS, TS and MJS without extra build tags.
+The CLI supports SQL, JS, TS and MJS migrations and uses an embedded script engine.
 
 ## Write a migration
 
@@ -133,9 +133,9 @@ Set execution time and per-query result limits in the configuration:
 
 Reaching a timeout or result limit terminates the migration. Adjust the query or limits before retrying.
 Use ordered paging for large tables. Paged reads follow the migration's transaction scope.
-Go applications set these values through `migrate.Config.ScriptOptions`. The script engine is included by default.
+Go applications set these values through `migrate.Config.ScriptOptions`.
 
-Run `migrate capabilities --output json` to inspect database status, aliases and transaction modes for your build.
+Run `migrate capabilities --output json` to inspect database status, aliases and transaction modes.
 
 | Database | Script status | Placeholders | Transactions |
 | --- | --- | --- | --- |

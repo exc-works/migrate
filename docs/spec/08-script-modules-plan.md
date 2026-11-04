@@ -7,7 +7,7 @@ retains the implementation order and acceptance criteria for the stack.
 
 ## Agreed scope
 
-- Default builds support local static ES module imports and re-exports across JS, TS and
+- Support local static ES module imports and re-exports across JS, TS and
   MJS files, plus installed npm packages whose dependencies can be bundled for Goja.
 - Statically resolvable CommonJS dependencies are bundled; no general runtime module
   loader is added. Native addons, Node built-ins, dynamic imports, dynamic require,
@@ -201,7 +201,7 @@ Changes:
 - Exercise real directory-based CLI and library workflows with shared modules and
   fixture packages, including up/down, managed/manual transactions and mixed SQL.
 - Verify unchanged status/baseline semantics, hash mismatch handling, dry-run,
-  out-of-order exclusion, selected rollback preflight and default-build script execution.
+  out-of-order exclusion, selected rollback preflight and script execution.
 - Prove that a missing dependency in a later selected migration prevents earlier
   selected migrations from writing data; similarly verify the full rollback range.
 - Add focused native-driver coverage using existing disposable integration fixtures;
@@ -209,7 +209,7 @@ Changes:
 - Consolidate examples covering dependency installation, project layout, source
   configuration, checksums, historical dependency maintenance and runtime boundaries.
 - Confirm packaging remains self-contained, without Node/npm executables or runtime
-  package downloads. Include Goja/esbuild in the default build.
+  package downloads. Embed Goja/esbuild in the executable.
 
 Acceptance: public examples match the shipped source capabilities, documented commands
 work, and all final checks/reviews below are complete. Conditional external database
@@ -219,7 +219,7 @@ tests that skip are reported as skips, not successful real-instance verification
 
 - Follow [01-quality-gates.md](01-quality-gates.md) and
   [06-reviewer-security-rules.md](06-reviewer-security-rules.md).
-- Run the five repository merge gates in the default configuration:
+- Run the five repository merge gates as defined in AGENTS.md:
   `go test ./...`, `go test -tags=integration ./...`, `go vet ./...`,
   `go build ./...`, `go build ./cmd/migrate`.
 - Keep each layer focused and include its meaningful tests. Aim for 200-400 added

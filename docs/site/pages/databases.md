@@ -2,7 +2,6 @@
 
 SQL dialects include PostgreSQL, MySQL, MariaDB, SQLite, Oracle, MSSQL, ClickHouse,
 TiDB and Redshift. SQL availability and script verification are separate capabilities.
-The [default installation](./installation) includes SQL, JS, TS and MJS migrations.
 
 ## Inspect your binary
 
@@ -11,7 +10,7 @@ migrate capabilities
 migrate capabilities --output json
 ```
 
-- `formats` lists the migration formats present in the build.
+- `formats` lists supported migration formats.
 - `script_dialect_capabilities` reports script verification, transaction modes and limitations.
 - `aliases` lists accepted names; configurations normalize to the canonical dialect.
 
@@ -56,7 +55,7 @@ the framework's automatic rollback. An explicitly nontransactional script can le
 partial changes without successful history if it fails. Inspect data and history before retrying.
 
 Review [transaction modes](./script-transactions) and the database matrix,
-then use `migrate capabilities` to check your installed build's limits.
+then use `migrate capabilities` to check execution limits.
 
 ## Vendor-specific script values {#value-conversion}
 

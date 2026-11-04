@@ -326,4 +326,4 @@ Common types:
 
 ## SQL, JS and TS migrations
 
-The default build supports SQL and JS/TS/MJS scripts, including local and installed-package imports. See [SQL, JS and TS migrations](script-migrations.en.md).
+Migrate supports SQL and JS/TS/MJS scripts, including local and installed-package imports. See [SQL, JS and TS migrations](script-migrations.en.md).

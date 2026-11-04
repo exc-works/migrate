@@ -27,7 +27,7 @@ migrate new version <description> [-v <version>] [--format sql|js|ts|mjs]
 ```
 
 在迁移目录创建版本文件。`--version` / `-v` 覆盖自动生成的版本，
-`--format` 默认为 `sql`，默认支持全部迁移格式。
+`--format` 默认为 `sql`。
 参见 [SQL 迁移](./sql-migrations)或[脚本迁移](./scripting)。
 
 ## create

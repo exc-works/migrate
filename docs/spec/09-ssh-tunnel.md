@@ -88,7 +88,7 @@ MariaDB, MSSQL, ClickHouse Native/HTTP and TiDB migrations; Oracle/Redshift work
 use configured external fixtures. Exercise remote DNS, TLS hostname verification, driver timeouts,
 query cancellation and no reconnect after failure. Generate test keys at runtime;
 commit no private keys. Container DB tests use testcontainers and existing CI matrix.
-Run all five merge gates in the default build; report skipped external tests honestly.
+Run all five merge gates; report skipped external tests honestly.
 
 ## Implementation stack
 

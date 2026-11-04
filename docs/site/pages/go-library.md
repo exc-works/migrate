@@ -90,7 +90,7 @@ own `Logger` implementation when needed.
 
 ## Scripts and owned connections
 
-Script execution is included by default. Configure script limits through
+Configure script execution limits through
 `Config.ScriptOptions`. The [embedded example](./examples) demonstrates
 scripts and helpers shipped inside a Go binary.
 

@@ -1,7 +1,7 @@
 # SSH 隧道与代理
 
 通过单台 SSH 堡垒机连接数据库，也可先经一个 SOCKS5 或 HTTP CONNECT 代理连接堡垒机。
-默认构建由 Go 管理连接，无须外部 ssh 进程，也不读取 OpenSSH 配置。
+连接由 Go 管理，无须外部 ssh 进程，也不读取 OpenSSH 配置。
 
 ## 配置连接路径
 

@@ -1,7 +1,7 @@
 # migrate
 
 SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/TiDB/Redshift support.
-The default build includes JavaScript and TypeScript migrations with local and npm imports for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse/MSSQL support.
+JavaScript, TypeScript and MJS migrations support local and npm imports for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse/MSSQL support.
 Use `migrate capabilities` to inspect verification status and transaction limits.
 
 ## Documentation
@@ -23,13 +23,12 @@ Use `migrate capabilities` to inspect verification status and transaction limits
 go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
-The default install supports SQL, JS, TS and MJS. Inspect the available capabilities:
+Inspect supported formats and database capabilities:
 
 ```bash
 migrate capabilities --output json
 ```
 
-Release assets include all migration formats without a build suffix.
 The script engine is embedded; execution never downloads an interpreter.
 
 ## Quick Start

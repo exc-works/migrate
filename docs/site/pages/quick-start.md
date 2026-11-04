@@ -10,7 +10,7 @@ migrate --help
 migrate version
 ```
 
-This installs all supported migration formats. See [Installation](./installation) for
+See [Installation](./installation) for
 source installation and PATH setup, or [database capabilities](./databases) for supported migration formats.
 
 ## Configure

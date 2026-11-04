@@ -9,7 +9,7 @@ go install github.com/exc-works/migrate/cmd/migrate@latest
 migrate capabilities
 ```
 
-默认安装和发布二进制均内嵌脚本引擎，可执行 SQL、JS、TS 和 MJS，无需额外构建标签。
+工具支持 SQL、JS、TS 和 MJS 迁移，脚本通过内嵌引擎执行。
 
 ## 创建和执行
 
@@ -128,9 +128,9 @@ export const config = { transaction: false };
 
 超时或结果超限会终止迁移；调整查询或限额后再重试。
 大表使用有序分页查询。分页读取仍遵循迁移本身的事务范围。
-Go 应用通过 `migrate.Config.ScriptOptions` 设置这些值。脚本引擎默认包含在构建中。
+Go 应用通过 `migrate.Config.ScriptOptions` 设置这些值。
 
-运行 `migrate capabilities --output json` 查看当前构建的数据库状态、别名和事务模式。
+运行 `migrate capabilities --output json` 查看数据库状态、别名和事务模式。
 
 | 数据库 | 脚本状态 | 占位符 | 事务方式 |
 | --- | --- | --- | --- |

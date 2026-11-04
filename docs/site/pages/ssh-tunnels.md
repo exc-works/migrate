@@ -1,7 +1,7 @@
 # SSH tunnels and proxies
 
 Connect through one SSH bastion, optionally reached through one SOCKS5 or HTTP
-CONNECT proxy. The default build manages the connection in Go, without an
+CONNECT proxy. Connections are managed in Go, without an
 external ssh process or OpenSSH configuration.
 
 ## Configure the route

@@ -17,7 +17,7 @@ features:
     link: ./sql-migrations
     linkText: Write a migration
   - title: Scripts when needed
-    details: The default build includes JS, TS and MJS with shared local and installed npm modules. No Node.js runtime is needed to execute migrations.
+    details: Use JS, TS and MJS migrations with shared local and installed npm modules. No Node.js runtime is needed to execute migrations.
     link: ./scripting
     linkText: Use JavaScript or TypeScript
   - title: Know the boundaries

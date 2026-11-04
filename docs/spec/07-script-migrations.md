@@ -2,13 +2,13 @@
 
 ## Distribution and compatibility
 
-- The default build includes SQL, JS, TS and MJS with no extra build tags.
+- Support SQL, JS, TS and MJS migrations.
 - All formats use the same commands, configuration, drivers and history table.
-- Release binaries include all formats under the existing unsuffixed filenames.
-- Execution never downloads a runtime. Builds embed Goja and esbuild without cgo.
+- Release binaries use the existing platform filenames.
+- Execution never downloads a runtime. Embed Goja and esbuild without cgo.
 - Pin dependencies compatible with the module's minimum Go version.
 - `capabilities [--output json]` reports formats without configuration or a connection.
-  There is one build configuration; output has no `build` discriminator.
+  Output includes formats and script dialect metadata, with no `build` discriminator.
 - Preserve the existing `version` output and existing SQL source hashes.
 
 ## Files and planning
@@ -30,7 +30,7 @@
 ## Script contract
 
 The `.mjs` extension is a JS alias with identical compilation, execution and restrictions;
-the default build advertises it in capabilities. It does not enable Node.js or a
+capabilities advertise it alongside the other migration formats. It does not enable Node.js or a
 separate runtime module loader.
 
 Scripts are UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
@@ -47,7 +47,7 @@ assistance. Do not advertise full Node.js compatibility.
 ### Module import rollout
 
 The implementation stack is recorded in
-[08-script-modules-plan.md](08-script-modules-plan.md). The default build implements
+[08-script-modules-plan.md](08-script-modules-plan.md). Support
 static disk-relative, installed-package and virtual-source imports under the
 following contract.
 
@@ -234,7 +234,6 @@ write successful migration history. It does not predict dynamically generated SQ
 ## CLI and API
 
 - `new version <description> --format sql|js|ts|mjs` defaults to SQL.
-- All supported migration formats can be generated without extra build tags.
 - Generated JS templates annotate `db` with JSDoc; TS templates declare equivalent
   database, parameter and result types for editor assistance.
 - Script limits are configurable through both file config and the Go facade.
@@ -248,7 +247,7 @@ write successful migration history. It does not predict dynamically generated SQ
 
 - Every implementation layer includes its own meaningful tests and remains buildable.
 - Cover mixed ordering, duplicates, hashes, preflight failure, rollback-range validation,
-  irreversible down, baseline, out-of-order, dry-run and default-build script execution.
+  irreversible down, baseline, out-of-order, dry-run and script execution.
 - Cover ignored synchronous return values, Promise rejection, caught SQL recovery,
   uncaught failures, fatal bridge failures, conversion fidelity, timeout, cancellation,
   resource caps, module restrictions, isolated VM state and original TS error locations.
@@ -260,10 +259,10 @@ write successful migration history. It does not predict dynamically generated SQ
   conditional on dedicated external DSNs; skipped jobs are not real-instance verification.
 - New dialects remain experimental despite limited container coverage; keep capability
   notes accurate about what has been exercised.
-- Run all five repository merge gates in the default configuration.
+- Run all five repository merge gates as defined in AGENTS.md.
   Use `-tags=integration` for SQL and script integration tests.
 - Test minimum Go compatibility, release platform builds and native executable smoke tests.
-- Verify default runtime dependencies include Goja/esbuild; distinguish cross-build from runtime tests.
+- Verify runtime dependencies include Goja/esbuild; distinguish cross-build from runtime tests.
 
 ## Stacked review workflow
 

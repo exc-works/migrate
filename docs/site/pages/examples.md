@@ -1,7 +1,7 @@
 # Run the script examples
 
 Try these from a checkout of the repository. All use SQLite, so no database server
-is needed. The examples exercise the default build's module resolver and verify their
+is needed. The examples exercise module resolution and verify their
 data changes from inside the migrations.
 
 ## Build a temporary CLI
