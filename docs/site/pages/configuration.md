@@ -50,9 +50,48 @@ An explicit `-c` reads exactly that file. YAML supports native `#` comments; JSO
 remains strict. Fields, defaults, environment templates and relative-path rules are
 the same in both formats. Nested SSH and proxy fields use the same names.
 
-The reader also recognizes `data_sources` with shared SSH defaults. Batch command
-execution is delivered by the subsequent orchestration layer; this intermediate
-layer rejects multi-source database commands explicitly before opening a connection.
+
+## Apply one migration directory to every database
+
+Add named `data_sources` instead of the top-level `data_source_name`. Migration
+settings and an optional top-level SSH/proxy configuration are shared. A source
+with no SSH object (or null) inherits the shared settings; a source SSH object
+replaces them completely. Each active target owns its connection and transport.
+
+```yaml
+dialect: postgres
+migration_source: migrations
+schema_name: migration_schema
+data_sources:
+  shard_0:
+    data_source_name: "${SHARD_0_DSN}"
+  shard_1:
+    data_source_name: "${SHARD_1_DSN}"
+```
+
+```sh
+migrate create --parallel 8
+migrate up --parallel 8
+migrate status --parallel 8 --output json
+migrate down --all --parallel 8
+```
+
+All configured sources are visited automatically. `--parallel` defaults to 8;
+use 1 for sequential execution. Each database selects pending versions from its
+own history and applies them in order. A target failure does not stop other
+targets. The command reports every result and exits nonzero if any target fails
+or is canceled. Parent cancellation stops new targets and cancels active ones.
+
+Multi-source status JSON is a sorted array of objects with `data_source`, `status`,
+optional safe `error`, and a `migrations` array for successful status reads. Existing
+single-source JSON retains its original migration array. Logs are labeled by
+source and go to stderr; dry-run plans are grouped by source on stdout.
+
+Keep the directory and script dependencies unchanged during a run. Configure each
+physical database once, and serialize overlapping invocations against that database
+as before. Reruns skip successful recorded versions; inspect data and history after
+nontransactional failures or uncertain commits before retrying. `new version`
+creates one shared file and does not require database credentials or connections.
 
 ## Connect to a database
 
