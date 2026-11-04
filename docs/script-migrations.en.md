@@ -5,11 +5,11 @@ Use scripts to transform data and execute SQL through the `db` interface. The ex
 ## Install and inspect
 
 ```bash
-go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 migrate capabilities
 ```
 
-For binary downloads, choose a `_full` asset. The full build embeds the script engine and runs SQL, JS, TS and MJS.
+The CLI supports SQL, JS, TS and MJS migrations and uses an embedded script engine.
 
 ## Write a migration
 
@@ -133,9 +133,9 @@ Set execution time and per-query result limits in the configuration:
 
 Reaching a timeout or result limit terminates the migration. Adjust the query or limits before retrying.
 Use ordered paging for large tables. Paged reads follow the migration's transaction scope.
-Go applications set these values through `migrate.Config.ScriptOptions` and build with `-tags=full`.
+Go applications set these values through `migrate.Config.ScriptOptions`.
 
-Run `migrate capabilities --output json` to inspect database status, aliases and transaction modes for your build.
+Run `migrate capabilities --output json` to inspect database status, aliases and transaction modes.
 
 | Database | Script status | Placeholders | Transactions |
 | --- | --- | --- | --- |

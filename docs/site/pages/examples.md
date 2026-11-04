@@ -1,7 +1,7 @@
 # Run the script examples
 
 Try these from a checkout of the repository. All use SQLite, so no database server
-is needed. The examples exercise the full build's module resolver and verify their
+is needed. The examples exercise module resolution and verify their
 data changes from inside the migrations.
 
 ## Build a temporary CLI
@@ -10,7 +10,7 @@ Run from the repository root; keep this shell open for the local and npm example
 
 ```sh
 example_workspace=$(mktemp -d)
-go build -tags=full -o "$example_workspace/migrate" ./cmd/migrate
+go build -o "$example_workspace/migrate" ./cmd/migrate
 ```
 
 ## Share a local helper {#local}
@@ -56,7 +56,7 @@ includes both version files and shared modules in `embed.FS`. It uses a private
 in-memory database and needs no npm installation:
 
 ```sh
-go run -tags=full ./examples/script-imports/embedded
+go run ./examples/script-imports/embedded
 ```
 
 Expected output:

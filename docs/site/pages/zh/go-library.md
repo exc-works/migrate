@@ -89,7 +89,7 @@ func run(ctx context.Context) error {
 
 ## 脚本与工具管理的连接
 
-需要脚本执行时，以 `-tags=full` 构建应用，并通过 `Config.ScriptOptions` 设置脚本限制。
+通过 `Config.ScriptOptions` 设置脚本限制。
 [嵌入示例](./examples)演示将脚本与 helper 一起编入 Go 二进制。
 
 需要 migrate 管理连接（包括可选 SSH 隧道）时，使用 `OpenConnection`。

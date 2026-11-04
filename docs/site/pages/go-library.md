@@ -90,8 +90,8 @@ own `Logger` implementation when needed.
 
 ## Scripts and owned connections
 
-Build your application with `-tags=full` for script execution. Configure script
-limits through `Config.ScriptOptions`. The [embedded example](./examples) demonstrates
+Configure script execution limits through
+`Config.ScriptOptions`. The [embedded example](./examples) demonstrates
 scripts and helpers shipped inside a Go binary.
 
 For a connection managed by migrate, including an optional SSH tunnel, use

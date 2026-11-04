@@ -1,8 +1,8 @@
 # Write script migrations
 
 Use JavaScript or TypeScript for data transformations that are easier to express
-in code. The full build embeds esbuild and Goja; it executes synchronously without
-a Node.js runtime. Install the [full build](./installation) before continuing.
+in code. Scripts run synchronously in an embedded engine without
+a Node.js runtime. Follow the [installation instructions](./installation) before continuing.
 
 ## Create a script
 
@@ -12,8 +12,7 @@ migrate new version normalize_names --format ts
 
 Supported formats are `js`, `ts` and `mjs`; `.mjs` has the same runtime restrictions
 as `.js`. Files use `V<version>__<description>.<format>` and share their version
-sequence and history with SQL files. SQL builds reject known script files instead
-of silently skipping them.
+sequence and history with SQL files.
 
 ## Implement the entrypoints
 

@@ -1,7 +1,7 @@
 # 运行脚本示例
 
 以下示例在仓库检出目录中运行，均使用 SQLite，无须数据库服务。
-它们演示完整构建的模块解析，并在迁移内部校验数据变更。
+它们演示模块解析，并在迁移内部校验数据变更。
 
 ## 构建临时 CLI
 
@@ -9,7 +9,7 @@
 
 ```sh
 example_workspace=$(mktemp -d)
-go build -tags=full -o "$example_workspace/migrate" ./cmd/migrate
+go build -o "$example_workspace/migrate" ./cmd/migrate
 ```
 
 ## 共享本地 helper {#local}
@@ -54,7 +54,7 @@ export MIGRATE_EXAMPLE_DB="$example_workspace/npm.sqlite"
 将版本文件和共享模块一起放入 `embed.FS`。它使用私有内存数据库，无须安装 npm 依赖：
 
 ```sh
-go run -tags=full ./examples/script-imports/embedded
+go run ./examples/script-imports/embedded
 ```
 
 预期输出：

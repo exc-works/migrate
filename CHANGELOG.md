@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ask-style first-use SSH host trust with explicit fingerprint confirmation, saved
   known_hosts records and unchanged rejection of changed or revoked host keys.
 
+### Changed
+- Remove the optional `full` build mode and SQL-only runtime stubs; SQL, JS, TS
+  and MJS migrations share one CLI.
+- Publish one binary per platform without `_full` assets, and run one CI build
+  configuration with both SQL and script coverage.
+- Remove the `build` discriminator from capabilities output; formats and script
+  dialect metadata describe the supported capabilities.
+
 ## [1.5.0] - 2026-11-03
 
 ### Added

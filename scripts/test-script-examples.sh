@@ -7,7 +7,7 @@ trap 'rm -rf -- "$example_run_dir"' EXIT
 cd "$repo_root"
 
 command -v npm >/dev/null
-go build -tags=full -o "$example_run_dir/migrate" ./cmd/migrate
+go build -o "$example_run_dir/migrate" ./cmd/migrate
 
 # Install only the committed local package, keeping all generated files out of the checkout.
 mkdir "$example_run_dir/npm"
@@ -37,12 +37,12 @@ for example_name in local npm; do
   printf '%s example passed\n' "$example_name"
 done
 
-embedded_output=$(go run -tags=full ./examples/script-imports/embedded)
+embedded_output=$(go run ./examples/script-imports/embedded)
 expected_output=$'after up: alice\nafter down: all migrations pending'
 if [[ "$embedded_output" != "$expected_output" ]]; then
   printf '%s\n%s\n' 'Unexpected embedded example output' "$embedded_output" >&2
   exit 1
 fi
 printf '%s\n' "$embedded_output"
-go test -tags=full . -run '^ExampleWithModules$'
+go test . -run '^ExampleWithModules$'
 printf 'All script import examples passed\n'

@@ -10,8 +10,8 @@ migrate --help
 migrate version
 ```
 
-This installs the SQL build. See [Installation](./installation) for
-source installation and PATH setup, or [database capabilities](./databases) for the full build.
+See [Installation](./installation) for
+source installation and PATH setup, or [database capabilities](./databases) for supported migration formats.
 
 ## Configure
 

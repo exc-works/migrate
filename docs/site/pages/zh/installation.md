@@ -1,27 +1,21 @@
 # 安装
 
-只运行 `.sql` 迁移时选择 SQL 版；目录中包含 `.js`、`.ts` 或 `.mjs` 时选择完整构建。
-两种构建均可独立执行，脚本执行不依赖 Node.js，也不会下载解释器。
+通过 Go 安装 migrate，或下载发布的二进制。
 
 ## 通过 Go 安装
 
 ```sh
-# SQL 版
 go install github.com/exc-works/migrate/cmd/migrate@latest
-
-# 完整构建
-go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
 固定或降级工具版本时，将 `@latest` 替换成已发布的版本标签。
-从源码安装时，在仓库根目录执行 `go install ./cmd/migrate`，
-需要脚本能力则执行 `go install -tags=full ./cmd/migrate`。
+从源码安装时，在仓库根目录执行 `go install ./cmd/migrate`。
 
 ## 使用发布的二进制
 
 从 [GitHub Releases](https://github.com/exc-works/migrate/releases) 下载符合操作系统
-和架构的文件。不带后缀的是 SQL 版；文件名中 `_full`（Windows 上位于 `.exe` 前）
-表示完整构建。校验发布的 SHA-256 后，将可执行文件改名为 `migrate`（Windows 为
+和架构的文件。
+校验发布的 SHA-256 后，将可执行文件改名为 `migrate`（Windows 为
 `migrate.exe`），放入 PATH 包含的目录。
 
 ## 验证安装结果

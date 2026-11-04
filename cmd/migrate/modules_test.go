@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/exc-works/migrate/internal/script"
 )
 
 func TestCLIDirectoryModulesWorkflow(t *testing.T) {
@@ -53,16 +51,6 @@ func TestCLIDirectoryModulesWorkflow(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if len(script.Formats()) == 1 {
-		if err := run("up"); err == nil {
-			t.Fatal("SQL build accepted module migrations")
-		}
-		var count int
-		if err := db.QueryRow("SELECT count(*) FROM sqlite_master WHERE name='users'").Scan(&count); err != nil || count != 0 {
-			t.Fatalf("default build partially executed: %d %v", count, err)
-		}
-		return
-	}
 	if err := run("up", "--dry-run"); err != nil {
 		t.Fatal(err)
 	}

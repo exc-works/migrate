@@ -1,4 +1,4 @@
-/** Editor declarations only. The full CLI provides the implementation. */
+/** Editor declarations only. The CLI provides the implementation. */
 type MigrationSQLParameter =
   | string
   | number

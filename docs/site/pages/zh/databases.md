@@ -1,7 +1,7 @@
 # 数据库能力
 
 SQL 方言包括 PostgreSQL、MySQL、MariaDB、SQLite、Oracle、MSSQL、ClickHouse、TiDB 和 Redshift。
-SQL 可用性与脚本验证状态是不同的能力。请根据迁移格式选择 [SQL 版或完整构建](./installation)。
+SQL 可用性与脚本验证状态是不同的能力。
 
 ## 查询当前二进制
 
@@ -10,7 +10,7 @@ migrate capabilities
 migrate capabilities --output json
 ```
 
-- `formats`：当前构建包含的迁移格式。
+- `formats`：支持的迁移格式。
 - `script_dialect_capabilities`：脚本验证状态、事务模式与限制。
 - `aliases`：可接受的名称，配置最终归一化为规范方言名。
 
@@ -52,7 +52,7 @@ MySQL、MariaDB 和 TiDB 仍是不同方言。
 重试前应先检查数据和迁移记录。
 
 使用前请阅读[事务模式](./script-transactions)和能力表，
-再通过 `migrate capabilities` 确认已安装构建的实际限制。
+再通过 `migrate capabilities` 确认执行限制。
 
 ## 数据库特有的脚本值 {#value-conversion}
 

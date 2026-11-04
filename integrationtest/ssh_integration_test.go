@@ -142,11 +142,7 @@ func runSSHCLI(t *testing.T, dsn string, o tunnel.Options) {
 	t.Helper()
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "migrate")
-	args := []string{"build", "-o", binary}
-	if len(sshScriptMigrations("example")) > 0 {
-		args = append(args, "-tags=full")
-	}
-	args = append(args, "./cmd/migrate")
+	args := []string{"build", "-o", binary, "./cmd/migrate"}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	build := exec.CommandContext(ctx, "go", args...)

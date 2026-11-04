@@ -17,7 +17,7 @@ features:
     link: ./sql-migrations
     linkText: 编写迁移
   - title: 按需使用脚本
-    details: 完整构建增加 JS、TS 和 MJS，支持本地模块与已安装 npm 包；执行迁移不需要 Node.js 运行时。
+    details: 使用 JS、TS 和 MJS 编写迁移，支持本地模块与已安装 npm 包；执行迁移不需要 Node.js 运行时。
     link: ./scripting
     linkText: 使用 JavaScript 或 TypeScript
   - title: 明确能力边界

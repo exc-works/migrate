@@ -5,11 +5,11 @@
 ## 安装和能力查询
 
 ```bash
-go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest
+go install github.com/exc-works/migrate/cmd/migrate@latest
 migrate capabilities
 ```
 
-下载二进制时选择带 `_full` 后缀的文件。完整构建内嵌脚本引擎，可执行 SQL、JS、TS 和 MJS。
+工具支持 SQL、JS、TS 和 MJS 迁移，脚本通过内嵌引擎执行。
 
 ## 创建和执行
 
@@ -128,9 +128,9 @@ export const config = { transaction: false };
 
 超时或结果超限会终止迁移；调整查询或限额后再重试。
 大表使用有序分页查询。分页读取仍遵循迁移本身的事务范围。
-Go 应用通过 `migrate.Config.ScriptOptions` 设置这些值，并使用 `-tags=full` 构建。
+Go 应用通过 `migrate.Config.ScriptOptions` 设置这些值。
 
-运行 `migrate capabilities --output json` 查看当前构建的数据库状态、别名和事务模式。
+运行 `migrate capabilities --output json` 查看数据库状态、别名和事务模式。
 
 | 数据库 | 脚本状态 | 占位符 | 事务方式 |
 | --- | --- | --- | --- |

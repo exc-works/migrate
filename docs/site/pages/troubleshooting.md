@@ -22,7 +22,8 @@ itself; see [SSH authentication](./ssh-tunnels).
 
 ## Unsupported format, dialect or module
 
-- If a SQL binary encounters scripts, install the [full build](./installation).
+- Use `migrate capabilities` to confirm SQL, JS, TS and MJS support. Upgrade an
+  older SQL-only binary using the [installation instructions](./installation).
 - For `unsupported dialect`, check [canonical names and aliases](./databases#aliases).
 - If a module cannot resolve, verify its path from the importer and install npm
   dependencies beforehand. Virtual sources need explicit disk dependency settings.

@@ -53,5 +53,4 @@ status、baseline 和 dry-run 均不会对它求值。
 超限会失败，不会截断结果。大量读取应显式分页，但分页不会自动产生分批提交或可恢复迁移。
 取消会中断 JS 并取消数据库操作，不保证原生调用硬实时终止。
 
-Go 调用方通过 `migrate.ScriptOptions` 设置 `Config.ScriptOptions`，
-并以 `-tags=full` 构建应用。参见[在 Go 中使用](./go-library)。
+Go 调用方通过 `migrate.ScriptOptions` 设置 `Config.ScriptOptions`。参见[在 Go 中使用](./go-library)。

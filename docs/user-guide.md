@@ -326,4 +326,4 @@ func main() {
 
 ## SQL、JS 和 TS 混合迁移
 
-完整版本支持独立 JS/TS 脚本，默认版本保持仅 SQL。安装方式、脚本接口与限制见[SQL、JS 和 TS 混合迁移](script-migrations.md).
+支持 SQL 和 JS/TS/MJS 脚本迁移，以及本地模块和已安装包的导入。安装方式、脚本接口与限制见[SQL、JS 和 TS 混合迁移](script-migrations.md).

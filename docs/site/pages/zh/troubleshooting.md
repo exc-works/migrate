@@ -19,7 +19,8 @@ SSH secret 字段应直接填写变量名，参见 [SSH 认证](./ssh-tunnels)�
 
 ## 不支持的格式、方言或模块
 
-- SQL 二进制遇到脚本时，安装[完整构建](./installation)。
+- 通过 `migrate capabilities` 确认 SQL、JS、TS 和 MJS 支持。旧版 SQL 二进制
+  应按[安装说明](./installation)升级。
 - `unsupported dialect` 应检查[规范名称与别名](./databases#aliases)。
 - 模块无法解析时，检查相对导入文件的路径，并提前安装 npm 依赖。
   虚拟来源需要显式指定磁盘依赖设置。

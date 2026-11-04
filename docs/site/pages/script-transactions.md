@@ -58,5 +58,4 @@ paging does not create batch commits or resumable migrations. Cancellation inter
 JS and cancels database operations, but native calls are not guaranteed to terminate
 in hard real time.
 
-Go callers configure `Config.ScriptOptions` with `migrate.ScriptOptions` and build
-their application with `-tags=full`. See [Use from Go](./go-library).
+Go callers configure `Config.ScriptOptions` with `migrate.ScriptOptions`. See [Use from Go](./go-library).

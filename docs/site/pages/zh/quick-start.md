@@ -10,8 +10,8 @@ migrate --help
 migrate version
 ```
 
-该命令安装 SQL 版。源码安装和 PATH 设置见[安装](./installation)，
-完整构建见[数据库能力](./databases)。
+源码安装和 PATH 设置见[安装](./installation)，
+支持的迁移格式见[数据库能力](./databases)。
 
 ## 配置
 
