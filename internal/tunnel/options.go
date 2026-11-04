@@ -22,29 +22,29 @@ const (
 )
 
 type AuthOptions struct {
-	Type          string `json:"type"`
-	PasswordEnv   string `json:"password_env,omitempty"`
-	KeyFile       string `json:"key_file,omitempty"`
-	PassphraseEnv string `json:"passphrase_env,omitempty"`
+	Type          string `json:"type" yaml:"type"`
+	PasswordEnv   string `json:"password_env,omitempty" yaml:"password_env,omitempty"`
+	KeyFile       string `json:"key_file,omitempty" yaml:"key_file,omitempty"`
+	PassphraseEnv string `json:"passphrase_env,omitempty" yaml:"passphrase_env,omitempty"`
 }
 
 type ProxyOptions struct {
-	Type        string `json:"type"`
-	Address     string `json:"address"`
-	Username    string `json:"username,omitempty"`
-	PasswordEnv string `json:"password_env,omitempty"`
+	Type        string `json:"type" yaml:"type"`
+	Address     string `json:"address" yaml:"address"`
+	Username    string `json:"username,omitempty" yaml:"username,omitempty"`
+	PasswordEnv string `json:"password_env,omitempty" yaml:"password_env,omitempty"`
 }
 
 type Options struct {
-	Host              string        `json:"host"`
-	Port              int           `json:"port,omitempty"`
-	User              string        `json:"user"`
-	Auth              AuthOptions   `json:"auth"`
-	KnownHostsFile    string        `json:"known_hosts_file,omitempty"`
-	Proxy             *ProxyOptions `json:"proxy,omitempty"`
-	ConnectTimeout    string        `json:"connect_timeout,omitempty"`
-	KeepaliveInterval string        `json:"keepalive_interval,omitempty"`
-	KeepaliveTimeout  string        `json:"keepalive_timeout,omitempty"`
+	Host              string        `json:"host" yaml:"host"`
+	Port              int           `json:"port,omitempty" yaml:"port,omitempty"`
+	User              string        `json:"user" yaml:"user"`
+	Auth              AuthOptions   `json:"auth" yaml:"auth"`
+	KnownHostsFile    string        `json:"known_hosts_file,omitempty" yaml:"known_hosts_file,omitempty"`
+	Proxy             *ProxyOptions `json:"proxy,omitempty" yaml:"proxy,omitempty"`
+	ConnectTimeout    string        `json:"connect_timeout,omitempty" yaml:"connect_timeout,omitempty"`
+	KeepaliveInterval string        `json:"keepalive_interval,omitempty" yaml:"keepalive_interval,omitempty"`
+	KeepaliveTimeout  string        `json:"keepalive_timeout,omitempty" yaml:"keepalive_timeout,omitempty"`
 }
 
 type Settings struct {

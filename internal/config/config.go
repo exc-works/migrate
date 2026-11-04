@@ -14,33 +14,28 @@ import (
 )
 
 type FileConfig struct {
-	SSHTunnel         *tunnel.Options `json:"ssh_tunnel,omitempty"`
-	SchemaName        string          `json:"schema_name"`
-	Dialect           string          `json:"dialect"`
-	DataSourceName    string          `json:"data_source_name"`
-	WorkingDirectory  string          `json:"working_directory"`
-	MigrateOutOfOrder bool            `json:"migrate_out_of_order"`
-	LoggerLevel       string          `json:"logger_level"`
-	MigrationSource   string          `json:"migration_source"`
-	ScriptTimeout     string          `json:"script_timeout,omitempty"`
-	ScriptMaxRows     int             `json:"script_max_rows,omitempty"`
-	ScriptMaxBytes    int64           `json:"script_max_bytes,omitempty"`
+	DataSources       map[string]DataSourceConfig `json:"data_sources,omitempty" yaml:"data_sources,omitempty"`
+	SSHTunnel         *tunnel.Options             `json:"ssh_tunnel,omitempty" yaml:"ssh_tunnel,omitempty"`
+	SchemaName        string                      `json:"schema_name" yaml:"schema_name"`
+	Dialect           string                      `json:"dialect" yaml:"dialect"`
+	DataSourceName    string                      `json:"data_source_name" yaml:"data_source_name"`
+	WorkingDirectory  string                      `json:"working_directory" yaml:"working_directory"`
+	MigrateOutOfOrder bool                        `json:"migrate_out_of_order" yaml:"migrate_out_of_order"`
+	LoggerLevel       string                      `json:"logger_level" yaml:"logger_level"`
+	MigrationSource   string                      `json:"migration_source" yaml:"migration_source"`
+	ScriptTimeout     string                      `json:"script_timeout,omitempty" yaml:"script_timeout,omitempty"`
+	ScriptMaxRows     int                         `json:"script_max_rows,omitempty" yaml:"script_max_rows,omitempty"`
+	ScriptMaxBytes    int64                       `json:"script_max_bytes,omitempty" yaml:"script_max_bytes,omitempty"`
 }
 
 func Read(path, workingDir string) (*FileConfig, error) {
-	if path == "" {
-		path = "migration_config.json"
-	}
-	if workingDir != "" {
-		path = filepath.Join(workingDir, path)
-	}
-	content, err := os.ReadFile(path)
+	content, resolvedPath, err := readConfigFile(path, workingDir)
 	if err != nil {
 		return nil, err
 	}
 	var cfg FileConfig
-	if err := json.Unmarshal(content, &cfg); err != nil {
-		return nil, formatJSONConfigError(path, content, err)
+	if err := decodeConfig(resolvedPath, content, &cfg); err != nil {
+		return nil, err
 	}
 	if workingDir != "" {
 		cfg.WorkingDirectory = workingDir
@@ -49,17 +44,28 @@ func Read(path, workingDir string) (*FileConfig, error) {
 	if _, err := cfg.ScriptOptions(); err != nil {
 		return nil, err
 	}
-	cfg.DataSourceName, err = ReplaceEnvVar(cfg.DataSourceName)
-	if err != nil {
-		return nil, err
-	}
-	if cfg.DataSourceName == "" {
-		return nil, fmt.Errorf("data_source_name must be set")
-	}
-	if cfg.SSHTunnel != nil {
-		if err := resolveTunnelConfig(cfg.SSHTunnel, filepath.Dir(path)); err != nil {
-			return nil, err
+	if cfg.DataSources != nil {
+		if cfg.DataSourceName != "" {
+			return nil, errors.New("data_source_name and data_sources are mutually exclusive")
 		}
+		if len(cfg.DataSources) == 0 {
+			return nil, errors.New("data_sources must not be empty")
+		}
+		for _, target := range cfg.Targets() {
+			if strings.TrimSpace(target.Name) == "" {
+				return nil, errors.New("data source name must not be empty")
+			}
+			effective := target.Config
+			if err := resolveConnection(&effective, filepath.Dir(resolvedPath)); err != nil {
+				return nil, fmt.Errorf("data source %q: %w", target.Name, err)
+			}
+			cfg.DataSources[target.Name] = DataSourceConfig{
+				DataSourceName: effective.DataSourceName,
+				SSHTunnel:      effective.SSHTunnel,
+			}
+		}
+	} else if err := resolveConnection(&cfg, filepath.Dir(resolvedPath)); err != nil {
+		return nil, err
 	}
 	return &cfg, nil
 }

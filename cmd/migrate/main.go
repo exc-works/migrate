@@ -64,7 +64,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	root.SetOut(stdout)
 	root.SetErr(stderr)
-	cfgPath := root.PersistentFlags().StringP("config", "c", "migration_config.json", "config file path")
+	cfgPath := root.PersistentFlags().StringP("config", "c", "", "config file (default search: migration_config.yml, migration_config.yaml, migration_config.json)")
 	workingDir := root.PersistentFlags().StringP("working-dir", "w", "", "working directory")
 	noninteractive := root.PersistentFlags().Bool("non-interactive", false, "fail instead of requesting terminal secrets")
 
@@ -74,6 +74,9 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		c, err := config.Read(*cfgPath, *workingDir)
 		if err != nil {
 			return err
+		}
+		if c.DataSources != nil {
+			return errors.New("multi-database execution is not available yet")
 		}
 		var s *migrate.Service
 		if c.SSHTunnel != nil {
@@ -424,7 +427,7 @@ func readConfigOrDefault(path, workingDir string) (*config.FileConfig, error) {
 	if err == nil {
 		return cfg, nil
 	}
-	if !os.IsNotExist(err) {
+	if path != "" || !os.IsNotExist(err) {
 		return nil, err
 	}
 	fallback := config.DefaultTemplate()

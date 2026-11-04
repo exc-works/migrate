@@ -1,7 +1,7 @@
 # Configuration
 
-Run commands from your migration project directory. By default, migrate reads
-`migration_config.json`. Generate a starting file with:
+Run commands from your migration project directory. By default, migrate searches YAML first and falls back to JSON. The current
+initializer produces JSON; generate a starting file with:
 
 ```sh
 migrate new config
@@ -9,6 +9,19 @@ migrate new config
 
 Use `migrate new config dev.json` for a different filename. Existing files are
 preserved unless you explicitly pass `--force`.
+
+## YAML and JSON discovery
+
+The configuration reader accepts YAML and JSON. Without an explicit `-c`, it checks
+`migration_config.yml`, `migration_config.yaml`, then `migration_config.json` in that
+order. Only a missing file permits fallback; invalid or unreadable YAML is an error.
+An explicit `-c` reads exactly that file. YAML supports native `#` comments; JSON
+remains strict. Fields, defaults, environment templates and relative-path rules are
+the same in both formats. Nested SSH and proxy fields use the same names.
+
+The reader also recognizes `data_sources` with shared SSH defaults. Batch command
+execution is delivered by the subsequent orchestration layer; this intermediate
+layer rejects multi-source database commands explicitly before opening a connection.
 
 ## Connect to a database
 
