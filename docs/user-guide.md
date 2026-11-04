@@ -67,6 +67,9 @@ migrate_out_of_order: false
 logger_level: info
 ```
 
+`--multi` 默认生成 `shard_0`、`shard_1`，`--multi --shards N` 可指定正整数数量，
+各分片使用对应的 `SHARD_0_DSN` 等环境变量引用。
+
 使用 `--multi`、`--ssh-tunnel`、`--ssh-auth private_key` 和 `--proxy socks5` 或
 `--proxy http` 生成不同场景；完整参数见 `migrate new config --help`。
 

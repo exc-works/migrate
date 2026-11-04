@@ -67,6 +67,8 @@ migrate_out_of_order: false
 logger_level: info
 ```
 
+Initialize `shard_0` and `shard_1` with `--multi`, or use `--multi --shards N`
+for a positive shard count. Each shard references its own `SHARD_0_DSN`, etc.
 Initialize variants with `--multi`, `--ssh-tunnel`, `--ssh-auth private_key` and
 `--proxy socks5` or `--proxy http`. Run `migrate new config --help` for all options.
 

@@ -30,10 +30,10 @@ ssh_tunnel:
     type: agent
 
 data_sources:
-  tenant_a:
-    data_source_name: "${TENANT_A_DSN}"
-  tenant_b:
-    data_source_name: "${TENANT_B_DSN}"
+  shard_0:
+    data_source_name: "${SHARD_0_DSN}"
+  shard_1:
+    data_source_name: "${SHARD_1_DSN}"
 ```
 
 - 原单源配置继续使用顶层 data_source_name 和可选 ssh_tunnel，行为保持兼容。
@@ -101,11 +101,12 @@ SSH/proxy 结构。默认生成带注释的单源 YAML，默认文件名为 migr
 
 ```bash
 migrate new config
-migrate new config tenants.yml --multi
-migrate new config tenants-ssh.yml --multi --ssh-tunnel
-migrate new config tenants-key.yml --multi --ssh-tunnel --ssh-auth private_key
-migrate new config tenants-proxy.yml --multi --ssh-tunnel --proxy socks5
-migrate new config tenants-http.yml --multi --ssh-tunnel --proxy http
+migrate new config shards.yml --multi
+migrate new config shards-four.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel
+migrate new config shards-key.yml --multi --ssh-tunnel --ssh-auth private_key
+migrate new config shards-proxy.yml --multi --ssh-tunnel --proxy socks5
+migrate new config shards-http.yml --multi --ssh-tunnel --proxy http
 migrate new config --format json --multi
 ```
 
@@ -114,7 +115,8 @@ migrate new config --format json --multi
 | 参数 | 生成行为 |
 | --- | --- |
 | --format yaml\|json | 未指定文件名时默认 yaml，生成 migration_config.yml；选择 json 时生成 migration_config.json |
-| --multi | 生成 tenant_a、tenant_b 两个示例数据源，使用各自 DSN 环境变量占位符 |
+| --multi | 生成命名分片，默认 shard_0、shard_1，使用各自 SHARD_0_DSN、SHARD_1_DSN 占位符 |
+| --shards N | 指定分片数量，默认 2，必须为正整数且与 --multi 一起使用；编号从 0 到 N-1 |
 | --ssh-tunnel | 生成顶层共享 ssh_tunnel；默认 agent 认证 |
 | --ssh-host、--ssh-port、--ssh-user | 可选 SSH 地址参数；未提供 host/user 时生成环境变量占位符，port 默认为 22 |
 | --ssh-auth agent\|private_key\|password | 选择认证模板，仅生成该模式需要的字段 |
@@ -173,10 +175,10 @@ ssh_tunnel:
 
 # 运行前分别设置两个数据库的 DSN 环境变量
 data_sources:
-  tenant_a:
-    data_source_name: "${TENANT_A_DSN}"
-  tenant_b:
-    data_source_name: "${TENANT_B_DSN}"
+  shard_0:
+    data_source_name: "${SHARD_0_DSN}"
+  shard_1:
+    data_source_name: "${SHARD_1_DSN}"
 ```
 
 ## 编排流程

@@ -17,13 +17,18 @@ migrate new config
 
 ```sh
 migrate new config
-migrate new config tenants.yml --multi
-migrate new config tenants-ssh.yml --multi --ssh-tunnel
-migrate new config tenants-key.yml --multi --ssh-tunnel --ssh-auth private_key
-migrate new config tenants-proxy.yml --multi --ssh-tunnel --proxy socks5
-migrate new config tenants-http.yml --multi --ssh-tunnel --proxy http
+migrate new config shards.yml --multi
+migrate new config shards-four.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel
+migrate new config shards-key.yml --multi --ssh-tunnel --ssh-auth private_key
+migrate new config shards-proxy.yml --multi --ssh-tunnel --proxy socks5
+migrate new config shards-http.yml --multi --ssh-tunnel --proxy http
 migrate new config --format json
 ```
+
+`--multi` 默认生成 `shard_0`、`shard_1`；`--shards N` 指定正整数数量，要求同时启用
+`--multi`。编号从 0 开始，例如 `--shards 4` 生成 `shard_0` 到 `shard_3`，各项引用对应的
+`SHARD_0_DSN`、`SHARD_1_DSN` 等环境变量。
 
 SSH 地址、用户和代理地址默认使用环境变量占位符；密码与密钥口令使用环境变量
 名称，没有明文密码参数。`--proxy-username` 与 `--proxy-password-env` 必须成对设置，

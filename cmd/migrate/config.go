@@ -11,12 +11,14 @@ import (
 
 func newConfigCommand() *cobra.Command {
 	var options config.TemplateOptions
+	var shardCount int
 	var format string
 	var force bool
 	command := &cobra.Command{
 		Use:   "config [filename]",
 		Short: "Create a commented YAML or plain JSON configuration",
 		Example: "  migrate new config\n" +
+			"  migrate new config --multi --shards 4\n" +
 			"  migrate new config --multi --ssh-tunnel --proxy socks5\n" +
 			"  migrate new config --ssh-tunnel --ssh-auth private_key\n" +
 			"  migrate new config --format json",
@@ -37,7 +39,11 @@ func newConfigCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg, err := config.BuildTemplate(options)
+			templateOptions := options
+			if templateOptions.Multi {
+				templateOptions.ShardCount = shardCount
+			}
+			cfg, err := config.BuildTemplate(templateOptions)
 			if err != nil {
 				return err
 			}
@@ -61,7 +67,8 @@ func newConfigCommand() *cobra.Command {
 		},
 	}
 	flags := command.Flags()
-	flags.BoolVar(&options.Multi, "multi", false, "generate two named data sources sharing migration settings")
+	flags.BoolVar(&options.Multi, "multi", false, "generate named shards sharing migration settings")
+	flags.IntVar(&shardCount, "shards", config.DefaultShardCount, "number of shards to generate (requires --multi)")
 	flags.StringVar(&format, "format", config.FormatYAML, "config format: yaml|json (otherwise inferred from filename)")
 	flags.BoolVar(&options.SSH, "ssh-tunnel", false, "generate shared SSH settings (default auth: agent)")
 	flags.StringVar(&options.SSHHost, "ssh-host", "", "SSH server host (default: environment placeholder)")
@@ -81,6 +88,15 @@ func newConfigCommand() *cobra.Command {
 }
 
 func validateTemplateFlags(cmd *cobra.Command, options config.TemplateOptions) error {
+	if cmd.Flags().Changed("shards") {
+		if !options.Multi {
+			return errors.New("--shards requires --multi")
+		}
+		count, _ := cmd.Flags().GetInt("shards")
+		if count <= 0 {
+			return errors.New("--shards must be a positive integer")
+		}
+	}
 	for _, name := range []string{"ssh-host", "ssh-port", "ssh-user", "ssh-auth", "ssh-key-file", "ssh-passphrase-env", "ssh-password-env", "ssh-known-hosts-file", "proxy"} {
 		if cmd.Flags().Changed(name) && !options.SSH {
 			return fmt.Errorf("--%s requires --ssh-tunnel", name)

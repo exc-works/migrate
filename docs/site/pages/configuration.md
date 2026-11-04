@@ -18,13 +18,18 @@ existing configuration, and never opens a network connection.
 
 ```sh
 migrate new config
-migrate new config tenants.yml --multi
-migrate new config tenants-ssh.yml --multi --ssh-tunnel
-migrate new config tenants-key.yml --multi --ssh-tunnel --ssh-auth private_key
-migrate new config tenants-proxy.yml --multi --ssh-tunnel --proxy socks5
-migrate new config tenants-http.yml --multi --ssh-tunnel --proxy http
+migrate new config shards.yml --multi
+migrate new config shards-four.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel
+migrate new config shards-key.yml --multi --ssh-tunnel --ssh-auth private_key
+migrate new config shards-proxy.yml --multi --ssh-tunnel --proxy socks5
+migrate new config shards-http.yml --multi --ssh-tunnel --proxy http
 migrate new config --format json
 ```
+
+`--multi` defaults to `shard_0` and `shard_1`. Use `--shards N` with `--multi`
+to select a positive number of shards. Numbering starts at 0: `--shards 4` creates
+`shard_0` through `shard_3`, with matching `SHARD_0_DSN`, `SHARD_1_DSN`, etc. references.
 
 SSH host/user and proxy address default to environment placeholders. Passwords and
 key passphrases use environment-variable names, never literal password flags.

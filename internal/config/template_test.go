@@ -33,7 +33,7 @@ func TestTemplateDestination(t *testing.T) {
 
 func TestTemplateMatrixRoundTrips(t *testing.T) {
 	for key, value := range map[string]string{
-		"DATABASE_DSN": "single-example", "TENANT_A_DSN": "a-example", "TENANT_B_DSN": "b-example",
+		"DATABASE_DSN": "single-example", "SHARD_0_DSN": "a-example", "SHARD_1_DSN": "b-example",
 		"SSH_HOST": "bastion.example", "SSH_USER": "example", "SSH_KEY_FILE": "keys/example", "SSH_PROXY_ADDRESS": "proxy.example:1080",
 	} {
 		t.Setenv(key, value)
@@ -103,6 +103,8 @@ func TestTemplateEscapingAndProxyAuthentication(t *testing.T) {
 
 func TestTemplateRejectsInvalidCombinations(t *testing.T) {
 	for _, options := range []TemplateOptions{
+		{ShardCount: 3},
+		{Multi: true, ShardCount: -1},
 		{SSHHost: "bastion.example"},
 		{SSH: true, SSHAuth: "unknown"},
 		{SSH: true, SSHPort: -1},
@@ -117,6 +119,38 @@ func TestTemplateRejectsInvalidCombinations(t *testing.T) {
 	} {
 		if _, err := BuildTemplate(options); err == nil {
 			t.Fatalf("accepted %+v", options)
+		}
+	}
+}
+
+func TestTemplateShardCountsAndNames(t *testing.T) {
+	for _, tc := range []struct {
+		count int
+		want  int
+		last  string
+	}{
+		{0, 2, "shard_1"},
+		{1, 1, "shard_0"},
+		{3, 3, "shard_2"},
+		{27, 27, "shard_26"},
+		{703, 703, "shard_702"},
+	} {
+		cfg, err := BuildTemplate(TemplateOptions{Multi: true, ShardCount: tc.count})
+		if err != nil || len(cfg.DataSources) != tc.want || cfg.DataSourceName != "" {
+			t.Fatalf("shard count %d: got %d, error %v", tc.count, len(cfg.DataSources), err)
+		}
+		if cfg.DataSources["shard_0"].DataSourceName != "${SHARD_0_DSN}" || cfg.DataSources[tc.last].DataSourceName != "${"+strings.ToUpper(tc.last)+"_DSN}" {
+			t.Fatalf("wrong names or environment references for count %d", tc.count)
+		}
+		for _, format := range []string{FormatYAML, FormatJSON} {
+			data, err := RenderTemplate(cfg, format)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded FileConfig
+			if err := decodeConfig("config."+format, data, &decoded); err != nil || !reflect.DeepEqual(cfg, decoded) {
+				t.Fatalf("shard count %d failed %s round trip: %v", tc.count, format, err)
+			}
 		}
 	}
 }
