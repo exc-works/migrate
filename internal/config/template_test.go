@@ -112,10 +112,25 @@ func TestTemplateRejectsInvalidCombinations(t *testing.T) {
 		{SSH: true, ProxyType: tunnel.ProxyHTTP, ProxyUsername: "example"},
 		{SSH: true, ProxyType: tunnel.ProxyHTTP, ProxyPasswordEnv: "MIGRATE_EXAMPLE_PASSWORD"},
 		{SSH: true, ProxyAddress: "proxy.example:1080"},
+		{SSH: true, ProxyType: tunnel.ProxyHTTP, ProxyAddress: "proxy.example:not-a-port"},
 		{SSH: true, SSHAuth: tunnel.AuthPasswordMode, SSHPasswordEnv: "invalid-name"},
 	} {
 		if _, err := BuildTemplate(options); err == nil {
 			t.Fatalf("accepted %+v", options)
 		}
+	}
+}
+
+func TestTemplatePreservesCustomProxyEnvironmentReferences(t *testing.T) {
+	for _, address := range []string{"${CORP_PROXY_ADDRESS}", "proxy.example:${PROXY_PORT}", "${PROXY_HOST}:1080"} {
+		t.Run(address, func(t *testing.T) {
+			for _, key := range []string{"CORP_PROXY_ADDRESS", "PROXY_PORT", "PROXY_HOST"} {
+				unsetEnvForTest(t, key)
+			}
+			cfg, err := BuildTemplate(TemplateOptions{SSH: true, ProxyType: tunnel.ProxyHTTP, ProxyAddress: address})
+			if err != nil || cfg.SSHTunnel.Proxy.Address != address {
+				t.Fatalf("custom proxy template rejected or changed: %v", err)
+			}
+		})
 	}
 }

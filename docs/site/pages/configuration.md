@@ -32,6 +32,9 @@ key passphrases use environment-variable names, never literal password flags.
 options require their corresponding enabling flags. Run `migrate new config --help`
 for address, port, authentication, key-path and known_hosts options. Shared SSH and
 proxy settings are generated once at the top level; each database supplies its DSN.
+Custom proxy address references such as `${CORP_PROXY_ADDRESS}` and
+`proxy.example:${PROXY_PORT}` are preserved without reading their values during
+initialization; the reader validates the expanded address at migration runtime.
 
 ## YAML and JSON discovery
 

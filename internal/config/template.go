@@ -104,7 +104,9 @@ func BuildTemplate(options TemplateOptions) (FileConfig, error) {
 	}
 	// Validate structure without trying to expand placeholder addresses or paths.
 	validation := cloneTunnel(ssh)
-	if validation.Proxy != nil && validation.Proxy.Address == "${SSH_PROXY_ADDRESS}" {
+	if validation.Proxy != nil && envPattern.MatchString(validation.Proxy.Address) {
+		// Address templates cannot be fully validated until runtime expansion.
+		// Use a valid stand-in while validating the remaining proxy settings.
 		validation.Proxy.Address = "proxy.example:1080"
 	}
 	settings, err := validation.Normalize()

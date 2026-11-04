@@ -29,6 +29,8 @@ SSH 地址、用户和代理地址默认使用环境变量占位符；密码与�
 名称，没有明文密码参数。`--proxy-username` 与 `--proxy-password-env` 必须成对设置，
 SSH/代理从属参数要求启用对应开关。执行 `migrate new config --help` 查看地址、端口、
 认证方式、密钥路径和 known_hosts 参数。共享 SSH/代理只在顶层生成一份，各库填写 DSN。
+代理地址也可使用 `${CORP_PROXY_ADDRESS}`、`proxy.example:${PROXY_PORT}` 等自定义引用。
+初始化保留原始引用且不读取其值，运行迁移时再验证展开后的地址。
 
 ## YAML 与 JSON 查找
 
