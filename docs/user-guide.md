@@ -53,19 +53,25 @@ migrate new config dev.json
 migrate new config --force
 ```
 
-默认配置模板：
+默认生成带注释的 `migration_config.yml`；`--format json` 生成
+`migration_config.json`。未指定 `-c` 时按 yml、yaml、json 查找；已有 YAML
+无效时直接报错，不会切换到另一份配置。
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+# 在运行数据库命令前设置 DATABASE_DSN 环境变量。
+dialect: postgres
+data_source_name: "${DATABASE_DSN}"
+schema_name: migration_schema
+migration_source: migrations
+migrate_out_of_order: false
+logger_level: info
 ```
+
+`--multi` 默认生成 `shard_0`、`shard_1`，`--multi --shards N` 可指定正整数数量，
+各分片使用对应的 `SHARD_0_DSN` 等环境变量引用。
+
+使用 `--multi`、`--ssh-tunnel`、`--ssh-auth private_key` 和 `--proxy socks5` 或
+`--proxy http` 生成不同场景；完整参数见 `migrate new config --help`。
 
 ### 2.2 调整关键配置
 

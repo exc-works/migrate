@@ -53,19 +53,24 @@ migrate new config dev.json
 migrate new config --force
 ```
 
-Default config template:
+Default output is commented `migration_config.yml`. Use `--format json` for
+`migration_config.json`. Without `-c`, discovery checks yml, yaml, then json; an
+invalid existing YAML file is an error rather than a reason to fall back.
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+# Set DATABASE_DSN in the environment before database commands.
+dialect: postgres
+data_source_name: "${DATABASE_DSN}"
+schema_name: migration_schema
+migration_source: migrations
+migrate_out_of_order: false
+logger_level: info
 ```
+
+Initialize `shard_0` and `shard_1` with `--multi`, or use `--multi --shards N`
+for a positive shard count. Each shard references its own `SHARD_0_DSN`, etc.
+Initialize variants with `--multi`, `--ssh-tunnel`, `--ssh-auth private_key` and
+`--proxy socks5` or `--proxy http`. Run `migrate new config --help` for all options.
 
 ### 2.2 Update key config fields
 

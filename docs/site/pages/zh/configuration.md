@@ -1,6 +1,6 @@
 # 配置
 
-在迁移项目目录运行命令。migrate 默认依次查找 YAML 和 JSON 配置，当前可先生成 JSON 配置：
+在迁移项目目录运行命令。migrate 默认依次查找 YAML 和 JSON 配置，可先生成带注释的 YAML 配置：
 
 ```sh
 migrate new config
@@ -8,6 +8,34 @@ migrate new config
 
 指定其他文件名可以使用 `migrate new config dev.json`。
 已有文件只有在显式传入 `--force` 时才会被覆盖。
+
+## 初始化 YAML、多数据源、SSH 与代理配置
+
+`new config` 默认生成带字段注释的 `migration_config.yml`。使用 `--format json`
+或 `.json` 文件名可生成严格 JSON，显式格式与文件名扩展名必须一致。初始化不会
+读取环境变量值、密钥或现有配置，也不会连接网络。
+
+```sh
+migrate new config
+migrate new config shards.yml --multi
+migrate new config shards-four.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel
+migrate new config shards-key.yml --multi --ssh-tunnel --ssh-auth private_key
+migrate new config shards-proxy.yml --multi --ssh-tunnel --proxy socks5
+migrate new config shards-http.yml --multi --ssh-tunnel --proxy http
+migrate new config --format json
+```
+
+`--multi` 默认生成 `shard_0`、`shard_1`；`--shards N` 指定正整数数量，要求同时启用
+`--multi`。编号从 0 开始，例如 `--shards 4` 生成 `shard_0` 到 `shard_3`，各项引用对应的
+`SHARD_0_DSN`、`SHARD_1_DSN` 等环境变量。
+
+SSH 地址、用户和代理地址默认使用环境变量占位符；密码与密钥口令使用环境变量
+名称，没有明文密码参数。`--proxy-username` 与 `--proxy-password-env` 必须成对设置，
+SSH/代理从属参数要求启用对应开关。执行 `migrate new config --help` 查看地址、端口、
+认证方式、密钥路径和 known_hosts 参数。共享 SSH/代理只在顶层生成一份，各库填写 DSN。
+代理地址也可使用 `${CORP_PROXY_ADDRESS}`、`proxy.example:${PROXY_PORT}` 等自定义引用。
+初始化保留原始引用且不读取其值，运行迁移时再验证展开后的地址。
 
 ## YAML 与 JSON 查找
 
