@@ -7,18 +7,25 @@
 
 | 选项 | 默认值 | 含义 |
 | --- | --- | --- |
-| `--config`、`-c` | `migration_config.json` | 配置文件路径 |
+| `--config`、`-c` | 依次查找 `.yml`、`.yaml`、`.json` | 显式指定配置路径；未指定时查找这些扩展名的 `migration_config` 文件 |
 | `--working-dir`、`-w` | 当前目录 | 从该目录解析配置，并覆盖迁移工作目录 |
 | `--non-interactive` | `false` | 缺少凭据或遇到未知 SSH 主机密钥时失败，不请求交互输入或批准 |
 
 ## new config
 
 ```sh
-migrate new config [filename] [--force]
+migrate new config [filename] [--format yaml|json] [--force]
+migrate new config shards.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel --proxy socks5
 ```
 
-生成 JSON 配置，默认文件名为 `migration_config.json`。
-`--force` 允许覆盖已有文件。参见[配置](./configuration)。
+默认生成带注释的 YAML 配置 `migration_config.yml`。
+使用 `--format json` 或 `.json` 文件名生成严格 JSON；`--force` 允许覆盖已有文件。
+
+`--multi` 默认生成 `shard_0`、`shard_1` 两个数据源；`--shards N` 要求同时启用
+`--multi`，指定正整数数量，编号从 0 开始。`--ssh-tunnel` 生成共享 SSH 默认配置，
+`--proxy socks5|http` 添加上游代理。认证、地址和凭据引用参数见
+`migrate new config --help`；配置示例和参数依赖见[配置](./configuration)。
 
 ## new version
 

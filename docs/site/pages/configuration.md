@@ -117,7 +117,8 @@ database commands. For a local SQLite project, use `"dialect": "sqlite"` and
 | --- | --- | --- |
 | `schema_name` | Migration history table name | `migration_schema` |
 | `dialect` | Database dialect; see [accepted names](./databases#aliases) | `postgres` |
-| `data_source_name` | Driver connection string | Required |
+| `data_source_name` | Driver connection string for a single database | Required in single-source mode |
+| `data_sources` | Named connections sharing the migration settings | Omitted; mutually exclusive with top-level `data_source_name` |
 | `working_directory` | Base for a relative migration directory | Current directory |
 | `migration_source` | Directory containing version files | `migrations` |
 | `migrate_out_of_order` | Allow pending versions below the applied version | `false` |

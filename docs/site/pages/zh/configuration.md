@@ -106,7 +106,8 @@ migrate down --all --parallel 8
 | --- | --- | --- |
 | `schema_name` | 迁移历史表名称 | `migration_schema` |
 | `dialect` | 数据库方言，见[可接受名称](./databases#aliases) | `postgres` |
-| `data_source_name` | 驱动连接字符串 | 必填 |
+| `data_source_name` | 单数据库的驱动连接字符串 | 单源模式必填 |
+| `data_sources` | 共享迁移设置的命名数据库连接 | 默认省略；与顶层 `data_source_name` 互斥 |
 | `working_directory` | 相对迁移目录的解析基准 | 当前目录 |
 | `migration_source` | 存放版本文件的目录 | `migrations` |
 | `migrate_out_of_order` | 是否执行低于已应用版本的待执行版本 | `false` |
