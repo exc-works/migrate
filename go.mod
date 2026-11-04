@@ -12,6 +12,7 @@ require (
 	github.com/dop251/goja v0.0.0-20261008222547-e9f698900731
 	github.com/evanw/esbuild v0.25.12
 	github.com/go-sql-driver/mysql v1.9.1
+	github.com/gofrs/flock v0.13.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/microsoft/go-mssqldb v1.9.6
 	github.com/sijms/go-ora/v3 v3.0.2-0.20260816063838-09c375d44d37

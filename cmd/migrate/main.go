@@ -77,12 +77,16 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		var s *migrate.Service
 		if c.SSHTunnel != nil {
 			var prompt tunnel.Prompt
+			var hostKeyPrompt tunnel.HostKeyPrompt
 			if !*noninteractive {
 				prompt = func(ctx context.Context, label string) ([]byte, error) {
 					return terminalSecret(ctx, cmd.ErrOrStderr(), label)
 				}
+				hostKeyPrompt = func(ctx context.Context, info tunnel.HostKeyInfo) (bool, error) {
+					return terminalHostKey(ctx, cmd.ErrOrStderr(), info)
+				}
 			}
-			s, cleanup, err = newSSHService(cmd.Context(), c, prompt)
+			s, cleanup, err = newSSHService(cmd.Context(), c, prompt, hostKeyPrompt)
 		} else {
 			s, err = newServiceFromConfigContext(cmd.Context(), c)
 			if err == nil {
@@ -317,7 +321,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	return root
 }
 
-func newSSHService(ctx context.Context, c *config.FileConfig, prompt tunnel.Prompt) (*migrate.Service, func() error, error) {
+func newSSHService(ctx context.Context, c *config.FileConfig, prompt tunnel.Prompt, hostKeyPrompt tunnel.HostKeyPrompt) (*migrate.Service, func() error, error) {
 	options, err := c.ScriptOptions()
 	if err != nil {
 		return nil, nil, err
@@ -331,6 +335,7 @@ func newSSHService(ctx context.Context, c *config.FileConfig, prompt tunnel.Prom
 		DataSourceName: c.DataSourceName,
 		SSHTunnel:      c.SSHTunnel,
 		Prompt:         prompt,
+		HostKeyPrompt:  hostKeyPrompt,
 	})
 	if err != nil {
 		return nil, nil, err

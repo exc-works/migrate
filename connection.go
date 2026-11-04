@@ -21,6 +21,13 @@ type SSHProxyOptions = tunnel.ProxyOptions
 // SecretPrompt is opt-in. A nil prompt never reads a terminal.
 type SecretPrompt = tunnel.Prompt
 
+// SSHHostKeyInfo identifies an unknown server key for explicit trust approval.
+type SSHHostKeyInfo = tunnel.HostKeyInfo
+
+// SSHHostKeyPrompt opts into trusting and persisting an unknown server key.
+// A nil callback preserves strict known_hosts verification.
+type SSHHostKeyPrompt = tunnel.HostKeyPrompt
+
 // OpenConnection constructs a pool without pinging. Use Connection.Context when
 // constructing the migration service so SSH transport failure cancels execution.
 // The SQLite driver must be registered by the caller.

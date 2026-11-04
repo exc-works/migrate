@@ -22,13 +22,19 @@ endpoints, NTLM/Kerberos, MFA, proxy chains and SSH jumps are unsupported. Proxy
 failure never falls back to direct TCP; system proxy variables are not discovered.
 
 SSH paths accept `~`/`~/...`; relative paths resolve from the migration config file.
-The default known-hosts file is `~/.ssh/known_hosts`. Provision trusted entries before
-running: unknown/changed host keys fail, and migrate never edits the file. Other
-nonsecret string settings accept existing environment templates; port is a number.
+The default known-hosts file is `~/.ssh/known_hosts`. Interactive CLI mode asks before
+trusting an unknown host: it displays the SSH address, key algorithm and SHA256
+fingerprint. Verify the fingerprint, then explicitly choose “Trust and save”. The
+default selection rejects it. Only approval permits appending the record and
+creating a missing file/directory with 0600/0700 permissions; existing entries remain.
+Changed/revoked keys and invalid files fail without a trust prompt. Noninteractive
+mode never approves or writes unknown keys; provision trusted records for CI.
+Other nonsecret settings accept existing environment templates; port is a number.
 
 Positive durations: `connect_timeout` defaults to `10s`, `keepalive_interval` to
 `15s`, and `keepalive_timeout` to `5s`. Driver dial deadlines cover remote channel
-setup. Channel-open timeout invalidates the whole SSH route to release the pending
+setup. Waiting for host-key approval pauses the network handshake timeout, while
+the caller context can still cancel it. Channel-open timeout invalidates the whole SSH route to release the pending
 request. Existing query/context deadlines apply to normal TCP connections exposed
 to drivers. Transport loss cancels execution without reconnecting or replaying SQL.
 DDL or COMMIT might already have completed; inspect database/history before recovery.
@@ -51,6 +57,9 @@ Native PTY behavior is tested on Unix; Windows console input is cross-build chec
 
 For Go callers, `migrate.OpenConnection` returns an owned pool and optional tunnel.
 Ping `Connection.DB` with `Connection.Context()`, pass that DB/context to NewService,
-and close Connection after migration execution. `ConnectionOptions.Prompt` is opt-in.
+and close Connection after migration execution. `ConnectionOptions.Prompt` handles
+secret input. The separate `HostKeyPrompt` receives `SSHHostKeyInfo` and must return
+true only after fingerprint verification to approve saving a new host key. Both
+callbacks must honor cancellation. Nil callbacks never prompt or trust unknown keys.
 Network database drivers are registered by the helper; SQLite requires caller
 registration as with sql.Open. The existing caller-supplied DB API is unchanged.

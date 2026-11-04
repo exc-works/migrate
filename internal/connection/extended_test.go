@@ -156,7 +156,7 @@ func TestClickHouseNativeTLSOverSSH(t *testing.T) {
 	p, _ := strconv.Atoi(port)
 	t.Setenv("MIGRATE_TLS_EXAMPLE_SECRET", "example")
 	o := tunnel.Options{Host: host, Port: p, User: "example", Auth: tunnel.AuthOptions{Type: tunnel.AuthPasswordMode, PasswordEnv: "MIGRATE_TLS_EXAMPLE_SECRET"}, KnownHostsFile: s.KnownHosts}
-	r, err := tunnel.Start(context.Background(), o, target, nil)
+	r, err := tunnel.Start(context.Background(), o, target, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

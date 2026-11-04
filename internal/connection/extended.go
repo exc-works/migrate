@@ -73,7 +73,7 @@ func openMSSQL(ctx context.Context, o Options) (*Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt)
+	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt, o.HostKeyPrompt)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func openOracle(ctx context.Context, o Options) (*Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt)
+	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt, o.HostKeyPrompt)
 	if err != nil {
 		return nil, err
 	}
