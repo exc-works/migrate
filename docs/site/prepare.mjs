@@ -5,6 +5,7 @@ import { repositoryRoot, sourceRoutes } from './content.mjs'
 const output = new URL('.generated/', import.meta.url)
 await rm(output, { recursive: true, force: true })
 await cp(new URL('pages/', import.meta.url), output, { recursive: true })
+await cp(new URL('public/', import.meta.url), new URL('public/', output), { recursive: true })
 for (const [source, route] of sourceRoutes) {
   const target = new URL(route, output)
   await mkdir(new URL('./', target), { recursive: true })

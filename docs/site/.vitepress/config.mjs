@@ -27,6 +27,9 @@ export default defineConfig({
   title: 'migrate',
   description: 'SQL, JavaScript and TypeScript database migrations.',
   base: siteURL.pathname,
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${siteURL.pathname}favicon.svg` }]
+  ],
   srcDir: '.generated',
   cleanUrls: true,
   lastUpdated: false,
