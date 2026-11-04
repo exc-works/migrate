@@ -45,8 +45,42 @@ SSH/代理从属参数要求启用对应开关。执行 `migrate new config --he
 YAML 使用原生 `#` 注释，JSON 保持严格语法。两种格式共享字段名、默认值、环境变量
 和相对路径规则，嵌套 SSH/proxy 的字段名也一致。
 
-读取器同时识别 `data_sources` 及共享 SSH 默认配置。批量命令在后续编排层接入；
-当前中间层会在连接数据库之前明确拒绝多源数据库命令。
+
+## 将同一套迁移执行到全部数据库
+
+使用命名的 `data_sources` 替代顶层 `data_source_name`，共享迁移设置及可选的
+顶层 SSH/代理配置。数据源未提供 SSH 或为 null 时继承顶层配置；局部 SSH 对象
+整体替换顶层设置。每个活跃目标独立拥有连接和 transport。
+
+```yaml
+dialect: postgres
+migration_source: migrations
+schema_name: migration_schema
+data_sources:
+  shard_0:
+    data_source_name: "${SHARD_0_DSN}"
+  shard_1:
+    data_source_name: "${SHARD_1_DSN}"
+```
+
+```sh
+migrate create --parallel 8
+migrate up --parallel 8
+migrate status --parallel 8 --output json
+migrate down --all --parallel 8
+```
+
+自动遍历全部数据源；`--parallel` 默认 8，设为 1 即串行。每库根据自己的历史
+选择待执行版本，并按顺序迁移。单库失败不影响其余库，全部完成后统一汇总；
+任一失败或取消则返回非零退出码。父 context 取消时停止派发并取消活跃任务。
+
+多源 status JSON 是按数据源名称排序的数组，每项包含 `data_source`、`status`、
+可选的安全 `error`，成功项附 `migrations` 数组。旧单源 JSON 结构保持不变。
+日志带数据源标签并写 stderr，dry-run 计划按数据源分组写 stdout。
+
+运行期间保持迁移目录及脚本依赖不变，同一实际数据库只配置一次，重叠命令仍需
+像以前一样串行运行。重跑会跳过已有成功历史的版本；非事务失败或提交结果不明时，
+先检查数据与历史再重试。`new version` 只生成一份共享文件，不需要数据库凭据或连接。
 
 ## 连接数据库
 

@@ -19,9 +19,6 @@ import (
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/exc-works/migrate/internal/config"
-	"github.com/exc-works/migrate/internal/connection"
-	"github.com/exc-works/migrate/internal/dialect"
-	"github.com/exc-works/migrate/internal/logger"
 	"github.com/exc-works/migrate/internal/migrate"
 	"github.com/exc-works/migrate/internal/parser"
 	"github.com/exc-works/migrate/internal/source"
@@ -70,33 +67,33 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 
 	var svc *migrate.Service
 	var cleanup func() error
+	var multiConfig *config.FileConfig
 	preRun := func(cmd *cobra.Command, args []string) error {
+		multiConfig = nil
+		parallel, err := cmd.Flags().GetInt("parallel")
+		if err != nil || parallel <= 0 {
+			return errors.New("parallel must be a positive integer")
+		}
 		c, err := config.Read(*cfgPath, *workingDir)
 		if err != nil {
 			return err
 		}
 		if c.DataSources != nil {
-			return errors.New("multi-database execution is not available yet")
+			multiConfig = c
+			return nil
 		}
-		var s *migrate.Service
-		if c.SSHTunnel != nil {
-			var prompt tunnel.Prompt
-			var hostKeyPrompt tunnel.HostKeyPrompt
-			if !*noninteractive {
-				prompt = func(ctx context.Context, label string) ([]byte, error) {
-					return terminalSecret(ctx, cmd.ErrOrStderr(), label)
-				}
-				hostKeyPrompt = func(ctx context.Context, info tunnel.HostKeyInfo) (bool, error) {
-					return terminalHostKey(ctx, cmd.ErrOrStderr(), info)
-				}
+		var prompt tunnel.Prompt
+		var hostKeyPrompt tunnel.HostKeyPrompt
+		if !*noninteractive {
+			prompt = func(ctx context.Context, label string) ([]byte, error) {
+				return terminalSecret(ctx, cmd.ErrOrStderr(), label)
 			}
-			s, cleanup, err = newSSHService(cmd.Context(), c, prompt, hostKeyPrompt)
-		} else {
-			s, err = newServiceFromConfigContext(cmd.Context(), c)
-			if err == nil {
-				cleanup = s.Config().DB.Close
+			hostKeyPrompt = func(ctx context.Context, info tunnel.HostKeyInfo) (bool, error) {
+				return terminalHostKey(ctx, cmd.ErrOrStderr(), info)
 			}
 		}
+		s, closeService, err := newCommandService(cmd.Context(), c, prompt, hostKeyPrompt, cmd.ErrOrStderr(), cmd.OutOrStdout())
+		cleanup = closeService
 		if err != nil {
 			return err
 		}
@@ -280,8 +277,12 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		if cmd.PreRunE == nil || cmd.RunE == nil {
 			continue
 		}
+		parallel := cmd.Flags().Int("parallel", defaultParallel, "maximum databases processed concurrently")
 		run := cmd.RunE
 		cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
+			if multiConfig != nil {
+				return runMultiCommand(cmd, args, multiConfig, *parallel, *noninteractive)
+			}
 			defer func() {
 				if cleanup != nil {
 					err = errors.Join(err, cleanup())
@@ -294,96 +295,6 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	return root
 }
 
-func newSSHService(ctx context.Context, c *config.FileConfig, prompt tunnel.Prompt, hostKeyPrompt tunnel.HostKeyPrompt) (*migrate.Service, func() error, error) {
-	options, err := c.ScriptOptions()
-	if err != nil {
-		return nil, nil, err
-	}
-	d, err := dialect.FromName(c.Dialect)
-	if err != nil {
-		return nil, nil, err
-	}
-	conn, err := connection.Open(ctx, connection.Options{
-		Dialect:        c.Dialect,
-		DataSourceName: c.DataSourceName,
-		SSHTunnel:      c.SSHTunnel,
-		Prompt:         prompt,
-		HostKeyPrompt:  hostKeyPrompt,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	pingCtx, cancel := context.WithTimeout(conn.Context(), pingTimeout)
-	defer cancel()
-	if err := conn.DB.PingContext(pingCtx); err != nil {
-		_ = conn.Close()
-		return nil, nil, errors.New("database connection through SSH failed")
-	}
-	svc, err := newMigrateService(conn.Context(), migrate.Config{
-		Dialect:           d,
-		DB:                conn.DB,
-		Logger:            logger.NewStd(c.LoggerLevel, os.Stdout),
-		SchemaName:        c.SchemaName,
-		MigrateOutOfOrder: c.MigrateOutOfOrder,
-		MigrationSource: source.DirectorySource{
-			Directory: filepath.Join(c.WorkingDirectory, c.MigrationSource),
-		},
-		DryRunOutput:  os.Stdout,
-		ScriptOptions: options,
-	})
-	if err != nil {
-		_ = conn.Close()
-		return nil, nil, err
-	}
-	return svc, conn.Close, nil
-}
-
-func newServiceFromConfig(c *config.FileConfig) (*migrate.Service, error) {
-	return newServiceFromConfigContext(context.Background(), c)
-}
-
-func newServiceFromConfigContext(ctx context.Context, c *config.FileConfig) (*migrate.Service, error) {
-	options, err := c.ScriptOptions()
-	if err != nil {
-		return nil, err
-	}
-	d, err := dialect.FromName(c.Dialect)
-	if err != nil {
-		return nil, err
-	}
-	dsn, err := config.DriverDSN(d.DriverName(), c.DataSourceName)
-	if err != nil {
-		return nil, err
-	}
-	db, err := openDB(d.DriverName(), dsn)
-	if err != nil {
-		return nil, err
-	}
-	pingCtx, cancel := context.WithTimeout(ctx, pingTimeout)
-	defer cancel()
-	if err := pingDB(pingCtx, db); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	svc, err := newMigrateService(ctx, migrate.Config{
-		Dialect:           d,
-		DB:                db,
-		Logger:            logger.NewStd(c.LoggerLevel, os.Stdout),
-		SchemaName:        c.SchemaName,
-		MigrateOutOfOrder: c.MigrateOutOfOrder,
-		MigrationSource: source.DirectorySource{
-			Directory: filepath.Join(c.WorkingDirectory, c.MigrationSource),
-		},
-		DryRunOutput:  os.Stdout,
-		ScriptOptions: options,
-	})
-	if err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	return svc, nil
-}
-
 func withDryRun(svc *migrate.Service, ctx context.Context, out io.Writer) (*migrate.Service, error) {
 	cfg := svc.Config()
 	cfg.DryRun = true
@@ -392,7 +303,7 @@ func withDryRun(svc *migrate.Service, ctx context.Context, out io.Writer) (*migr
 }
 
 func readConfigOrDefault(path, workingDir string) (*config.FileConfig, error) {
-	cfg, err := config.Read(path, workingDir)
+	cfg, err := config.ReadProject(path, workingDir)
 	if err == nil {
 		return cfg, nil
 	}
@@ -428,8 +339,7 @@ func resolveBuildVersion(injected string, info *debug.BuildInfo) string {
 func printStatus(out io.Writer, items []migrate.MigrationStatus, output string) error {
 	switch strings.ToLower(strings.TrimSpace(output)) {
 	case "", "table":
-		printStatusTable(out, items)
-		return nil
+		return printStatusTable(out, items)
 	case "json":
 		return printStatusJSON(out, items)
 	default:
@@ -444,7 +354,7 @@ type statusOutputItem struct {
 	Status   migrate.Status `json:"status"`
 }
 
-func printStatusJSON(out io.Writer, items []migrate.MigrationStatus) error {
+func statusOutputItems(items []migrate.MigrationStatus) []statusOutputItem {
 	outputItems := make([]statusOutputItem, 0, len(items))
 	for _, item := range items {
 		outputItems = append(outputItems, statusOutputItem{
@@ -454,17 +364,24 @@ func printStatusJSON(out io.Writer, items []migrate.MigrationStatus) error {
 			Status:   item.Status,
 		})
 	}
-	encoder := json.NewEncoder(out)
-	return encoder.Encode(outputItems)
+	return outputItems
 }
 
-func printStatusTable(out io.Writer, items []migrate.MigrationStatus) {
+func printStatusJSON(out io.Writer, items []migrate.MigrationStatus) error {
+	return json.NewEncoder(out).Encode(statusOutputItems(items))
+}
+
+func printStatusTable(out io.Writer, items []migrate.MigrationStatus) error {
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "Version\tFilename\tHash\tStatus")
-	for _, item := range items {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", item.Migration.Version, item.Migration.Filename, item.Migration.Hash, item.Status)
+	if _, err := fmt.Fprintln(w, "Version\tFilename\tHash\tStatus"); err != nil {
+		return err
 	}
-	_ = w.Flush()
+	for _, item := range items {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", item.Migration.Version, item.Migration.Filename, item.Migration.Hash, item.Status); err != nil {
+			return err
+		}
+	}
+	return w.Flush()
 }
 
 func sanitizeDescription(raw string) (string, error) {

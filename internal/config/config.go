@@ -29,19 +29,8 @@ type FileConfig struct {
 }
 
 func Read(path, workingDir string) (*FileConfig, error) {
-	content, resolvedPath, err := readConfigFile(path, workingDir)
+	cfg, resolvedPath, err := readProject(path, workingDir)
 	if err != nil {
-		return nil, err
-	}
-	var cfg FileConfig
-	if err := decodeConfig(resolvedPath, content, &cfg); err != nil {
-		return nil, err
-	}
-	if workingDir != "" {
-		cfg.WorkingDirectory = workingDir
-	}
-	applyDefaults(&cfg)
-	if _, err := cfg.ScriptOptions(); err != nil {
 		return nil, err
 	}
 	if cfg.DataSources != nil {
@@ -64,10 +53,36 @@ func Read(path, workingDir string) (*FileConfig, error) {
 				SSHTunnel:      effective.SSHTunnel,
 			}
 		}
-	} else if err := resolveConnection(&cfg, filepath.Dir(resolvedPath)); err != nil {
+	} else if err := resolveConnection(cfg, filepath.Dir(resolvedPath)); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return cfg, nil
+}
+
+// ReadProject reads migration-generation settings without resolving connection
+// credentials. Database commands use Read for full connection validation.
+func ReadProject(path, workingDir string) (*FileConfig, error) {
+	cfg, _, err := readProject(path, workingDir)
+	return cfg, err
+}
+
+func readProject(path, workingDir string) (*FileConfig, string, error) {
+	content, resolvedPath, err := readConfigFile(path, workingDir)
+	if err != nil {
+		return nil, "", err
+	}
+	var cfg FileConfig
+	if err := decodeConfig(resolvedPath, content, &cfg); err != nil {
+		return nil, "", err
+	}
+	if workingDir != "" {
+		cfg.WorkingDirectory = workingDir
+	}
+	applyDefaults(&cfg)
+	if _, err := cfg.ScriptOptions(); err != nil {
+		return nil, "", err
+	}
+	return &cfg, resolvedPath, nil
 }
 
 func resolveTunnelConfig(o *tunnel.Options, base string) error {

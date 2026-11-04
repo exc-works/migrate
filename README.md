@@ -35,12 +35,26 @@ The script engine is embedded; execution never downloads an interpreter.
 
 ```bash
 migrate new config
+# Set DATABASE_DSN or edit migration_config.yml before database commands.
 migrate new version init_users
 migrate create
 migrate up
 migrate status
 migrate status --output json
 ```
+
+Generate commented YAML (or strict JSON with `--format json`), with optional
+multi-source, SSH and proxy settings:
+
+```bash
+migrate new config shards.yml --multi --shards 4 --ssh-tunnel --proxy socks5
+migrate --config shards.yml up --parallel 8
+```
+
+The multi-source configuration shares one migration directory and keeps separate
+history in each database. All sources run with bounded concurrency; failures are
+reported per source and do not stop the remaining sources. See the
+[configuration guide](docs/site/pages/configuration.md) for inheritance and output.
 
 ## Test
 

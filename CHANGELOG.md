@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Concurrent traversal of named database sources using the existing migration
+  service, with configurable parallelism, independent results, cleanup and cancellation.
+- Commented YAML configuration, YAML-first discovery with legacy JSON fallback,
+  shared SSH/proxy defaults and single-source JSON compatibility.
+- Initialization flags for zero-based shards with configurable counts, SSH authentication, SOCKS5/HTTP proxies
+  and explicit YAML/JSON output, without resolving or storing secret values.
+
+
 ### Fixed
 - Report the installed Go module version in `version` and `capabilities` when the
   CLI is installed with `go install ...@version`; retain explicit release build

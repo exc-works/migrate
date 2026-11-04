@@ -1,6 +1,6 @@
 # 多数据库编排 PR Stack
 
-状态：计划阶段，尚未创建实现分支或远程 PR。技术方案以
+状态：PR0 到 PR4 已创建，功能实现与本地验证完成；当前 CI 和审核以对应 PR 为准。技术方案以
 [10-multi-database-migrations.md](10-multi-database-migrations.md) 为准。
 
 ## 依赖顺序
@@ -16,6 +16,20 @@
 
 第一版增加“多源配置与初始化 + 有界并发遍历 + 现有命令接入”。不把迁移核心重构、
 迁移锁、全局预检、共享编译或公共批量 API 放入此 stack。
+
+## 已创建的堆叠 PR
+
+| 层 | PR | 目标分支 |
+| --- | --- | --- |
+| PR0 | [#47](https://github.com/exc-works/migrate/pull/47) | main |
+| PR1 | [#48](https://github.com/exc-works/migrate/pull/48) | docs/multi-database-orchestration |
+| PR2 | [#49](https://github.com/exc-works/migrate/pull/49) | feat/multi-database-config |
+| PR3 | [#50](https://github.com/exc-works/migrate/pull/50) | feat/config-initialization |
+| PR4 | [#51](https://github.com/exc-works/migrate/pull/51) | feat/batch-iteration |
+
+每层的触发审核评论记录实际 head/base、验证结果和发现的处理依据。PR2 的自定义
+代理环境引用问题、PR3 的未启动任务超时原因问题均在所属层修复并补回归测试。
+PR2 同时修正了默认 YAML 与旧 JSON 快速入门脚本的冲突。
 
 ## PR0 收敛技术方案
 
@@ -52,7 +66,7 @@ CLI 在批量执行接入前遇到多源数据库命令明确报未支持，不�
 
 位置：internal/config 模板渲染、cmd/migrate 的 new config 和对应测试。
 
-- 增加 --multi、--ssh-tunnel、--ssh-auth、SSH 地址/认证引用相关参数，以及
+- 增加 --multi、--shards N、--ssh-tunnel、--ssh-auth、SSH 地址/认证引用相关参数，以及
   --proxy socks5|http、代理地址/认证引用参数，具体参数契约见 spec 10。
 - 默认生成带原生注释的 migration_config.yml；--format json 生成严格 JSON。
   显式文件名推断格式，冲突报错；保留可选文件名和 --force 行为。
@@ -108,5 +122,4 @@ go build ./cmd/migrate
 ```
 
 PR3/PR4 另外对编排器和 CLI 并发路径运行 go test -race。每层记录实际测试与
-跳过项，不将集成测试跳过视为真实数据库验证。实际开始实施后再创建分支和 PR，
-补充对应链接、head/base、CI 和审查结果。
+跳过项，不将集成测试跳过视为真实数据库验证。父层修改后更新后代，重新验证相关检查，并在 PR 中记录当前 head/base 的审核结果。
