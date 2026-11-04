@@ -1,7 +1,6 @@
 # Configuration
 
-Run commands from your migration project directory. By default, migrate searches YAML first and falls back to JSON. The current
-initializer produces JSON; generate a starting file with:
+Run commands from your migration project directory. By default, migrate searches YAML first and falls back to JSON. Generate a starting file with:
 
 ```sh
 migrate new config
@@ -9,6 +8,30 @@ migrate new config
 
 Use `migrate new config dev.json` for a different filename. Existing files are
 preserved unless you explicitly pass `--force`.
+
+## Initialize YAML, multiple databases, SSH and proxy settings
+
+`new config` now writes `migration_config.yml` with field comments. Use
+`--format json` or a `.json` filename for strict JSON. Explicit format and filename
+extension must agree. Initialization does not read environment values, keys or an
+existing configuration, and never opens a network connection.
+
+```sh
+migrate new config
+migrate new config tenants.yml --multi
+migrate new config tenants-ssh.yml --multi --ssh-tunnel
+migrate new config tenants-key.yml --multi --ssh-tunnel --ssh-auth private_key
+migrate new config tenants-proxy.yml --multi --ssh-tunnel --proxy socks5
+migrate new config tenants-http.yml --multi --ssh-tunnel --proxy http
+migrate new config --format json
+```
+
+SSH host/user and proxy address default to environment placeholders. Passwords and
+key passphrases use environment-variable names, never literal password flags.
+`--proxy-username` and `--proxy-password-env` must be provided together. SSH/proxy
+options require their corresponding enabling flags. Run `migrate new config --help`
+for address, port, authentication, key-path and known_hosts options. Shared SSH and
+proxy settings are generated once at the top level; each database supplies its DSN.
 
 ## YAML and JSON discovery
 

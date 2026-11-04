@@ -273,38 +273,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	newVersionCmd.Flags().StringVar(&newFormat, "format", source.FormatSQL, "migration format: sql|js|ts|mjs")
 	newCmd.AddCommand(newVersionCmd)
 
-	newConfigCmd := &cobra.Command{
-		Use:   "config [filename]",
-		Short: "Create a migration config file",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			name := "migration_config.json"
-			if len(args) == 1 {
-				name = args[0]
-			}
-			template := config.DefaultTemplate()
-			content, err := json.MarshalIndent(template, "", "  ")
-			if err != nil {
-				return err
-			}
-			flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
-			if force, _ := cmd.Flags().GetBool("force"); force {
-				flags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-			}
-			f, err := os.OpenFile(name, flags, 0o644)
-			if err != nil {
-				if os.IsExist(err) {
-					return fmt.Errorf("config file already exists: %s (use --force to overwrite)", name)
-				}
-				return err
-			}
-			defer f.Close()
-			_, err = f.Write(content)
-			return err
-		},
-	}
-	newConfigCmd.Flags().Bool("force", false, "overwrite existing config file")
-	newCmd.AddCommand(newConfigCmd)
+	newCmd.AddCommand(newConfigCommand())
 
 	// Run-scoped cleanup also runs when RunE fails; Cobra post hooks do not.
 	for _, cmd := range root.Commands() {

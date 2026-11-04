@@ -18,7 +18,7 @@ type FileConfig struct {
 	SSHTunnel         *tunnel.Options             `json:"ssh_tunnel,omitempty" yaml:"ssh_tunnel,omitempty"`
 	SchemaName        string                      `json:"schema_name" yaml:"schema_name"`
 	Dialect           string                      `json:"dialect" yaml:"dialect"`
-	DataSourceName    string                      `json:"data_source_name" yaml:"data_source_name"`
+	DataSourceName    string                      `json:"data_source_name,omitempty" yaml:"data_source_name,omitempty"`
 	WorkingDirectory  string                      `json:"working_directory" yaml:"working_directory"`
 	MigrateOutOfOrder bool                        `json:"migrate_out_of_order" yaml:"migrate_out_of_order"`
 	LoggerLevel       string                      `json:"logger_level" yaml:"logger_level"`
