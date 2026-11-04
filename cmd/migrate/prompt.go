@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -11,17 +12,45 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/exc-works/migrate/internal/tunnel"
 )
 
 const maxSecretBytes = 64 * 1024
 
 // terminalSecret delegates editing, hidden input and terminal restoration to Huh.
 func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
+	var value string
+	input := huh.NewInput().Title(label).Inline(true).Prompt(": ").
+		EchoMode(huh.EchoModeNone).Value(&value)
+	if err := runTerminalForm(ctx, out, input); err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, errors.New("secret input canceled or unavailable; set the secret environment variable or use non-interactive mode")
 	}
-	// A broken stderr pipe must return EPIPE so Bubble Tea can restore the
-	// terminal before returning. Windows does not generate SIGPIPE.
+	if len(value) > maxSecretBytes {
+		return nil, errors.New("secret input is too long")
+	}
+	return []byte(value), nil
+}
+
+func terminalHostKey(ctx context.Context, out io.Writer, info tunnel.HostKeyInfo) (bool, error) {
+	approved := false
+	confirmation := huh.NewConfirm().Title("Trust this SSH server?").
+		Description(fmt.Sprintf("Address: %s\nKey type: %s\nFingerprint: %s\nVerify this fingerprint before trusting the server.", info.Address, info.Algorithm, info.Fingerprint)).
+		Affirmative("Trust and save").Negative("Cancel").Value(&approved)
+	if err := runTerminalForm(ctx, out, confirmation); err != nil {
+		return false, err
+	}
+	return approved, nil
+}
+
+// runTerminalForm keeps Huh's default theme and delegates all terminal handling.
+func runTerminalForm(ctx context.Context, out io.Writer, field huh.Field) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// A broken stderr pipe must return EPIPE so Bubble Tea can restore the terminal.
 	if runtime.GOOS != "windows" {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGPIPE)
@@ -33,21 +62,15 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, e
 		Writer: out,
 		cancel: cancel,
 	}
-	var value string
 	keys := huh.NewDefaultKeyMap()
 	keys.Quit.SetKeys("ctrl+c", "ctrl+d")
 	keys.Input.Submit.SetKeys("enter", "ctrl+j")
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewInput().Title(label).Inline(true).Prompt(": ").
-			EchoMode(huh.EchoModeNone).Value(&value),
-	)).
-		WithShowHelp(false).
-		WithKeyMap(keys)
+	keys.Confirm.Submit.SetKeys("enter", "ctrl+j")
+	form := huh.NewForm(huh.NewGroup(field)).WithShowHelp(false).WithKeyMap(keys)
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Quit
 	program := tea.NewProgram(form, tea.WithInputTTY(), tea.WithOutput(output), tea.WithoutSignalHandler())
-	// Run Huh as a Bubble Tea model so cancellation uses graceful Quit. Its
-	// RunWithContext kills the program and can close the reader before it exits.
+	// Use graceful Quit so the input reader exits before terminal cleanup.
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
@@ -59,18 +82,15 @@ func terminalSecret(ctx context.Context, out io.Writer, label string) ([]byte, e
 	}()
 	_, err := program.Run()
 	if ctx.Err() != nil {
-		return nil, ctx.Err()
+		return ctx.Err()
 	}
 	if err != nil || promptCtx.Err() != nil {
-		return nil, errors.New("secret input failed; set the secret environment variable or use non-interactive mode")
+		return errors.New("terminal input failed")
 	}
 	if form.State != huh.StateCompleted {
-		return nil, errors.New("secret input canceled")
+		return errors.New("terminal input canceled")
 	}
-	if len(value) > maxSecretBytes {
-		return nil, errors.New("secret input is too long")
-	}
-	return []byte(value), nil
+	return nil
 }
 
 // Bubble Tea ignores renderer write errors; cancel the form if stderr closes.

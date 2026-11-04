@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // Relay owns one SSH transport and a loopback TCP forward to a fixed DB target.
@@ -34,7 +35,7 @@ type Relay struct {
 // Startup failures close resources acquired so far. On success, the returned
 // Relay owns the transport, optional agent connection and listener; callers must
 // Close it. Context cancellation or transport failure shuts it down permanently.
-func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay, error) {
+func Start(ctx context.Context, o Options, target string, prompt Prompt, confirm HostKeyPrompt) (*Relay, error) {
 	// Validate the target and load trusted host keys before prompting or dialing.
 	s, err := o.Normalize()
 	if err != nil {
@@ -48,7 +49,11 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 	if err != nil {
 		return nil, err
 	}
-	verify, err := knownhosts.New(path)
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return nil, errors.New("cannot resolve SSH known_hosts path")
+	}
+	check, err := loadHostKeys(path, confirm != nil)
 	if err != nil {
 		return nil, errors.New("cannot load SSH known_hosts file")
 	}
@@ -71,7 +76,10 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 	if err != nil {
 		return nil, err
 	}
-	handshakeCtx, cancel := context.WithTimeout(ctx, s.Connect)
+	handshakeCtx, cancel := context.WithCancel(ctx)
+	var timedOut atomic.Bool
+	timer := time.AfterFunc(s.Connect, func() { timedOut.Store(true); cancel() })
+	defer timer.Stop()
 	defer cancel()
 	stop := context.AfterFunc(handshakeCtx, func() {
 		_ = raw.Close()
@@ -80,11 +88,19 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 		}
 	})
 	defer stop()
-	deadline, _ := handshakeCtx.Deadline()
-	if err := raw.SetDeadline(deadline); err != nil {
-		_ = raw.Close()
-		return nil, errors.New("cannot set SSH handshake deadline")
+	var ask HostKeyPrompt
+	if confirm != nil {
+		ask = func(promptCtx context.Context, info HostKeyInfo) (bool, error) {
+			// Human confirmation is bounded by the caller's context, not network time.
+			if !timer.Stop() || handshakeCtx.Err() != nil {
+				return false, context.DeadlineExceeded
+			}
+			approved, err := confirm(promptCtx, info)
+			timer.Reset(s.Connect)
+			return approved, err
+		}
 	}
+	verify := hostKeyCallback(handshakeCtx, path, check, ask)
 	config := &ssh.ClientConfig{
 		User:            s.User,
 		Auth:            []ssh.AuthMethod{auth},
@@ -93,17 +109,23 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt) (*Relay
 	conn, channels, requests, err := ssh.NewClientConn(raw, net.JoinHostPort(s.Host, fmt.Sprint(s.Port)), config)
 	if err != nil {
 		_ = raw.Close()
+		if timedOut.Load() {
+			return nil, fmt.Errorf("SSH handshake timed out: %w", context.DeadlineExceeded)
+		}
+		if handshakeCtx.Err() != nil {
+			return nil, networkError(handshakeCtx, "SSH handshake canceled")
+		}
+		var keyError hostKeyError
+		if errors.As(err, &keyError) {
+			return nil, keyError
+		}
 		return nil, networkError(handshakeCtx, "SSH handshake, host verification or authentication failed")
 	}
-	// Disarm startup cancellation and clear its deadline before handing the live
+	// Disarm startup cancellation before handing the live
 	// connection to the SSH client and the Relay's lifetime monitors.
-	if !stop() || handshakeCtx.Err() != nil {
+	if !timer.Stop() || !stop() || handshakeCtx.Err() != nil {
 		_ = conn.Close()
 		return nil, networkError(handshakeCtx, "SSH handshake canceled")
-	}
-	if err := raw.SetDeadline(time.Time{}); err != nil {
-		_ = conn.Close()
-		return nil, errors.New("cannot clear SSH handshake deadline")
 	}
 	client := ssh.NewClient(conn, channels, requests)
 	// Allocate the local endpoint only after authentication succeeds. A listener

@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with optional SOCKS5 or HTTP
   CONNECT proxies, strict host verification, environment or hidden terminal secrets,
   noninteractive CLI mode, and an owned Go connection API.
+- Ask-style first-use SSH host trust with explicit fingerprint confirmation, saved
+  known_hosts records and unchanged rejection of changed or revoked host keys.
 
 ## [1.5.0] - 2026-11-03
 
