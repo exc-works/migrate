@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-04
+
 ### Added
 - Native SSH tunnels for PostgreSQL/MySQL/MariaDB/MSSQL/Oracle/ClickHouse/TiDB/Redshift
   with optional SOCKS5 or HTTP
@@ -14,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   noninteractive CLI mode, and an owned Go connection API.
 - Ask-style first-use SSH host trust with explicit fingerprint confirmation, saved
   known_hosts records and unchanged rejection of changed or revoked host keys.
+- A topic-based English and Chinese documentation website with runnable quick
+  starts, CLI and Go API references, and published release notes.
 
 ### Changed
 - Remove the optional `full` build mode and SQL-only runtime stubs; SQL, JS, TS
