@@ -322,6 +322,12 @@ func startDB(t *testing.T, flavor string) (*sql.DB, dialect.Dialect, func()) {
 
 func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, func()) {
 	t.Helper()
+	db, _, cleanup := startContainerDBWithDSN(t, flavor, d)
+	return db, cleanup
+}
+
+func startContainerDBWithDSN(t *testing.T, flavor string, d dialect.Dialect, protocols ...string) (*sql.DB, string, func()) {
+	t.Helper()
 	ctx := context.Background()
 	requireProviderHealthy(t)
 
@@ -393,21 +399,26 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 			return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true", userName, userPass, host, mappedPort, dbName)
 		}
 	case "clickhouse":
+		port = "9000/tcp"
+		scheme := "clickhouse"
+		if len(protocols) > 0 && protocols[0] == "http" {
+			port = "8123/tcp"
+			scheme = "http"
+		}
 		request = testcontainers.ContainerRequest{
 			Image:        "clickhouse/clickhouse-server:25.8.4.13-alpine",
-			ExposedPorts: []string{"9000/tcp"},
+			ExposedPorts: []string{port},
 			Env: map[string]string{
 				"CLICKHOUSE_DB":                        dbName,
 				"CLICKHOUSE_USER":                      userName,
 				"CLICKHOUSE_PASSWORD":                  userPass,
 				"CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT": "1",
 			},
-			WaitingFor: wait.ForListeningPort("9000/tcp"),
+			WaitingFor: wait.ForListeningPort(nat.Port(port)),
 		}
-		port = "9000/tcp"
 		dsn = func(host, mappedPort string) string {
 			connection := url.URL{
-				Scheme: "clickhouse",
+				Scheme: scheme,
 				User:   url.UserPassword(userName, userPass),
 				Host:   net.JoinHostPort(host, mappedPort),
 				Path:   dbName,
@@ -477,7 +488,8 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 		_ = container.Terminate(ctx)
 		t.Fatalf("resolve port: %v", err)
 	}
-	db, err := sql.Open(driverName, dsn(host, mapped.Port()))
+	connectionString := dsn(host, mapped.Port())
+	db, err := sql.Open(driverName, connectionString)
 	if err != nil {
 		_ = container.Terminate(ctx)
 		t.Fatalf("open db: %v", err)
@@ -491,7 +503,7 @@ func startContainerDB(t *testing.T, flavor string, d dialect.Dialect) (*sql.DB, 
 	}
 	t.Cleanup(cleanup)
 	waitForPing(t, db, defaultPingTimeoutSec*time.Second)
-	return db, cleanup
+	return db, connectionString, cleanup
 }
 
 func startSQLiteDB(t *testing.T, d dialect.Dialect) (*sql.DB, func()) {
