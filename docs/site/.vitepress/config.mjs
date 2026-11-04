@@ -1,29 +1,10 @@
 import { defineConfig } from 'vitepress'
 import { repository } from '../content.mjs'
 import { repositoryLinks, sourceForRoute } from '../links.mjs'
+import { sidebar } from '../navigation.mjs'
 
 const siteURL = new URL('https://exc-works.github.io/migrate/')
 const route = path => `/${path}`
-const sidebar = locale => {
-  const prefix = locale === 'zh' ? 'zh/' : ''
-  return [
-    {
-      text: locale === 'zh' ? '文档' : 'Documentation',
-      items: [
-        { text: locale === 'zh' ? '概览' : 'Overview', link: route(prefix) },
-        { text: locale === 'zh' ? '快速开始' : 'Quick start', link: route(`${prefix}quick-start`) },
-        { text: locale === 'zh' ? '命令参考' : 'Commands', link: route(`${prefix}commands`) },
-        { text: locale === 'zh' ? '数据库能力' : 'Database capabilities', link: route(`${prefix}databases`) },
-        { text: locale === 'zh' ? '用户指南' : 'User guide', link: route(`${prefix}guide`) },
-        { text: locale === 'zh' ? 'JS / TS 迁移' : 'JS / TS migrations', link: route(`${prefix}scripting`) },
-        { text: locale === 'zh' ? '可运行示例' : 'Runnable examples', link: route(`${prefix}examples`) },
-        { text: locale === 'zh' ? '发布说明' : 'Release notes', link: route('releases') },
-        { text: 'Changelog', link: route('changelog') },
-        { text: locale === 'zh' ? '其他语言' : 'Other languages', link: route('languages') }
-      ]
-    }
-  ]
-}
 
 export default defineConfig({
   title: 'migrate',

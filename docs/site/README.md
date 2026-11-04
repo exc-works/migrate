@@ -11,27 +11,33 @@ pnpm --dir docs/site run build
 pnpm --dir docs/site run preview
 ```
 
-Edit existing guides, examples and release notes at their original repository paths.
-`content.mjs` is the explicit map of public source documents to website routes.
-`prepare.mjs` recreates ignored `.generated` content before development and builds.
-Website-only pages live in `pages/`; do not edit generated files.
+Author user documentation directly in `pages/`, with matching topic filenames under
+`pages/zh/`. These pages are the maintained website content; the build does not import
+the old user guides, script guides or example READMEs. Organize new content around a
+reader's task and add it to the appropriate section in `navigation.mjs` in both languages.
+Keep tutorials, operational guides and reference material on their own pages.
 
-Relative links in shared documents are resolved from the canonical source path.
-Published documents become website links; specs and source files link to GitHub.
+`content.mjs` maps only CHANGELOG and release records to website routes. These remain
+maintained at their repository paths. `prepare.mjs` assembles topic pages and release
+records in ignored `.generated` before development and builds; do not edit that output.
+
+Use relative website links between topic pages. Link to GitHub when readers need to
+inspect source code or runnable example directories. Links within shared release
+records are resolved from their canonical repository paths.
 The type declaration is copied as a downloadable asset. Specs and validation notes
 are not included in the website build or search index.
 
 Documents follow main, rather than claiming all described features exist in every
 release. Check release notes when using an older binary. Other translations remain
-available from the repository README until they are ported to the website.
+available from the website's language directory until they are ported.
 
 VitePress is pinned to its stable release. The override in `pnpm-workspace.yaml` selects the patched
 6.4 maintenance line because VitePress 1.x otherwise installs Vite 5. Validate
 site builds, development and preview when updating either dependency.
 
-The language menu opens each locale's homepage, because shared release/changelog
-pages do not have translated counterparts. Restart `dev` after changing a shared
-repository document so the generated copy is refreshed.
+The language menu opens each locale's homepage, because release/changelog pages do
+not have translated counterparts. Restart `dev` after editing topic pages or release
+records to refresh the assembled content.
 
 Run the actual bilingual SQLite onboarding examples with:
 
@@ -68,7 +74,7 @@ It validates rendered pages, links, fragments and local resources under the
 configured project base. External sites are not fetched by this check. If the
 repository name or domain changes, update both the VitePress base and checker URL.
 
-If a page has a broken link or fragment, fix its canonical Markdown source. If a
-shared guide edit does not appear in preview, rebuild to refresh generated content.
+If a page has a broken link or fragment, fix its authored topic page (or the original
+release record). Rebuild before previewing changes with `preview`.
 For a Pages 404, confirm the workflow source setting, deployment environment and
 project base, then check the `docs` workflow's deployment result.

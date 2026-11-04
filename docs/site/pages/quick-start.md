@@ -11,7 +11,7 @@ migrate --help
 migrate version
 ```
 
-This installs the SQL build. See the [user guide](./guide#_1-installation) for
+This installs the SQL build. See [Installation](./installation) for
 source installation and PATH setup, or [database capabilities](./databases) for the full build.
 
 ## Configure
@@ -78,5 +78,5 @@ migrate status
 The table is removed and the version returns to `pending`. A rollback only reverses
 what its Down SQL implements. Write and review a real reverse operation for each migration.
 
-Continue with the [command reference](./commands), [configuration guide](./guide#_2-initialization)
+Continue with [writing SQL migrations](./sql-migrations), [configuration](./configuration)
 or [JavaScript and TypeScript migrations](./scripting).

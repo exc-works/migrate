@@ -11,7 +11,7 @@ migrate --help
 migrate version
 ```
 
-该命令安装 SQL 版。源码安装和 PATH 设置见[用户指南](./guide#_1-安装)，
+该命令安装 SQL 版。源码安装和 PATH 设置见[安装](./installation)，
 完整构建见[数据库能力](./databases)。
 
 ## 配置
@@ -78,5 +78,5 @@ migrate status
 示例表被删除，版本恢复为 `pending`。回退能否恢复数据取决于 Down SQL 的实际实现；
 每条迁移都应编写并检查真实的逆操作。
 
-继续阅读[命令参考](./commands)、[配置说明](./guide#_2-初始化)
+继续阅读[编写 SQL 迁移](./sql-migrations)、[配置说明](./configuration)
 或 [JavaScript 和 TypeScript 迁移](./scripting)。

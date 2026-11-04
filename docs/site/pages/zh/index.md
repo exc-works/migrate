@@ -9,25 +9,34 @@ hero:
       text: 从 SQLite 开始
       link: ./quick-start
     - theme: alt
-      text: 阅读用户指南
+      text: 浏览文档
       link: ./guide
 features:
   - title: 从 SQL 开始
     details: 版本化迁移、执行预览、历史校验，以及明确的回退操作。
+    link: ./sql-migrations
+    linkText: 编写迁移
   - title: 按需使用脚本
     details: 完整构建增加 JS、TS 和 MJS，支持本地模块与已安装 npm 包；执行迁移不需要 Node.js 运行时。
+    link: ./scripting
+    linkText: 使用 JavaScript 或 TypeScript
   - title: 明确能力边界
     details: 使用 migrate capabilities 查看验证状态、数据库别名和事务限制。
+    link: ./databases
+    linkText: 检查数据库支持
 ---
 
-## 选择下一步
+## 你想完成什么？
 
-- [快速开始](./quick-start)：使用 SQLite 完成可回退的迁移，无须数据库服务。
-- [用户指南](./guide)：安装、配置、迁移历史和 Go 库集成。
-- [命令参考](./commands)：按任务查找命令及参数说明。
-- [数据库能力](./databases)：SQL/full 构建差异、验证状态和事务限制。
-- [脚本迁移](./scripting)与[可运行示例](./examples)。
-- [发布说明](../releases)、[变更记录](../changelog)与[其他语言](../languages)。
+| 任务 | 阅读入口 |
+| --- | --- |
+| 第一次尝试 migrate | [SQLite 快速开始](./quick-start) |
+| 配置新项目 | [安装](./installation) · [配置](./configuration) |
+| 部署数据库变更 | [执行迁移](./applying) · [回退迁移](./rollback) |
+| 接管已有数据库 | [历史与基线](./history) |
+| 复用脚本逻辑 | [共享模块](./modules) · [运行示例](./examples) |
+| 接入应用或网络环境 | [Go 库](./go-library) · [SSH 隧道](./ssh-tunnels) |
+| 查参数或解决错误 | [命令行参考](./commands) · [问题排查](./troubleshooting) |
 
 ::: info 适用版本
 本站跟随仓库 main 分支，可能包含尚未发布的变更。请通过 `migrate version`
