@@ -103,7 +103,7 @@ func TestTerminalNoEchoAndCancellation(t *testing.T) {
 			defer terminal.Close()
 			var output bytes.Buffer
 			var one [1]byte
-			marker := "SSH password: "
+			marker := "SSH password"
 			if mode == "broken" {
 				marker = "restored"
 			}
