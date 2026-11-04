@@ -56,8 +56,10 @@ Keep SQL/script migrations and the existing caller-owned DB API compatible.
 - Every PG connection, including cancellation connections, must use the relay.
   Preserve connect timeouts and prevent DNS lookup or TLS fallback bypassing routing.
 - SSH handshake, proxy negotiation and channel opens have bounded timeouts and
-  cancellation. Pause the network handshake timeout during host-key confirmation;
-  the caller's context still cancels it. Preserve confirmed trust during SSH rekeys.
+  cancellation. Pause the network handshake timeout during host-key confirmation
+  and saving approved trust, including file-lock waits and filesystem synchronization;
+  the caller's context still cancels it. Resume the timeout before SSH authentication.
+  Preserve confirmed trust during SSH rekeys.
   Keepalive failure or transport loss is terminal; close active
   channels, reject new connections and cancel the command. Never reconnect or replay SQL.
 - Local client closure must close its remote channel; shutdown must unblock accepts,
