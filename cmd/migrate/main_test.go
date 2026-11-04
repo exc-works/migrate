@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +33,33 @@ func TestEffectiveBuildVersion(t *testing.T) {
 	buildVersion = "v1.2.3"
 	if got := effectiveBuildVersion(); got != "v1.2.3" {
 		t.Fatalf("expected explicit version, got %q", got)
+	}
+}
+
+func TestResolveBuildVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		injected string
+		info     *debug.BuildInfo
+		want     string
+	}{
+		{name: "release linker version", injected: "v1.6.1", info: &debug.BuildInfo{Main: debug.Module{Version: "v1.6.0", Sum: "h1:example"}}, want: "v1.6.1"},
+		{name: "trim linker version", injected: " v1.6.1 ", want: "v1.6.1"},
+		{name: "tagged go install", injected: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "v1.6.0", Sum: "h1:example"}}, want: "v1.6.0"},
+		{name: "empty linker version", info: &debug.BuildInfo{Main: debug.Module{Version: "v1.6.0", Sum: "h1:example"}}, want: "v1.6.0"},
+		{name: "pseudo version", injected: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "v1.6.1-0.20261104000000-123456789abc", Sum: "h1:example"}}, want: "v1.6.1-0.20261104000000-123456789abc"},
+		{name: "local build", injected: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, want: "dev"},
+		{name: "local tag", injected: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "v1.6.0"}}, want: "dev"},
+		{name: "dirty local tag", injected: "dev", info: &debug.BuildInfo{Main: debug.Module{Version: "v1.6.0+dirty"}}, want: "dev"},
+		{name: "empty module version", info: &debug.BuildInfo{}, want: "dev"},
+		{name: "no build info", injected: "dev", want: "dev"},
+		{name: "no versions", want: "dev"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveBuildVersion(tc.injected, tc.info); got != tc.want {
+				t.Fatalf("version = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

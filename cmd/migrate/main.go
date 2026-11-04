@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -434,11 +435,22 @@ func readConfigOrDefault(path, workingDir string) (*config.FileConfig, error) {
 }
 
 func effectiveBuildVersion() string {
-	version := strings.TrimSpace(buildVersion)
-	if version == "" {
-		return "dev"
+	info, _ := debug.ReadBuildInfo()
+	return resolveBuildVersion(buildVersion, info)
+}
+
+func resolveBuildVersion(injected string, info *debug.BuildInfo) string {
+	if version := strings.TrimSpace(injected); version != "" && version != "dev" {
+		return version
 	}
-	return version
+	// A downloaded module has a checksum. A local working tree may also carry
+	// a VCS-derived version, but it is still a development build.
+	if info != nil && info.Main.Sum != "" {
+		if version := strings.TrimSpace(info.Main.Version); version != "" && version != "(devel)" {
+			return version
+		}
+	}
+	return "dev"
 }
 
 func printStatus(out io.Writer, items []migrate.MigrationStatus, output string) error {

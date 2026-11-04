@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Report the installed Go module version in `version` and `capabilities` when the
+  CLI is installed with `go install ...@version`; retain explicit release build
+  versions and the `dev` fallback for local development builds.
+
 ## [1.6.0] - 2026-11-04
 
 ### Added

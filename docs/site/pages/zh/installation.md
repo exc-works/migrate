@@ -26,7 +26,10 @@ migrate version
 migrate capabilities --output json
 ```
 
-`version` 显示二进制版本，源码安装通常显示 `dev`。
+`version` 显示发布二进制的版本号；通过 `go install ...@版本` 安装时显示实际模块版本。
+本地开发构建显示 `dev`。
+旧版本通过 `go install` 安装后可能显示 `dev`，可用 `go version -m <binary>`
+查看实际安装的模块版本。
 `capabilities` 无须连接数据库，就能列出迁移格式、数据库验证状态和事务限制。
 具体含义见[数据库能力](./databases)。
 
