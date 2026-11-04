@@ -1,7 +1,6 @@
 # Quick start with SQLite
 
-Create, apply and roll back one SQL migration. SQLite needs no database server.
-Use a new directory: the rollback below removes the example table.
+Use a new SQLite project to create, apply and roll back one SQL migration.
 
 ## Install
 
@@ -64,8 +63,7 @@ migrate up
 migrate status
 ```
 
-Version `202611030001` should be `applied`. Successful migration commands may print
-nothing; `status` is the verification step.
+Confirm version `202611030001` is `applied`.
 
 ## Roll back
 
@@ -75,8 +73,7 @@ migrate down --all
 migrate status
 ```
 
-The table is removed and the version returns to `pending`. A rollback only reverses
-what its Down SQL implements. Write and review a real reverse operation for each migration.
+Confirm the table is removed and the version is `pending`.
 
 Continue with [writing SQL migrations](./sql-migrations), [configuration](./configuration)
 or [JavaScript and TypeScript migrations](./scripting).

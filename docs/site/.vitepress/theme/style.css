@@ -9,3 +9,18 @@
   --vp-c-brand-2: #35bdb1;
   --vp-c-brand-3: #178f88;
 }
+
+.VPNavBarTranslations .VPMenu {
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
+}
+
+:where([dir="rtl"]) .vp-doc {
+  text-align: start;
+}
+
+:where([dir="rtl"]) .vp-doc pre,
+:where([dir="rtl"]) .vp-doc code {
+  direction: ltr;
+  unicode-bidi: isolate;
+}

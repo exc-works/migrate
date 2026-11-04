@@ -2,11 +2,11 @@
 layout: home
 hero:
   name: migrate
-  text: 有序管理数据库变更。
-  tagline: Go 编写的数据库迁移 CLI 与库，支持 SQL，可选内嵌 JavaScript 和 TypeScript 运行时。
+  text: 管理数据库变更。
+  tagline: 用 SQL 维护迁移版本，用 JavaScript 或 TypeScript 处理数据。
   actions:
     - theme: brand
-      text: 从 SQLite 开始
+      text: 开始使用
       link: ./quick-start
     - theme: alt
       text: 浏览文档

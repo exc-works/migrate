@@ -56,7 +56,7 @@ func TestRelayAgent(t *testing.T) {
 	t.Setenv("SSH_AUTH_SOCK", socket)
 	o := relayOptions(t, s)
 	o.Auth = AuthOptions{Type: AuthAgent}
-	r, err := Start(context.Background(), o, "db.internal.example:5432", nil)
+	r, err := Start(context.Background(), o, "db.internal.example:5432", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestRelayPendingChannelTimeout(t *testing.T) {
 	s.Serve()
 	o := relayOptions(t, s)
 	o.ConnectTimeout = "50ms"
-	r, err := Start(context.Background(), o, "db.internal.example:5432", nil)
+	r, err := Start(context.Background(), o, "db.internal.example:5432", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestRelayRoundtripAndClose(t *testing.T) {
 		return a, nil
 	}
 	s.Serve()
-	r, err := Start(context.Background(), relayOptions(t, s), "db.internal.example:5432", nil)
+	r, err := Start(context.Background(), relayOptions(t, s), "db.internal.example:5432", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestRelayHostKeyAndAuthFailures(t *testing.T) {
 			} else {
 				t.Setenv(o.Auth.PasswordEnv, "dummy-invalid")
 			}
-			if r, err := Start(context.Background(), o, "db.internal.example:5432", nil); err == nil {
+			if r, err := Start(context.Background(), o, "db.internal.example:5432", nil, nil); err == nil {
 				r.Close()
 				t.Fatal("invalid authentication accepted")
 			} else if strings.Contains(err.Error(), "dummy-invalid") {
@@ -168,7 +168,7 @@ func TestRelayTransportFailure(t *testing.T) {
 			o := relayOptions(t, s)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			r, err := Start(ctx, o, "db.internal.example:5432", nil)
+			r, err := Start(ctx, o, "db.internal.example:5432", nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -225,7 +225,7 @@ func TestRelayPrivateKey(t *testing.T) {
 			if err := os.WriteFile(o.Auth.KeyFile, pem.EncodeToMemory(block), 0600); err != nil {
 				t.Fatal(err)
 			}
-			r, err := Start(context.Background(), o, "db.internal.example:5432", nil)
+			r, err := Start(context.Background(), o, "db.internal.example:5432", nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

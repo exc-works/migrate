@@ -9,7 +9,7 @@ installed version. Use `migrate version` to identify the binary.
 | --- | --- | --- |
 | `--config`, `-c` | `migration_config.json` | Config path |
 | `--working-dir`, `-w` | Current directory | Resolve config from this directory and override migration working directory |
-| `--non-interactive` | `false` | Fail instead of requesting terminal secrets |
+| `--non-interactive` | `false` | Fail instead of requesting secrets or approval for unknown SSH host keys |
 
 ## new config
 

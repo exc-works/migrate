@@ -25,8 +25,11 @@ SQL 版和完整构建均由 Go 管理连接，无须外部 ssh 进程，也不�
 }
 ```
 
-执行前准备好可信的 known-hosts 记录。未知或变更的主机密钥会直接失败，
-migrate 不会自动信任密钥或改写 known_hosts。
+交互式 CLI 遇到未知主机密钥时，会显示 SSH 地址、算法和 SHA256 指纹。
+独立核对指纹后，显式选择“信任并保存”；默认选项为拒绝。
+只有批准后才追加记录，并以 0600/0700 权限创建缺失的文件或目录，保留已有记录。
+变更或撤销的密钥、无效文件直接失败，不提供信任提示。
+非交互模式不会批准或写入未知密钥，CI 执行前应预先准备可信记录。
 
 ## 选择认证方式
 
@@ -41,7 +44,9 @@ Secret 字段填写 `MIGRATE_SSH_PASSWORD` 这样的变量名，不能填写凭�
 认证失败不会重复提示。Windows 用户应选择密码或私钥文件。
 
 CI 中提前注入凭据，再运行 `migrate --non-interactive up`。
-提示写入 stderr，不影响 stdout JSON。库调用方通过回调显式启用交互，见[在 Go 中使用](./go-library)。
+提示写入 stderr，不影响 stdout JSON。库调用方通过 `ConnectionOptions.Prompt` 显式启用凭据输入。
+独立的 `HostKeyPrompt` 接收 `SSHHostKeyInfo`，应在核对指纹后才返回 true，批准保存新密钥。
+空回调不提示、不信任未知密钥；回调必须响应取消。见[在 Go 中使用](./go-library)。
 
 ## 添加可选代理
 
@@ -73,7 +78,8 @@ SSH 文件路径支持 `~` 和 `~/...`，相对路径从迁移配置文件所在
 | `keepalive_interval` | `15s` |
 | `keepalive_timeout` | `5s` |
 
-Duration 必须为正。驱动连接期限也覆盖远端 channel 建立；一个 channel 建立超时会使整个路径失效。
+Duration 必须为正。等待主机密钥确认时暂停网络握手超时，调用方 context 仍可取消。
+驱动连接期限也覆盖远端 channel 建立；一个 channel 建立超时会使整个路径失效。
 传输中断会取消执行，不重连、不重放 SQL。DDL 或 COMMIT 可能已经完成，恢复前先检查数据和历史。
 
 ## 数据库连接支持

@@ -1,7 +1,5 @@
 # Руководство пользователя migrate
 
-Это руководство предназначено для пользователей, которые запускают инструмент впервые. Команды и флаги основаны на текущей реализации (`cmd/migrate`).
-
 ## 1. Установка
 
 ### 1.1 Установка из модуля
@@ -159,7 +157,6 @@ migrate down 202604140001
 migrate down --all
 ```
 
-Примечание: `migrate down <to-version>` и `migrate down --all` взаимоисключающие.
 
 ### 5.3 Dry-run откат
 
@@ -193,40 +190,11 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. Обновление или откат версии самого инструмента
-
-### 7.1 Обновление версии инструмента
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@latest
-```
-
-### 7.2 Откат версии инструмента
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
-```
-
-Пример:
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
-```
-
-Если репозиторий приватный и `go install github.com/...@...` недоступен, переключитесь на целевую версию в исходном коде
-и выполните:
-
-```bash
-go install ./cmd/migrate
-```
-
-### 7.3 Проверка текущей версии инструмента
+## 7. Проверка версии
 
 ```bash
 migrate version
 ```
-
-Примечание: релизные артефакты выводят версию релиза; локальные сборки из `go install ./cmd/migrate` обычно выводят `dev`.
 
 ## 8. Шаблоны переменных окружения
 
@@ -252,105 +220,7 @@ migrate status
 
 ## 9. 10-минутное демо первого запуска (SQLite)
 
-### 9.1 Подготовка директории и конфигурации
-
-Сначала проверьте доступность команды:
-
-```bash
-migrate --help
-```
-
-Создайте demo-директорию (macOS/Linux):
-
-```bash
-mkdir -p ./migrate-demo
-cd ./migrate-demo
-migrate new config
-```
-
-Эквивалент для Windows PowerShell:
-
-```powershell
-mkdir .\migrate-demo
-cd .\migrate-demo
-migrate new config
-```
-
-Обновите `migration_config.json` до:
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
-```
-
-### 9.2 Инициализация и создание файлов миграций
-
-```bash
-migrate create
-migrate new version init_users -v 202604140001
-migrate new version add_email -v 202604140002
-```
-
-Отредактируйте `migrations/V202604140001__init_users.sql`:
-
-```sql
--- +migrate Up
-CREATE TABLE users
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +migrate Down
-DROP TABLE IF EXISTS users;
-```
-
-Отредактируйте `migrations/V202604140002__add_email.sql`:
-
-```sql
--- +migrate Up
-ALTER TABLE users
-    ADD COLUMN email TEXT;
-
--- +migrate Down
-CREATE TABLE users_tmp
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-INSERT INTO users_tmp (id, name)
-SELECT id, name
-FROM users;
-DROP TABLE users;
-ALTER TABLE users_tmp
-    RENAME TO users;
-```
-
-### 9.3 Применение, проверка статуса и откат
-
-```bash
-migrate up --dry-run
-migrate up
-migrate status
-migrate down 202604140001 --dry-run
-migrate down 202604140001
-migrate status
-migrate down --all
-migrate status
-```
-
-Ожидается:
-
-- после `up`: обе версии имеют статус `applied`
-- после `down 202604140001`: `202604140001=applied`, `202604140002=pending`
-- после `down --all`: обе версии имеют статус `pending`
+[10-минутное демо первого запуска (SQLite) · English](site/pages/quick-start.md)
 
 ## 10. Глобальные флаги
 
@@ -410,7 +280,7 @@ migrate -w ./deploy up
 
 Исправление:
 
-- не редактируйте уже примененные файлы миграций
+- восстановите исходный файл миграции из системы контроля версий
 - создайте новую миграцию с более высокой версией для изменений
 
 ## 12. Встраивание migrate как Go-библиотеки
@@ -488,57 +358,4 @@ func main() {
 - Источники: `DirectorySource` (файловая система), `StringSource` (срез в памяти), `FSSource` (любой `fs.FS`, например `//go:embed` или `os.DirFS`), `CombinedSource` (объединяет несколько источников)
 - Логгеры: `migrate.NoopLogger{}` (по умолчанию), `migrate.NewStdLogger("info", os.Stdout)` или любой тип, реализующий `migrate.Logger`
 
-### 12.4 Удобно для тестов: StringSource + SQLite в памяти
-
-```go
-src := migrate.StringSource{Migrations: []migrate.SourceFile{{
-    Filename: "V1__init.sql",
-    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
-}}}
-
-db, _ := sql.Open("sqlite", ":memory:")
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewSQLiteDialect(),
-    DB:              db,
-    MigrationSource: src,
-})
-```
-
-Без зависимости от файловой системы — запускается прямо из модульного теста.
-
-### 12.5 Встраивание миграций через //go:embed
-
-Вкладывайте SQL миграций прямо в бинарник с помощью возможности embed в Go:
-
-```go
-import "embed"
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// и подключите в сервисе:
-// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
-```
-
-`FSSource` принимает любую `fs.FS`, поэтому `os.DirFS` и `fstest.MapFS` работают так же — тесты могут подменять файловую систему на синтетическую.
-
-### 12.6 Предпросмотр SQL (DryRun)
-
-```go
-var buf bytes.Buffer
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewPostgresDialect(),
-    DB:              db,
-    MigrationSource: src,
-    DryRun:          true,
-    DryRunOutput:    &buf,
-})
-_ = svc.Create() // Create() не подчиняется DryRun; создаёт таблицу истории
-_ = svc.Up()     // SQL миграций пишется только в buf; пользовательские таблицы не создаются
-```
-
-### 12.7 Контракт стабильности
-
-- `github.com/exc-works/migrate` (корневой пакет) — публичный API, следует SemVer
-- `internal/*` не покрывается контрактом стабильности — не импортируйте напрямую
-- Полный рабочий пример — в файле `example_test.go` в корне репозитория
+[Go API](../migrate.go) · [Go example](../example_test.go)

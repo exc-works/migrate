@@ -26,8 +26,12 @@ must be able to reach that database address. Add this to your project configurat
 }
 ```
 
-Provision trusted known-hosts entries before running. Unknown or changed host keys
-fail; migrate never trusts a key automatically or rewrites known_hosts.
+On an unknown host key, interactive CLI mode shows the SSH address, key algorithm
+and SHA256 fingerprint. Verify the fingerprint independently, then explicitly choose
+“Trust and save”; rejection is the default. Approval appends the record and creates
+a missing file/directory with 0600/0700 permissions, preserving existing entries.
+Changed or revoked keys and invalid files fail without a trust prompt. Noninteractive
+mode never approves or writes unknown keys; provision trusted records before CI runs.
 
 ## Choose authentication
 
@@ -44,7 +48,10 @@ not retry input. On Windows, choose password or key-file authentication.
 
 In CI, inject the required secrets and run `migrate --non-interactive up`.
 Prompts go to stderr so stdout JSON remains usable. Library callers opt into
-prompting through a callback; see [Use from Go](./go-library).
+secret prompting through `ConnectionOptions.Prompt`. The separate `HostKeyPrompt`
+receives `SSHHostKeyInfo` and returns true only after fingerprint verification to
+approve saving a new key. Nil callbacks never prompt or trust unknown keys; callbacks
+must honor cancellation. See [Use from Go](./go-library).
 
 ## Add an optional proxy
 
@@ -77,8 +84,9 @@ Other nonsecret string settings accept environment templates; `port` is a JSON n
 | `keepalive_interval` | `15s` |
 | `keepalive_timeout` | `5s` |
 
-Durations must be positive. Driver connection deadlines also bound remote channel
-setup. A channel-open timeout invalidates the whole route. Transport loss cancels
+Durations must be positive. Waiting for host-key approval pauses the network handshake
+timeout; the caller context can still cancel it. Driver connection deadlines also
+bound remote channel setup. A channel-open timeout invalidates the whole route. Transport loss cancels
 execution without reconnecting or replaying SQL; inspect data/history before recovery
 because DDL or COMMIT may already have completed.
 

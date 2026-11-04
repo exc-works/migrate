@@ -1,26 +1,15 @@
 # Database capabilities
 
-## SQL and full builds
-
-```sh
-# SQL build
-go install github.com/exc-works/migrate/cmd/migrate@latest
-
-# Full build: SQL, JS, TS and MJS
-go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest
-migrate capabilities
-migrate capabilities --output json
-```
-
-Release downloads without a suffix are SQL-only; `_full` assets include scripts.
-Both builds run without downloading an interpreter. npm imports require packages
-to be installed beforehand; script execution does not provide Node.js APIs.
+SQL dialects include PostgreSQL, MySQL, MariaDB, SQLite, Oracle, MSSQL, ClickHouse,
+TiDB and Redshift. SQL availability and script verification are separate capabilities.
+Choose a [SQL or full build](./installation) for the migration formats you use.
 
 ## Inspect your binary
 
-SQL dialects include PostgreSQL, MySQL, MariaDB, SQLite, Oracle, MSSQL, ClickHouse,
-TiDB and Redshift. SQL availability and script verification are separate capabilities.
-Inspect the output of your binary before choosing a build or database:
+```sh
+migrate capabilities
+migrate capabilities --output json
+```
 
 - `formats` lists the migration formats present in the build.
 - `script_dialect_capabilities` reports script verification, transaction modes and limitations.

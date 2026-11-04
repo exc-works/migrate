@@ -1,7 +1,5 @@
 # migrate 사용자 가이드
 
-이 가이드는 처음 사용하는 사용자를 위한 것입니다. 명령어와 플래그는 현재 구현(`cmd/migrate`)을 기준으로 합니다.
-
 ## 1. 설치
 
 ### 1.1 모듈에서 설치
@@ -159,7 +157,6 @@ migrate down 202604140001
 migrate down --all
 ```
 
-참고: `migrate down <to-version>`과 `migrate down --all`은 서로 동시에 사용할 수 없습니다.
 
 ### 5.3 Dry-run 롤백
 
@@ -193,40 +190,11 @@ migrate status --output json
 - `hashMismatch`
 - `filenameMismatch`
 
-## 7. 도구 자체 업그레이드 또는 다운그레이드
-
-### 7.1 도구 버전 업그레이드
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@latest
-```
-
-### 7.2 도구 버전 다운그레이드
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@vX.Y.Z
-```
-
-예시:
-
-```bash
-go install github.com/exc-works/migrate/cmd/migrate@v0.2.3
-```
-
-저장소가 프라이빗이라 `go install github.com/...@...`를 사용할 수 없다면, 소스 코드에서 대상 버전을 체크아웃한 뒤
-다음을 실행하세요:
-
-```bash
-go install ./cmd/migrate
-```
-
-### 7.3 현재 도구 버전 확인
+## 7. 도구 버전 확인
 
 ```bash
 migrate version
 ```
-
-참고: 릴리스 아티팩트는 릴리스 버전을 출력하며, `go install ./cmd/migrate`로 빌드한 로컬 소스 빌드는 보통 `dev`를 출력합니다.
 
 ## 8. 환경 변수 템플릿
 
@@ -252,105 +220,7 @@ migrate status
 
 ## 9. 10분 첫 실행 데모 (SQLite)
 
-### 9.1 디렉터리 및 설정 준비
-
-먼저 명령어 사용 가능 여부를 확인하세요:
-
-```bash
-migrate --help
-```
-
-데모 디렉터리 생성(macOS/Linux):
-
-```bash
-mkdir -p ./migrate-demo
-cd ./migrate-demo
-migrate new config
-```
-
-Windows PowerShell 대응:
-
-```powershell
-mkdir .\migrate-demo
-cd .\migrate-demo
-migrate new config
-```
-
-`migration_config.json`을 다음과 같이 업데이트:
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
-```
-
-### 9.2 초기화 및 마이그레이션 파일 생성
-
-```bash
-migrate create
-migrate new version init_users -v 202604140001
-migrate new version add_email -v 202604140002
-```
-
-`migrations/V202604140001__init_users.sql` 편집:
-
-```sql
--- +migrate Up
-CREATE TABLE users
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
--- +migrate Down
-DROP TABLE IF EXISTS users;
-```
-
-`migrations/V202604140002__add_email.sql` 편집:
-
-```sql
--- +migrate Up
-ALTER TABLE users
-    ADD COLUMN email TEXT;
-
--- +migrate Down
-CREATE TABLE users_tmp
-(
-    id   INTEGER PRIMARY KEY,
-    name TEXT NOT NULL
-);
-INSERT INTO users_tmp (id, name)
-SELECT id, name
-FROM users;
-DROP TABLE users;
-ALTER TABLE users_tmp
-    RENAME TO users;
-```
-
-### 9.3 적용, 상태 확인, 롤백
-
-```bash
-migrate up --dry-run
-migrate up
-migrate status
-migrate down 202604140001 --dry-run
-migrate down 202604140001
-migrate status
-migrate down --all
-migrate status
-```
-
-예상 결과:
-
-- `up` 이후: 두 버전 모두 `applied`
-- `down 202604140001` 이후: `202604140001=applied`, `202604140002=pending`
-- `down --all` 이후: 두 버전 모두 `pending`
+[10분 첫 실행 데모 (SQLite) · English](site/pages/quick-start.md)
 
 ## 10. 전역 플래그
 
@@ -410,7 +280,7 @@ migrate -w ./deploy up
 
 해결:
 
-- 이미 적용된 마이그레이션 파일은 수정하지 않기
+- 버전 관리에서 원래 마이그레이션 파일 복원
 - 변경이 필요하면 더 높은 버전의 새 마이그레이션 생성
 
 ## 12. migrate를 Go 라이브러리로 내장하기
@@ -488,57 +358,4 @@ func main() {
 - 소스: `DirectorySource`(파일 시스템), `StringSource`(인메모리 슬라이스), `FSSource`(모든 `fs.FS`, 예: `//go:embed` 또는 `os.DirFS`), `CombinedSource`(여러 소스 결합)
 - 로거: `migrate.NoopLogger{}`(기본), `migrate.NewStdLogger("info", os.Stdout)`, 또는 `migrate.Logger`를 구현한 임의의 타입
 
-### 12.4 테스트 친화적: StringSource + 인메모리 SQLite
-
-```go
-src := migrate.StringSource{Migrations: []migrate.SourceFile{{
-    Filename: "V1__init.sql",
-    Source:   "-- +migrate Up\nCREATE TABLE t(id INT);\n-- +migrate Down\nDROP TABLE t;\n",
-}}}
-
-db, _ := sql.Open("sqlite", ":memory:")
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewSQLiteDialect(),
-    DB:              db,
-    MigrationSource: src,
-})
-```
-
-파일 시스템 의존성이 없어 유닛 테스트에서 바로 실행됩니다.
-
-### 12.5 //go:embed으로 마이그레이션을 바이너리에 포함
-
-Go의 embed 기능으로 마이그레이션 SQL을 바이너리에 직접 포함할 수 있습니다:
-
-```go
-import "embed"
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-// 그리고 서비스에 연결:
-// MigrationSource: migrate.FSSource{FS: migrations, Root: "migrations"},
-```
-
-`FSSource`는 모든 `fs.FS`를 받으므로 `os.DirFS`와 `fstest.MapFS`도 동일하게 동작합니다 — 테스트에서 합성 파일 시스템으로 교체할 때 유용합니다.
-
-### 12.6 SQL 미리보기(DryRun)
-
-```go
-var buf bytes.Buffer
-svc, _ := migrate.NewService(ctx, migrate.Config{
-    Dialect:         migrate.NewPostgresDialect(),
-    DB:              db,
-    MigrationSource: src,
-    DryRun:          true,
-    DryRunOutput:    &buf,
-})
-_ = svc.Create() // Create()는 DryRun의 영향을 받지 않으며 이력 테이블을 생성합니다
-_ = svc.Up()     // 마이그레이션 SQL은 buf에만 기록되며 사용자 테이블은 생성되지 않습니다
-```
-
-### 12.7 안정성 보장
-
-- `github.com/exc-works/migrate`(루트 패키지)는 공개 API이며 SemVer를 따릅니다
-- `internal/*`는 안정성 보장 대상이 아니므로 직접 import하지 마세요
-- 완전히 동작하는 예제는 리포지터리 루트의 `example_test.go`에 있습니다
+[Go API](../migrate.go) · [Go example](../example_test.go)

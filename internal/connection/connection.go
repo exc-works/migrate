@@ -24,6 +24,7 @@ type Options struct {
 	DataSourceName string
 	SSHTunnel      *tunnel.Options
 	Prompt         tunnel.Prompt
+	HostKeyPrompt  tunnel.HostKeyPrompt
 }
 
 // Connection must outlive its Service. Close releases the DB before its tunnel.
@@ -108,7 +109,7 @@ func openPostgres(ctx context.Context, o Options) (*Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt)
+	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt, o.HostKeyPrompt)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +155,7 @@ func openMySQL(ctx context.Context, o Options) (*Connection, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt)
+	r, err := tunnel.Start(ctx, *o.SSHTunnel, target, o.Prompt, o.HostKeyPrompt)
 	if err != nil {
 		return nil, err
 	}

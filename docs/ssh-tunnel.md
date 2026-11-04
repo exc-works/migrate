@@ -60,11 +60,17 @@ migrate --non-interactive up
 
 SSH 文件路径支持 `~` 和 `~/...`，指向运行工具的用户主目录；不支持 `~otheruser`。
 相对 SSH 文件路径以迁移配置文件所在目录为基准。工具不读取 `~/.ssh/config`。
-`known_hosts_file` 默认是 `~/.ssh/known_hosts`，必须事先准备好可信主机记录；未知或
-变更的主机密钥直接失败，不会自动修改该文件。
+`known_hosts_file` 默认是 `~/.ssh/known_hosts`。交互模式采用 `ask` 行为：首次连接
+未知主机时，展示 SSH 地址、密钥类型和 SHA256 指纹；核对指纹后，显式选择
+“Trust and save” 才会继续，并将记录追加到文件。默认选择为拒绝。缺失的文件和
+目录只在确认后创建，权限分别为 0600 和 0700，已有记录会保留。
+
+已知主机密钥变化、密钥被吊销或文件内容无效时，直接失败，不会提供信任选项。
+`--non-interactive` 不确认或写入新密钥，CI 需要事先通过可信渠道准备主机记录。
 
 可设置正数 duration：`connect_timeout` 默认 `10s`，`keepalive_interval` 默认 `15s`，
 `keepalive_timeout` 默认 `5s`。数据库驱动自己的连接超时同样覆盖远端 SSH channel 建立。
+等待主机指纹确认不计入网络握手超时，但仍响应调用方 context 取消。
 查询超时继续使用驱动/context 机制。一个 channel 建立超时会使整个隧道失效，避免遗留
 无法单独取消的 SSH channel 请求。
 
@@ -92,5 +98,7 @@ Oracle 使用带端口的单主机 `oracle://` URL，支持 TCP/TCPS，不支持
 `connection.Context()` 传给 `migrate.NewService`。调用方负责最后执行
 `connection.Close()`，它先关闭连接池，再释放隧道。
 
-库默认不读终端。需要交互时显式提供 `Prompt` 回调；已有调用方自行传入 `*sql.DB` 的
+库默认不读终端，未知主机默认拒绝。密码输入使用 `Prompt` 回调；允许首次信任时，
+另行提供 `ConnectionOptions.HostKeyPrompt`，回调收到 `SSHHostKeyInfo` 并在核对指纹后
+返回 true，库才会保存记录。两种回调均需响应 context 取消。已有调用方自行传入 `*sql.DB` 的
 API 保持不变，连接生命周期仍由调用方管理。参见 [English guide](ssh-tunnel.en.md)。

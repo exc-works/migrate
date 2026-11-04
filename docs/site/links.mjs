@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { posix } from 'node:path'
-import { repository, repositoryRoot, sourceRoutes } from './content.mjs'
+import { repository, repositoryRoot, sourceRoutes, pageRoutes } from './content.mjs'
 
 const routeSources = new Map([...sourceRoutes].map(([source, route]) => [route, source]))
 
@@ -19,7 +19,7 @@ export function rewriteLink(href, route) {
   if (resolved.startsWith('..') || !existsSync(new URL(resolved, repositoryRoot))) {
     throw new Error(`Missing repository link in ${source}: ${href}`)
   }
-  const target = sourceRoutes.get(resolved)
+  const target = sourceRoutes.get(resolved) ?? pageRoutes.get(resolved)
     ?? (resolved === 'docs/migration-api.d.ts' ? 'assets/migration-api.d.ts' : undefined)
   if (target) return `${posix.relative(posix.dirname(route), target)}${suffix}`
   return `${repository}/blob/main/${resolved}${suffix}`

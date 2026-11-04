@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | `--config`、`-c` | `migration_config.json` | 配置文件路径 |
 | `--working-dir`、`-w` | 当前目录 | 从该目录解析配置，并覆盖迁移工作目录 |
-| `--non-interactive` | `false` | 缺少凭据时失败，不请求终端输入 |
+| `--non-interactive` | `false` | 缺少凭据或遇到未知 SSH 主机密钥时失败，不请求交互输入或批准 |
 
 ## new config
 

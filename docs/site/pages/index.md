@@ -2,11 +2,11 @@
 layout: home
 hero:
   name: migrate
-  text: Database migrations, kept in order.
-  tagline: A Go CLI and library for SQL, with an optional embedded JavaScript and TypeScript runtime.
+  text: Manage database changes.
+  tagline: Version SQL migrations and transform data with JavaScript or TypeScript.
   actions:
     - theme: brand
-      text: Start with SQLite
+      text: Get started
       link: ./quick-start
     - theme: alt
       text: Explore the documentation

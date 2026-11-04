@@ -21,7 +21,14 @@ Keep SQL/full builds and the existing caller-owned DB API compatible.
   discovery; explicit configuration fields support existing environment templates.
 - Expand bare `~` and `~/` locally in SSH file paths, rejecting other tilde forms.
   Relative SSH paths are relative to the migration configuration file directory.
-  Default known_hosts_file is `~/.ssh/known_hosts`. Never auto-trust or rewrite it.
+  Default known_hosts_file is `~/.ssh/known_hosts`. In interactive CLI mode, ask
+  before trusting an unknown plain host key: display the original SSH address, key
+  algorithm and SHA256 fingerprint, with rejection as the default. Append only
+  after explicit approval; create a missing file/directory with 0600/0700 permissions.
+  Preserve existing records and serialize/recheck concurrent additions. Changed,
+  revoked or invalid keys fail without offering approval. Noninteractive mode and
+  library callers with no HostKeyPrompt reject unknown keys and never write trust.
+  Existing trusted host certificates continue through the known_hosts verifier.
 - Validate settings before opening network connections. Do not trim passwords.
   Errors and logs must not expose DSNs, secrets, key material or raw causes.
 
@@ -49,14 +56,16 @@ Keep SQL/full builds and the existing caller-owned DB API compatible.
 - Every PG connection, including cancellation connections, must use the relay.
   Preserve connect timeouts and prevent DNS lookup or TLS fallback bypassing routing.
 - SSH handshake, proxy negotiation and channel opens have bounded timeouts and
-  cancellation. Keepalive failure or transport loss is terminal; close active
+  cancellation. Pause the network handshake timeout during host-key confirmation;
+  the caller's context still cancels it. Preserve confirmed trust during SSH rekeys.
+  Keepalive failure or transport loss is terminal; close active
   channels, reject new connections and cancel the command. Never reconnect or replay SQL.
 - Local client closure must close its remote channel; shutdown must unblock accepts,
   pending opens and copy loops. Keep the SSH transport alive until DB shutdown during
   normal cleanup; cancellation interrupts network operations before waiting for them.
 - CLI owns resources it creates and closes them on success, error and cancellation.
   Library callers supplying a DB retain ownership. Libraries never prompt by default;
-  credential prompting is an explicit callback provided by the caller/CLI.
+  credential input and host-key approval are separate opt-in callbacks from the caller/CLI.
 - Commands needing no DB (version, capabilities, new) must not start SSH. Dry-run and
   status retain existing history reads and may connect. Authentication prompts do not
   contaminate stdout/JSON; cancellation restores terminal echo.
@@ -73,7 +82,8 @@ fix valid findings and explain findings requiring no change. Propagate parent fi
 to descendants and obtain current checks/reviews. Never merge or release automatically.
 
 Verify proxy auth/rejection/cancellation, generated SSH host keys and mismatches,
-password/key/agent authentication, relay lifecycle, transport loss, and actual PG/MySQL/
+password/key/agent authentication, ask confirmation/refusal/cancellation/persistence,
+concurrent trust updates, relay lifecycle, transport loss, and actual PG/MySQL/
 MariaDB, MSSQL, ClickHouse Native/HTTP and TiDB migrations; Oracle/Redshift workflows
 use configured external fixtures. Exercise remote DNS, TLS hostname verification, driver timeouts,
 query cancellation and no reconnect after failure. Generate test keys at runtime;

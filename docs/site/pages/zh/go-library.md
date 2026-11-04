@@ -95,7 +95,8 @@ func run(ctx context.Context) error {
 需要 migrate 管理连接（包括可选 SSH 隧道）时，使用 `OpenConnection`。
 先通过 `Connection.Context()` 对 `Connection.DB` 执行 Ping，再把 DB 和 context
 传给 `NewService`，最后关闭 connection。该 helper 注册网络驱动，SQLite 仍需调用方注册。
-库交互输入通过 `ConnectionOptions.Prompt` 显式启用，参见 [SSH 隧道](./ssh-tunnels)。
+库凭据输入通过 `ConnectionOptions.Prompt` 显式启用，主机密钥批准使用独立的 `HostKeyPrompt`。
+空回调不提示、不信任未知密钥，两者都必须响应取消。参见 [SSH 隧道](./ssh-tunnels)。
 
 更多可运行 API 示例见
 [example_test.go](https://github.com/exc-works/migrate/blob/main/example_test.go)。

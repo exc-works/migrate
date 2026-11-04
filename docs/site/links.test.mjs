@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { rewriteLink, sourceForRoute } from './links.mjs'
-import { sourceRoutes, repositoryRoot } from './content.mjs'
+import { sourceRoutes, pageRoutes, repositoryRoot } from './content.mjs'
 import { sidebar } from './navigation.mjs'
 import { existsSync } from 'node:fs'
 
@@ -50,4 +50,27 @@ test('both language sidebars resolve to independently authored topic pages', () 
   }
   assert.ok([...sourceRoutes.keys()].every(source =>
     source === 'CHANGELOG.md' || source.startsWith('docs/releases/')))
+})
+
+test('release records can link to authored website pages', () => {
+  assert.equal(rewriteLink('../site/pages/quick-start.md', 'releases/v1.5.0.md'), '../quick-start.md')
+  assert.equal(rewriteLink('../site/pages/zh/quick-start.md', 'releases/v1.5.0.md'), '../zh/quick-start.md')
+})
+
+test('every existing language has an authored website entry and remains selectable', async () => {
+  const { readdirSync } = await import('node:fs')
+  const { languages } = await import('./locales.mjs')
+  const { default: config } = await import('./.vitepress/config.mjs')
+  const translated = readdirSync(new URL('../', import.meta.url))
+    .filter(file => file === 'user-guide.md' || /^user-guide\.[^.]+\.md$/.test(file))
+    .map(file => `docs/${file}`)
+  assert.deepEqual(new Set(languages.map(language => language.legacySource)), new Set(translated))
+  for (const language of languages) {
+    assert.equal(pageRoutes.get(language.source), language.guideRoute)
+    assert.equal(existsSync(new URL(language.source, repositoryRoot)), true, language.source)
+    assert.equal(config.locales[language.key].link, `/${language.prefix}`)
+    assert.equal(config.locales[language.key].lang, language.lang)
+    assert.equal(sourceForRoute(language.guideRoute), language.source)
+  }
+  assert.equal(config.locales.ar.dir, 'rtl')
 })

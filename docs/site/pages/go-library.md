@@ -98,7 +98,9 @@ For a connection managed by migrate, including an optional SSH tunnel, use
 `OpenConnection`. Ping `Connection.DB` with `Connection.Context()`, pass that DB
 and context to `NewService`, and close the connection after execution. The helper
 registers network drivers; SQLite still requires caller registration. Library
-prompting is opt-in through `ConnectionOptions.Prompt`. See [SSH tunnels](./ssh-tunnels).
+secret prompting is opt-in through `ConnectionOptions.Prompt`; host-key approval uses
+the separate `HostKeyPrompt` callback. Nil callbacks never prompt or trust unknown
+keys. Both must honor cancellation. See [SSH tunnels](./ssh-tunnels).
 
 More runnable API examples are in
 [example_test.go](https://github.com/exc-works/migrate/blob/main/example_test.go).
