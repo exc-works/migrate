@@ -60,6 +60,9 @@ Keep SQL/full builds and the existing caller-owned DB API compatible.
 - Commands needing no DB (version, capabilities, new) must not start SSH. Dry-run and
   status retain existing history reads and may connect. Authentication prompts do not
   contaminate stdout/JSON; cancellation restores terminal echo.
+- Delegate hidden terminal input, editing and terminal restoration to Huh. Keep
+  project code limited to credential policy, controlling-terminal selection and
+  output-error cancellation; do not maintain custom key parsing or console polling.
 
 ## Delivery and verification
 
