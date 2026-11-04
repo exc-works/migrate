@@ -191,3 +191,21 @@ func TestCancellationPreservesCallbackCleanupErrors(t *testing.T) {
 		t.Fatal("cancellation replaced callback or unstarted errors")
 	}
 }
+
+func TestMoreWorkersThanTargets(t *testing.T) {
+	for _, names := range [][]string{{"shard_0"}, {"shard_0", "shard_1"}} {
+		var calls atomic.Int32
+		results, err := Run(context.Background(), names, 8, func(context.Context, string) error {
+			calls.Add(1)
+			return nil
+		})
+		if err != nil || len(results) != len(names) || int(calls.Load()) != len(names) {
+			t.Fatalf("incorrect small batch: %+v calls=%d err=%v", results, calls.Load(), err)
+		}
+		for i, result := range results {
+			if result.Name != names[i] || result.Status != StatusSucceeded || result.Err != nil {
+				t.Fatalf("incorrect target result: %+v", result)
+			}
+		}
+	}
+}
