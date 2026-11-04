@@ -16,7 +16,7 @@
 
 ```bash
 demo_dir=$(mktemp -d)
-go build -tags=full -o "$demo_dir/migrate" ./cmd/migrate
+go build -o "$demo_dir/migrate" ./cmd/migrate
 export MIGRATE_EXAMPLE_DB="$demo_dir/local.db"
 
 "$demo_dir/migrate" --working-dir examples/script-imports/local create
@@ -81,7 +81,7 @@ Node.js/npm 只用于安装依赖；迁移运行时使用内嵌的 esbuild 和 G
 ## 3. Go 嵌入
 
 ```bash
-go run -tags=full ./examples/script-imports/embedded
+go run ./examples/script-imports/embedded
 ```
 
 预期输出：
@@ -96,10 +96,10 @@ after down: all migrations pending
 读取，构建后的程序不再依赖磁盘上的 TS 文件。这个示例没有 npm 依赖。
 
 内存模块与 `WithModules` 的另一个可执行示例见
-[modules_full_test.go](../../modules_full_test.go)，可运行：
+[modules_test.go](../../modules_test.go)，可运行：
 
 ```bash
-go test -tags=full . -run '^ExampleWithModules$' -v
+go test . -run '^ExampleWithModules$' -v
 ```
 
 ## 运行全部示例

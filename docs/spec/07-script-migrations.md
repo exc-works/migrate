@@ -2,12 +2,13 @@
 
 ## Distribution and compatibility
 
-- The default build remains SQL-only. The `full` build tag enables SQL, JS and TS.
-- Both builds use the same commands, configuration, drivers and history table.
-- Existing release filenames continue to identify the SQL build; full assets add `_full`.
-- Execution never downloads a runtime. Full builds embed Goja and esbuild without cgo.
+- The default build includes SQL, JS, TS and MJS with no extra build tags.
+- All formats use the same commands, configuration, drivers and history table.
+- Release binaries include all formats under the existing unsuffixed filenames.
+- Execution never downloads a runtime. Builds embed Goja and esbuild without cgo.
 - Pin dependencies compatible with the module's minimum Go version.
 - `capabilities [--output json]` reports formats without configuration or a connection.
+  There is one build configuration; output has no `build` discriminator.
 - Preserve the existing `version` output and existing SQL source hashes.
 
 ## Files and planning
@@ -16,7 +17,7 @@
 - Directory, string, combined and `fs.FS` sources share the same format rules.
 - All formats share version ordering, duplicate detection and the existing history table.
 - Scripts use the lowercase hex SHA-256 of original source bytes; SQL retains MD5.
-- Discover all known formats even in SQL-only builds. Never silently skip a script.
+- Discover all supported formats. Never silently skip a script.
 - Check format support before any migration or baseline history writes.
 - Before execution, validate history and prepare every selected migration in the plan.
 - Compilation does not execute script code. For actual up/down, initialize all selected
@@ -29,8 +30,8 @@
 ## Script contract
 
 The `.mjs` extension is a JS alias with identical compilation, execution and restrictions;
-full builds advertise it in capabilities. SQL-only builds discover it and reject execution
-before writes. It does not enable Node.js or a separate runtime module loader.
+the default build advertises it in capabilities. It does not enable Node.js or a
+separate runtime module loader.
 
 Scripts are UTF-8 files exporting synchronous `up(db)` and optional `down(db)`.
 Missing down is irreversible, not a successful no-op. The runtime validates the entry
@@ -46,7 +47,7 @@ assistance. Do not advertise full Node.js compatibility.
 ### Module import rollout
 
 The implementation stack is recorded in
-[08-script-modules-plan.md](08-script-modules-plan.md). Full builds implement
+[08-script-modules-plan.md](08-script-modules-plan.md). The default build implements
 static disk-relative, installed-package and virtual-source imports under the
 following contract.
 
@@ -147,8 +148,8 @@ commands do not evaluate config or validate dynamically computed export values.
 - Capability metadata and text output list accepted aliases alongside canonical
   names. Test coverage must catch any SQL dialect or alias missing script support.
 - Capabilities preserve `script_dialects` and add per-dialect verification, transaction
-  mode and notes. Text output shows the same distinctions. SQL-only builds report no
-  script dialects. Generated declarations include every executable dialect.
+  mode and notes. Text output shows the same distinctions. Generated declarations
+  include every executable dialect.
 - Warn once per selected script plan for experimental dialects, including dry-run;
   metadata-only operations and SQL-only plans do not emit this warning.
 - By default, each script migration and successful history write share the framework
@@ -233,7 +234,7 @@ write successful migration history. It does not predict dynamically generated SQ
 ## CLI and API
 
 - `new version <description> --format sql|js|ts|mjs` defaults to SQL.
-- SQL-only builds refuse JS/TS generation with an actionable full-build error.
+- All supported migration formats can be generated without extra build tags.
 - Generated JS templates annotate `db` with JSDoc; TS templates declare equivalent
   database, parameter and result types for editor assistance.
 - Script limits are configurable through both file config and the Go facade.
@@ -247,7 +248,7 @@ write successful migration history. It does not predict dynamically generated SQ
 
 - Every implementation layer includes its own meaningful tests and remains buildable.
 - Cover mixed ordering, duplicates, hashes, preflight failure, rollback-range validation,
-  irreversible down, baseline, out-of-order, dry-run and default-build rejection.
+  irreversible down, baseline, out-of-order, dry-run and default-build script execution.
 - Cover ignored synchronous return values, Promise rejection, caught SQL recovery,
   uncaught failures, fatal bridge failures, conversion fidelity, timeout, cancellation,
   resource caps, module restrictions, isolated VM state and original TS error locations.
@@ -255,14 +256,14 @@ write successful migration history. It does not predict dynamically generated SQ
 - Explicit ClickHouse/TiDB/MSSQL selection without an external DSN uses disposable pinned
   containers; TiDB uses Unistore, not a verified distributed TiKV deployment. Preserve
   external DSN overrides and default optional-database skips.
-- CI covers ClickHouse/TiDB/MSSQL SQL and full builds. Oracle/Redshift and external MSSQL SQL/full checks are
+- CI covers ClickHouse/TiDB/MSSQL SQL and script migrations. Oracle/Redshift and external MSSQL checks are
   conditional on dedicated external DSNs; skipped jobs are not real-instance verification.
 - New dialects remain experimental despite limited container coverage; keep capability
   notes accurate about what has been exercised.
-- Run all five repository merge gates in both default and full configurations.
-  Combine `integration,full` for full integration tests.
+- Run all five repository merge gates in the default configuration.
+  Use `-tags=integration` for SQL and script integration tests.
 - Test minimum Go compatibility, release platform builds and native executable smoke tests.
-- Verify default runtime dependencies exclude Goja/esbuild; distinguish cross-build from runtime tests.
+- Verify default runtime dependencies include Goja/esbuild; distinguish cross-build from runtime tests.
 
 ## Stacked review workflow
 

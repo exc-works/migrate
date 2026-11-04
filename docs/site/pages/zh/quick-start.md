@@ -11,7 +11,7 @@ migrate version
 ```
 
 该命令安装 SQL 版。源码安装和 PATH 设置见[用户指南](./guide#_1-安装)，
-完整构建见[数据库能力](./databases)。
+支持的迁移格式见[数据库能力](./databases)。
 
 ## 配置
 

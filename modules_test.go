@@ -1,5 +1,3 @@
-//go:build full
-
 package migrate_test
 
 import (

@@ -23,8 +23,7 @@ type DialectCapability struct {
 	Notes           string   `json:"notes,omitempty"`
 }
 
-// Dialects returns a fresh list of executable script dialects. Only full builds
-// expose these capabilities to users; SQL-only execution still fails preflight.
+// Dialects returns a fresh list of executable script dialects.
 func Dialects() []DialectCapability {
 	capabilities := []DialectCapability{
 		{

@@ -1,13 +1,12 @@
 # Install and choose a database
 
-Choose a build for the migration files you use:
+The default installation includes SQL, JavaScript, TypeScript and MJS migrations:
 
-| Files | Install |
-| --- | --- |
-| SQL | `go install github.com/exc-works/migrate/cmd/migrate@latest` |
-| SQL, JavaScript and TypeScript | `go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest` |
+```sh
+go install github.com/exc-works/migrate/cmd/migrate@latest
+```
 
-For [binary downloads](https://github.com/exc-works/migrate/releases), choose a `_full` asset to run scripts.
+[Release binaries](https://github.com/exc-works/migrate/releases) include the same formats without extra build tags or a build suffix.
 
 Configure `dialect` for PostgreSQL, MySQL, MariaDB, SQLite, Oracle, MSSQL, ClickHouse, TiDB or Redshift.
 Check your build's formats, database aliases and transaction modes:

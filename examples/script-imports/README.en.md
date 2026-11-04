@@ -1,6 +1,6 @@
 # Script module import examples
 
-Run these commands from the repository root. All examples use SQLite and the full
+Run these commands from the repository root. All examples use SQLite and the default
 build; no database server is needed. [中文说明](README.md).
 
 | Directory | Demonstrates | Prerequisites |
@@ -13,7 +13,7 @@ build; no database server is needed. [中文说明](README.md).
 
 ```bash
 demo_dir=$(mktemp -d)
-go build -tags=full -o "$demo_dir/migrate" ./cmd/migrate
+go build -o "$demo_dir/migrate" ./cmd/migrate
 export MIGRATE_EXAMPLE_DB="$demo_dir/local.db"
 
 "$demo_dir/migrate" --working-dir examples/script-imports/local create
@@ -57,7 +57,7 @@ execution uses embedded esbuild and Goja.
 ## Embedded Go application
 
 ```bash
-go run -tags=full ./examples/script-imports/embedded
+go run ./examples/script-imports/embedded
 ```
 
 Expected output:
@@ -72,11 +72,11 @@ and `shared`. FSSource selects only versioned entries under Root; imports read h
 from the same supplied filesystem. The built program needs no TS files on disk.
 This example has no npm dependency.
 
-The in-memory WithModules example in [modules_full_test.go](../../modules_full_test.go)
+The in-memory WithModules example in [modules_test.go](../../modules_test.go)
 is also runnable:
 
 ```bash
-go test -tags=full . -run '^ExampleWithModules$' -v
+go test . -run '^ExampleWithModules$' -v
 ```
 
 ## Verify and clean up

@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -26,17 +25,14 @@ func TestCapabilitiesNeverReadsConfigOrConnects(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got struct {
-		Build   string   `json:"build"`
-		Formats []string `json:"formats"`
+		Build   json.RawMessage `json:"build"`
+		Formats []string        `json:"formats"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{"sql"}
-	if len(script.Formats()) > 1 {
-		expected = []string{"sql", "js", "ts", "mjs"}
-	}
-	if !slices.Equal(got.Formats, expected) {
+	expected := []string{"sql", "js", "ts", "mjs"}
+	if len(got.Build) != 0 || !slices.Equal(got.Formats, expected) {
 		t.Fatalf("%s", out.String())
 	}
 }
@@ -49,13 +45,9 @@ func TestNewVersionFormats(t *testing.T) {
 			cmd := newRootCommand(&out, &out)
 			cmd.SetArgs([]string{"--working-dir", root, "new", "version", "example", "--version", "1", "--format", format})
 			err := cmd.Execute()
-			unsupported := format == "unknown" || format != "sql" && len(script.Formats()) == 1
-			if unsupported {
+			if format == "unknown" {
 				if err == nil {
 					t.Fatal("expected unsupported format")
-				}
-				if format != "unknown" && !errors.Is(err, script.ErrRequiresFull) {
-					t.Fatalf("expected actionable full-build error: %v", err)
 				}
 				if _, err := os.Stat(filepath.Join(root, "migrations")); !os.IsNotExist(err) {
 					t.Fatal("unsupported format created directory")
@@ -108,36 +100,27 @@ func TestCapabilitiesDialectVerification(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 				t.Fatal(err)
 			}
-			if len(script.Formats()) == 1 {
-				if len(got.Dialects) != 0 || len(got.Capabilities) != 0 {
-					t.Fatalf("%s", out.String())
+			if len(got.Dialects) != len(script.Dialects()) || len(got.Capabilities) != len(got.Dialects) {
+				t.Fatalf("%s", out.String())
+			}
+			for i, c := range got.Capabilities {
+				if c.Name != got.Dialects[i] || !script.SupportedDialect(c.Name) {
+					t.Fatalf("%+v", c)
 				}
-			} else {
-				if len(got.Dialects) != len(script.Dialects()) || len(got.Capabilities) != len(got.Dialects) {
-					t.Fatalf("%s", out.String())
+				if c.Name == "mssql" && !slices.Equal(c.Aliases, []string{"sqlserver", "azuresql"}) {
+					t.Fatalf("MSSQL aliases missing: %+v", c)
 				}
-				for i, c := range got.Capabilities {
-					if c.Name != got.Dialects[i] || !script.SupportedDialect(c.Name) {
-						t.Fatalf("%+v", c)
-					}
-					if c.Name == "mssql" && !slices.Equal(c.Aliases, []string{"sqlserver", "azuresql"}) {
-						t.Fatalf("MSSQL aliases missing: %+v", c)
-					}
-					if c.Name == "postgres" && !slices.Equal(c.Aliases, []string{"pg", "pgsql", "postgresql", "pgx"}) {
-						t.Fatalf("Postgres aliases missing: %+v", c)
-					}
+				if c.Name == "postgres" && !slices.Equal(c.Aliases, []string{"pg", "pgsql", "postgresql", "pgx"}) {
+					t.Fatalf("Postgres aliases missing: %+v", c)
 				}
 			}
-		} else if len(script.Formats()) > 1 && (!strings.Contains(out.String(), "tidb (experimental, transaction=framework)") || !strings.Contains(out.String(), "aliases=sqlserver,azuresql")) {
+		} else if !strings.Contains(out.String(), "tidb (experimental, transaction=framework)") || !strings.Contains(out.String(), "aliases=sqlserver,azuresql") {
 			t.Fatalf("%s", out.String())
 		}
 	}
 }
 
 func TestGeneratedTypesCoverExecutableDialects(t *testing.T) {
-	if len(script.Formats()) == 1 {
-		t.Skip("script templates require full build")
-	}
 	declarations, err := os.ReadFile(filepath.Join("..", "..", "docs", "migration-api.d.ts"))
 	if err != nil {
 		t.Fatal(err)

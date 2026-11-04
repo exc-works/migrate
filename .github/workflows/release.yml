@@ -17,7 +17,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [sql, full]
         platform:
           - goos: linux
             goarch: arm64
@@ -54,8 +53,6 @@ jobs:
         env:
           GOOS: ${{ matrix.platform.goos }}
           GOARCH: ${{ matrix.platform.goarch }}
-          BUILD_FLAVOR: ${{ matrix.build }}
-          BUILD_TAGS: ${{ matrix.build == 'full' && 'full' || '' }}
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -63,30 +60,17 @@ jobs:
           if [ "${GOOS}" = "windows" ]; then
             ext=".exe"
           fi
-          suffix=""
-          if [ "${BUILD_FLAVOR}" = "full" ]; then
-            suffix="_full"
-          fi
-          raw_name="${BINARY_NAME}_${GITHUB_REF_NAME}_${GOOS}_${{ matrix.platform.arch_label }}${suffix}${ext}"
-          CGO_ENABLED=0 go build -tags="${BUILD_TAGS}" -trimpath -ldflags="-s -w -X main.buildVersion=${GITHUB_REF_NAME}" -o "dist/${raw_name}" ./cmd/migrate
-          if [ "${BUILD_FLAVOR}" = "sql" ]; then
-            dependencies=$(go list -deps ./cmd/migrate)
-            if grep -Eq 'github.com/(dop251/goja|evanw/esbuild)' <<< "${dependencies}"; then
-              echo "SQL build unexpectedly includes a script runtime" >&2
-              exit 1
-            fi
-          fi
+          raw_name="${BINARY_NAME}_${GITHUB_REF_NAME}_${GOOS}_${{ matrix.platform.arch_label }}${ext}"
+          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.buildVersion=${GITHUB_REF_NAME}" -o "dist/${raw_name}" ./cmd/migrate
           if [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; then
             capabilities=$("dist/${raw_name}" capabilities --output json)
-            python3 -c 'import json,sys; expected=["sql","js","ts","mjs"] if sys.argv[1]=="full" else ["sql"]; assert json.loads(sys.argv[2])["formats"]==expected' "${BUILD_FLAVOR}" "${capabilities}"
-            if [ "${BUILD_FLAVOR}" = "full" ]; then
-              cp docs/migration-api.d.ts dist/migration-api.d.ts
-            fi
+            python3 -c 'import json,sys; assert json.loads(sys.argv[1])["formats"]==["sql","js","ts","mjs"]' "${capabilities}"
+            cp docs/migration-api.d.ts dist/migration-api.d.ts
           fi
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: release-${{ matrix.platform.goos }}-${{ matrix.platform.arch_label }}-${{ matrix.build }}
+          name: release-${{ matrix.platform.goos }}-${{ matrix.platform.arch_label }}
           path: dist/*
           if-no-files-found: error
 

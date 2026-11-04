@@ -5,7 +5,7 @@
 Implement a Go-owned local TCP relay through one SSH server, optionally reached
 through one SOCKS5 or HTTP CONNECT proxy. Do not read OpenSSH config, invoke ssh,
 support proxy chains, or implement keyboard-interactive/MFA, NTLM or Kerberos.
-Keep SQL/full builds and the existing caller-owned DB API compatible.
+Keep SQL/script migrations and the existing caller-owned DB API compatible.
 
 ## Configuration and credentials
 
@@ -88,7 +88,7 @@ MariaDB, MSSQL, ClickHouse Native/HTTP and TiDB migrations; Oracle/Redshift work
 use configured external fixtures. Exercise remote DNS, TLS hostname verification, driver timeouts,
 query cancellation and no reconnect after failure. Generate test keys at runtime;
 commit no private keys. Container DB tests use testcontainers and existing CI matrix.
-Run all five merge gates in default/full builds; report skipped external tests honestly.
+Run all five merge gates in the default build; report skipped external tests honestly.
 
 ## Implementation stack
 

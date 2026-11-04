@@ -1,6 +1,6 @@
 # SSH 隧道与代理
 
-SQL 和 full 构建均支持通过单台 SSH 堡垒机连接 PostgreSQL、MySQL、MariaDB、
+默认构建支持通过单台 SSH 堡垒机连接 PostgreSQL、MySQL、MariaDB、
 MSSQL、Oracle、ClickHouse、TiDB 和 Redshift。
 可选 SOCKS5 或 HTTP CONNECT 代理用于连接堡垒机。所有连接由 Go 管理，无需安装 ssh。
 配置中的数据库地址始终填写从堡垒机访问的原始数据库地址，TLS 参数保持原样。

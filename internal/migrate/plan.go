@@ -44,9 +44,6 @@ func (s *Service) checkCapabilities(migrations []Migration) error {
 		if filepath.Ext(m.Filename) == source.ExtensionSQL {
 			continue
 		}
-		if len(script.Formats()) == 1 {
-			return fmt.Errorf("migration %s: %w", m.Filename, script.ErrRequiresFull)
-		}
 		if !script.SupportedDialect(s.cfg.Dialect.Name()) {
 			return fmt.Errorf("script migration %s: unsupported dialect %s", m.Filename, s.cfg.Dialect.Name())
 		}

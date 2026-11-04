@@ -7,7 +7,7 @@ retains the implementation order and acceptance criteria for the stack.
 
 ## Agreed scope
 
-- Full builds support local static ES module imports and re-exports across JS, TS and
+- Default builds support local static ES module imports and re-exports across JS, TS and
   MJS files, plus installed npm packages whose dependencies can be bundled for Goja.
 - Statically resolvable CommonJS dependencies are bundled; no general runtime module
   loader is added. Native addons, Node built-ins, dynamic imports, dynamic require,
@@ -22,7 +22,7 @@ retains the implementation order and acceptance criteria for the stack.
 - Migration discovery and dependency loading remain separate. Preserve versioned
   entry naming and direct-child discovery; helpers are loaded only through imports.
 - Preserve synchronous execution, per-migration VM isolation, transaction policies,
-  cancellation, database error handling and SQL-only build behavior.
+  cancellation, database error handling and SQL migration behavior.
 
 ## Dependency chain
 
@@ -103,8 +103,8 @@ Acceptance/tests:
 
 ## PR2: local relative imports and bundled execution
 
-Owning files: `internal/script/runtime_full.go`, new focused module compiler helpers,
-`internal/script/runtime_stub.go`, `internal/migrate/plan.go`, runtime/planning tests.
+Owning files: `internal/script/runtime.go`, new focused module compiler helpers,
+`internal/migrate/plan.go`, runtime/planning tests.
 
 Changes:
 
@@ -201,7 +201,7 @@ Changes:
 - Exercise real directory-based CLI and library workflows with shared modules and
   fixture packages, including up/down, managed/manual transactions and mixed SQL.
 - Verify unchanged status/baseline semantics, hash mismatch handling, dry-run,
-  out-of-order exclusion, selected rollback preflight and SQL-only rejection.
+  out-of-order exclusion, selected rollback preflight and default-build script execution.
 - Prove that a missing dependency in a later selected migration prevents earlier
   selected migrations from writing data; similarly verify the full rollback range.
 - Add focused native-driver coverage using existing disposable integration fixtures;
@@ -209,7 +209,7 @@ Changes:
 - Consolidate examples covering dependency installation, project layout, source
   configuration, checksums, historical dependency maintenance and runtime boundaries.
 - Confirm packaging remains self-contained, without Node/npm executables or runtime
-  package downloads. Preserve default-build exclusion of Goja/esbuild.
+  package downloads. Include Goja/esbuild in the default build.
 
 Acceptance: public examples match the shipped source capabilities, documented commands
 work, and all final checks/reviews below are complete. Conditional external database
@@ -219,10 +219,9 @@ tests that skip are reported as skips, not successful real-instance verification
 
 - Follow [01-quality-gates.md](01-quality-gates.md) and
   [06-reviewer-security-rules.md](06-reviewer-security-rules.md).
-- Run the five repository merge gates in default and full configurations:
+- Run the five repository merge gates in the default configuration:
   `go test ./...`, `go test -tags=integration ./...`, `go vet ./...`,
-  `go build ./...`, `go build ./cmd/migrate`; full counterparts add `-tags=full`,
-  and integration uses `-tags=integration,full`.
+  `go build ./...`, `go build ./cmd/migrate`.
 - Keep each layer focused and include its meaningful tests. Aim for 200-400 added
   production lines; reconsider a layer above 800 handwritten diff lines. Split a
   layer when its actual review size warrants it, without deferring required tests.

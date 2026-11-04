@@ -1,13 +1,12 @@
 # 安装与数据库选择
 
-根据迁移文件选择构建：
+默认安装包含 SQL、JavaScript、TypeScript 和 MJS 迁移：
 
-| 使用的文件 | 安装命令 |
-| --- | --- |
-| SQL | `go install github.com/exc-works/migrate/cmd/migrate@latest` |
-| SQL、JavaScript 和 TypeScript | `go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest` |
+```sh
+go install github.com/exc-works/migrate/cmd/migrate@latest
+```
 
-[下载二进制](https://github.com/exc-works/migrate/releases)时，选择带 `_full` 后缀的文件即可运行脚本。
+[发布二进制](https://github.com/exc-works/migrate/releases)包含相同的迁移格式，无需额外构建标签或构建后缀。
 
 将 `dialect` 设置为 PostgreSQL、MySQL、MariaDB、SQLite、Oracle、MSSQL、ClickHouse、TiDB 或 Redshift。
 查看当前构建的文件格式、数据库别名和事务方式：

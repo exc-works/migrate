@@ -11,7 +11,7 @@ migrate version
 ```
 
 This installs the SQL build. See the [user guide](./guide#_1-installation) for
-source installation and PATH setup, or [database capabilities](./databases) for the full build.
+source installation and PATH setup, or [database capabilities](./databases) for supported migration formats.
 
 ## Configure
 

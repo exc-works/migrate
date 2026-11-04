@@ -1,4 +1,4 @@
-// Package script hosts the optional, synchronous migration runtime.
+// Package script hosts the synchronous migration runtime.
 package script
 
 import (
@@ -29,11 +29,3 @@ func (o Options) Normalize() (Options, error) {
 	}
 	return o, nil
 }
-
-// Build identifiers reported by capabilities.
-const (
-	BuildSQL  = "sql"
-	BuildFull = "full"
-)
-
-var ErrRequiresFull = errors.New("JS/TS migrations require a full build (build tag: full)")

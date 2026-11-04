@@ -1,7 +1,7 @@
 # migrate
 
 SQL migration tool with PostgreSQL/MySQL/MariaDB/Oracle/SQLite/MSSQL/ClickHouse/TiDB/Redshift support.
-An optional full build adds JavaScript and TypeScript migrations with local and npm imports for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse/MSSQL support.
+The default build includes JavaScript and TypeScript migrations with local and npm imports for PostgreSQL/MySQL/MariaDB/SQLite, plus experimental TiDB/Redshift/Oracle/ClickHouse/MSSQL support.
 Use `migrate capabilities` to inspect verification status and transaction limits.
 
 ## Documentation
@@ -33,15 +33,14 @@ Use `migrate capabilities` to inspect verification status and transaction limits
 go install github.com/exc-works/migrate/cmd/migrate@latest
 ```
 
-The default install supports SQL. Install the full build when scripts are needed:
+The default install supports SQL, JS, TS and MJS. Inspect the available capabilities:
 
 ```bash
-go install -tags=full github.com/exc-works/migrate/cmd/migrate@latest
 migrate capabilities --output json
 ```
 
-Release assets without a suffix remain SQL-only; `_full` assets include JS/TS.
-Neither build downloads an interpreter during execution.
+Release assets include all migration formats without a build suffix.
+The script engine is embedded; execution never downloads an interpreter.
 
 ## Quick Start
 
@@ -72,7 +71,7 @@ Run ClickHouse/TiDB/MSSQL SQL and script integration in disposable containers (o
 `INTEGRATION_CLICKHOUSE_DSN` / `INTEGRATION_TIDB_DSN` / `INTEGRATION_MSSQL_DSN` to use external test instances):
 
 ```bash
-INTEGRATION_DB=clickhouse,tidb,mssql go test -tags=integration,full ./integrationtest/...
+INTEGRATION_DB=clickhouse,tidb,mssql go test -tags=integration ./integrationtest/...
 ```
 
 TiDB containers use Unistore; distributed TiKV behavior remains unverified.
