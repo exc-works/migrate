@@ -1,7 +1,6 @@
 # SQLite 快速开始
 
-完成一次 SQL 迁移的创建、执行和回退。SQLite 无须单独运行数据库服务。
-请在新目录中演练：下面的回退会删除示例表。
+在新的 SQLite 项目中完成一次迁移的创建、执行和回退。
 
 ## 安装
 
@@ -64,8 +63,7 @@ migrate up
 migrate status
 ```
 
-版本 `202611030001` 应显示为 `applied`。迁移命令成功时可能没有输出，
-请使用 `status` 确认结果。
+确认版本 `202611030001` 显示为 `applied`。
 
 ## 回退
 
@@ -75,8 +73,7 @@ migrate down --all
 migrate status
 ```
 
-示例表被删除，版本恢复为 `pending`。回退能否恢复数据取决于 Down SQL 的实际实现；
-每条迁移都应编写并检查真实的逆操作。
+确认示例表已删除，版本恢复为 `pending`。
 
 继续阅读[命令参考](./commands)、[配置说明](./guide#_2-初始化)
 或 [JavaScript 和 TypeScript 迁移](./scripting)。

@@ -1,7 +1,6 @@
 # 命令参考
 
-通过 `migrate --help` 和 `migrate <command> --help` 查看已安装版本的准确参数，
-通过 `migrate version` 查看工具版本。
+运行 `migrate <command> --help` 查看命令参数。
 
 | 任务 | 命令 | 说明 |
 | --- | --- | --- |
@@ -15,7 +14,7 @@
 | 查看构建与数据库支持 | `migrate capabilities --output json` | [能力查询](./databases) |
 
 `down <version>` 回退高于目标的版本，目标版本保持已应用。
-`baseline` 只登记历史，不执行迁移；使用前应确认现有数据库结构与登记版本一致。
+接管已有数据库时，先确认结构与迁移文件一致，再运行 `baseline` 登记历史。
 
 执行 up/down 前先使用 `--dry-run`。[全局参数](./guide#_10-全局参数)介绍配置选择与日志设置；
 [常见错误排查](./guide#_11-常见错误排查)涵盖配置缺失、环境变量和历史不一致。

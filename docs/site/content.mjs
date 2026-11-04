@@ -1,10 +1,10 @@
 import { readdirSync } from 'node:fs'
+import { languages } from './locales.mjs'
 
 export const repository = 'https://github.com/exc-works/migrate'
 export const repositoryRoot = new URL('../../', import.meta.url)
 export const sourceRoutes = new Map([
-  ['docs/user-guide.en.md', 'guide.md'],
-  ['docs/user-guide.md', 'zh/guide.md'],
+  ...languages.map(language => [language.source, language.guideRoute]),
   ['docs/script-migrations.en.md', 'scripting.md'],
   ['docs/script-migrations.md', 'zh/scripting.md'],
   ['examples/script-imports/README.en.md', 'examples.md'],
@@ -15,3 +15,12 @@ export const sourceRoutes = new Map([
     .sort()
     .map(name => [`docs/releases/${name}`, `releases/${name}`])
 ])
+
+export const pageRoutes = new Map(
+  readdirSync(new URL('pages/', import.meta.url), { recursive: true })
+    .filter(file => file.endsWith('.md'))
+    .map(file => {
+      const route = file.replaceAll('\\', '/')
+      return [`docs/site/pages/${route}`, route]
+    })
+)
