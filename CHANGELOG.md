@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove the `build` discriminator from capabilities output; formats and script
   dialect metadata describe the supported capabilities.
 
+### Fixed
+- Keep the SSH handshake timeout paused until an approved host key is saved and
+  verified, so local file-lock waits and filesystem syncs do not abort host trust.
+
 ## [1.5.0] - 2026-11-03
 
 ### Added

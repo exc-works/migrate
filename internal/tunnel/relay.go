@@ -78,6 +78,7 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt, confirm
 	}
 	handshakeCtx, cancel := context.WithCancel(ctx)
 	var timedOut atomic.Bool
+	var trustPaused atomic.Bool
 	timer := time.AfterFunc(s.Connect, func() { timedOut.Store(true); cancel() })
 	defer timer.Stop()
 	defer cancel()
@@ -95,12 +96,21 @@ func Start(ctx context.Context, o Options, target string, prompt Prompt, confirm
 			if !timer.Stop() || handshakeCtx.Err() != nil {
 				return false, context.DeadlineExceeded
 			}
-			approved, err := confirm(promptCtx, info)
-			timer.Reset(s.Connect)
-			return approved, err
+			trustPaused.Store(true)
+			return confirm(promptCtx, info)
 		}
 	}
-	verify := hostKeyCallback(handshakeCtx, path, check, ask)
+	checkHostKey := hostKeyCallback(handshakeCtx, path, check, ask)
+	verify := func(address string, remote net.Addr, key ssh.PublicKey) error {
+		err := checkHostKey(address, remote, key)
+		// Resume only after approval has been persisted and rechecked. Lock waits
+		// and filesystem syncs are local trust work, not network handshake time.
+		// Trusted rekeys never pause or restart the completed startup timer.
+		if trustPaused.Swap(false) && err == nil {
+			timer.Reset(s.Connect)
+		}
+		return err
+	}
 	config := &ssh.ClientConfig{
 		User:            s.User,
 		Auth:            []ssh.AuthMethod{auth},

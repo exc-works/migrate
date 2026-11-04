@@ -100,6 +100,113 @@ func TestAskHostKeyPersistsAndReusesTrust(t *testing.T) {
 	r.Close()
 }
 
+func TestAskHostKeyPersistencePausesHandshakeTimeout(t *testing.T) {
+	for _, operation := range []string{"save", "cancel"} {
+		t.Run(operation, func(t *testing.T) {
+			s := testssh.New(t)
+			s.Serve()
+			o := relayOptions(t, s)
+			o.ConnectTimeout = "250ms"
+			o.KnownHostsFile = filepath.Join(t.TempDir(), "known_hosts")
+			lock := flock.New(o.KnownHostsFile + ".lock")
+			if err := lock.Lock(); err != nil {
+				t.Fatal(err)
+			}
+			defer lock.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			asked := make(chan struct{})
+			result := make(chan error, 1)
+			go func() {
+				r, err := Start(ctx, o, "db.internal.example:5432", nil, func(context.Context, HostKeyInfo) (bool, error) {
+					close(asked)
+					return true, nil
+				})
+				if r != nil {
+					r.Close()
+				}
+				result <- err
+			}()
+			select {
+			case <-asked:
+			case err := <-result:
+				t.Fatalf("handshake ended before confirmation: %v", err)
+			case <-ctx.Done():
+				t.Fatal("host confirmation did not start")
+			}
+			// Trust persistence can wait on another process or a slow filesystem.
+			// This local work must not consume the network budget after approval.
+			select {
+			case err := <-result:
+				t.Fatalf("handshake ended while saving host trust: %v", err)
+			case <-time.After(500 * time.Millisecond):
+			}
+			if operation == "cancel" {
+				cancel()
+			} else if err := lock.Unlock(); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case err := <-result:
+				if operation == "cancel" {
+					if !errors.Is(err, context.Canceled) {
+						t.Fatalf("trust lock wait ignored caller cancellation: %v", err)
+					}
+					if _, err := os.Stat(o.KnownHostsFile); !errors.Is(err, os.ErrNotExist) {
+						t.Fatalf("canceled lock wait persisted host trust: %v", err)
+					}
+				} else if err != nil {
+					t.Fatalf("handshake failed after saving host trust: %v", err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("handshake did not finish after releasing or canceling the trust lock")
+			}
+		})
+	}
+}
+
+func TestAskHostKeyHandshakeTimeoutResumesAfterTrust(t *testing.T) {
+	s := testssh.New(t)
+	authenticating := make(chan struct{}, 1)
+	release := make(chan struct{})
+	defer close(release)
+	s.Config.PasswordCallback = func(ssh.ConnMetadata, []byte) (*ssh.Permissions, error) {
+		authenticating <- struct{}{}
+		<-release
+		return nil, nil
+	}
+	s.Serve()
+	o := relayOptions(t, s)
+	o.ConnectTimeout = "250ms"
+	o.KnownHostsFile = filepath.Join(t.TempDir(), "known_hosts")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	r, err := Start(ctx, o, "db.internal.example:5432", nil, func(context.Context, HostKeyInfo) (bool, error) {
+		return true, nil
+	})
+	if r != nil {
+		r.Close()
+	}
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "SSH handshake timed out") {
+		t.Fatalf("authentication did not enforce the resumed network timeout: %v", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("handshake waited for caller timeout instead of its network timeout")
+	}
+	select {
+	case <-authenticating:
+	default:
+		t.Fatal("handshake timed out before reaching authentication")
+	}
+	check, err := knownhosts.New(o.KnownHostsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := check(s.Address, &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: o.Port}, serverHostKey(t, s)); err != nil {
+		t.Fatalf("host trust was not saved before authentication: %v", err)
+	}
+}
+
 func TestAskHostKeyRefusesWithoutAuthenticationOrWrite(t *testing.T) {
 	for _, mode := range []string{"decline", "cancel", "strict", "changed", "revoked", "malformed", "changed_during_prompt", "save_failure"} {
 		t.Run(mode, func(t *testing.T) {
