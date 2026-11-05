@@ -31,7 +31,7 @@ migrate capabilities --output json
 旧版本通过 `go install` 安装后可能显示 `dev`，可用 `go version -m <binary>`
 查看实际安装的模块版本。
 `capabilities` 无须连接数据库，就能列出迁移格式、数据库验证状态和事务限制。
-具体含义见[数据库能力](./databases)。
+具体含义见[支持的数据库](./databases)。
 
 macOS/Linux 上通过 Go 安装后仍找不到命令时，将 Go 的二进制目录加入 PATH：
 

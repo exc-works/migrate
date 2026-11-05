@@ -6,7 +6,7 @@ migrate 将数据库变更保存为有序的版本文件。你可以在部署流
 ## 完成第一次迁移
 
 从 [SQLite 快速开始](./quick-start)入手，无须启动数据库服务，就能完成一条 SQL
-迁移的创建、执行和回退。已有项目可以先在[安装](./installation)中选择构建，
+迁移的创建、执行和回退。已有项目可以先按照[安装说明](./installation)安装工具，
 再按照[配置](./configuration)连接数据库。
 
 ## 管理数据库变更
@@ -19,8 +19,8 @@ migrate 将数据库变更保存为有序的版本文件。你可以在部署流
 ## 使用脚本和集成能力
 
 需要代码处理的数据转换可以使用 [JavaScript 或 TypeScript](./scripting)。
-[共享模块](./modules)、[数据库 API](./script-api)和[事务边界](./script-transactions)
-分别介绍运行时的不同方面。[示例](./examples)提供本地导入、npm 包和嵌入文件的演练。
+[共享模块](./modules)、[数据库 API](./script-api)和[事务与执行限制](./script-transactions)
+分别介绍代码复用、数据读写，以及失败时的处理方式。[示例](./examples)提供本地导入、npm 包和嵌入文件的演练。
 
 应用集成见[在 Go 中使用](./go-library)；数据库位于堡垒机之后时，
 见 [SSH 隧道与代理](./ssh-tunnels)。
@@ -28,7 +28,7 @@ migrate 将数据库变更保存为有序的版本文件。你可以在部署流
 ## 按需查阅
 
 - [命令行参考](./commands)：命令、参数与选项。
-- [数据库能力](./databases)：验证状态、占位符与引擎限制。
+- [支持的数据库](./databases)：验证状态、占位符与引擎限制。
 - [问题排查](./troubleshooting)：配置、历史与执行错误。
 - [发布说明](../releases)：特定版本实际交付的功能。
 

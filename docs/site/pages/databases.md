@@ -1,39 +1,27 @@
-# Database capabilities
+# Supported databases
 
 SQL dialects include PostgreSQL, MySQL, MariaDB, SQLite, Oracle, MSSQL, ClickHouse,
-TiDB and Redshift. SQL availability and script verification are separate capabilities.
-
-## Inspect your binary
-
-```sh
-migrate capabilities
-migrate capabilities --output json
-```
-
-- `formats` lists supported migration formats.
-- `script_dialect_capabilities` reports script verification, transaction modes and limitations.
-- `aliases` lists accepted names; configurations normalize to the canonical dialect.
+TiDB and Redshift. Set `dialect` in your configuration to choose a database.
+Script and transaction support varies by database, as shown below.
 
 ## Script database support {#script-support}
 
-This table describes the default script execution boundary, not a guarantee that
-every statement can be rolled back. Experimental support has limited coverage of
-database versions, types and deployment configurations. Skipped external checks do
-not establish real-instance verification.
+Experimental script support does not cover every database version or deployment.
+Validate migrations in your target environment before use. The transaction column describes
+automatic recovery from script failures, not a guarantee that every SQL statement can be rolled back.
 
-| Database | Script status | Placeholder | Execution boundary |
+| Database | Script status | Placeholder | Transaction behavior |
 | --- | --- | --- | --- |
-| PostgreSQL | Verified | `$1` | Framework transaction |
+| PostgreSQL | Verified | `$1` | migrate-managed transaction |
 | MySQL / MariaDB | Verified | `?` | Requires transactional tables; DDL may implicitly commit |
-| SQLite | Verified | `?` | Framework transaction |
-| TiDB | Experimental | `?` | CI uses Unistore; distributed TiKV unverified; DDL may implicitly commit |
+| SQLite | Verified | `?` | migrate-managed transaction |
+| TiDB | Experimental | `?` | DDL may implicitly commit; distributed TiKV deployments unverified |
 | Redshift | Experimental; no real-instance verification | `$1` | Statement-dependent transactions; not full PostgreSQL equivalence |
-| Oracle | Experimental; limited Oracle Free coverage | `:1` | Framework transaction for DML; DDL implicitly commits |
+| Oracle | Experimental; limited Oracle Free coverage | `:1` | migrate-managed transaction for DML; DDL implicitly commits |
 | ClickHouse | Experimental | `?` | Nontransactional; no automatic rollback |
-| MSSQL / SQL Server | Experimental | `@p1` | Framework transaction; Azure SQL instances unverified |
+| MSSQL / SQL Server | Experimental | `@p1` | migrate-managed transaction; Azure SQL instances unverified |
 
-Selected experimental script plans warn once, including dry-run. Status, baseline
-and SQL-only plans do not emit that warning.
+Executing or previewing scripts for an experimental database displays a warning.
 
 ## Accepted names {#aliases}
 
@@ -76,3 +64,12 @@ Some vendor types need additional handling:
   Array/Tuple/Map/UUID/IP to supported scalars. String must be valid UTF-8; use hex
   for arbitrary binary data. Use statement-local `SETTINGS mutations_sync=2` when
   mutation completion is required. Driver-reported `rowsAffected` may be `"0"`.
+
+## Check support in your installed version
+
+```sh
+migrate capabilities
+```
+
+This lists supported file formats, database names and script transaction details without a database connection.
+Use `--output json` for automation.

@@ -5,25 +5,20 @@ MSSQL、Oracle、ClickHouse、TiDB 和 Redshift。
 可选 SOCKS5 或 HTTP CONNECT 代理用于连接堡垒机。所有连接由 Go 管理，无需安装 ssh。
 配置中的数据库地址始终填写从堡垒机访问的原始数据库地址，TLS 参数保持原样。
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "${DATABASE_DSN}",
-  "ssh_tunnel": {
-    "host": "${SSH_HOST}",
-    "port": 22,
-    "user": "${SSH_USER}",
-    "auth": {
-      "type": "password",
-      "password_env": "MIGRATE_SSH_PASSWORD"
-    },
-    "known_hosts_file": "~/.ssh/known_hosts",
-    "proxy": {
-      "type": "socks5",
-      "address": "127.0.0.1:1080"
-    }
-  }
-}
+```yaml
+dialect: postgres
+data_source_name: "${DATABASE_DSN}"
+ssh_tunnel:
+  host: "${SSH_HOST}"
+  port: 22
+  user: "${SSH_USER}"
+  auth:
+    type: password
+    password_env: MIGRATE_SSH_PASSWORD
+  known_hosts_file: ~/.ssh/known_hosts
+  proxy:
+    type: socks5
+    address: "127.0.0.1:1080"
 ```
 
 不需要代理时删除 `proxy`；使用 HTTP CONNECT 时将 `type` 改为 `http`。
@@ -53,7 +48,7 @@ migrate --non-interactive up
 ```
 
 缺失密码且无法使用终端时会报错。`password_env`、`passphrase_env` 的值是变量名，
-不能写成 `${...}`；其余字符串配置支持已有环境变量模板。`port` 是 JSON 数字。
+不能写成 `${...}`；其余字符串配置支持已有环境变量模板。`port` 填写数字，例如 `22`。
 数据库密码继续通过 `DATABASE_DSN` 等现有配置传入，不会复用 SSH 密码。
 
 ## 路径、超时与失败处理

@@ -49,7 +49,7 @@ migrate new config
 可选：
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
@@ -102,13 +102,13 @@ migrate baseline
 ### 3.1 自动版本号
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 指定版本号
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 生成文件名格式：
@@ -211,11 +211,9 @@ migrate version
 
 示例：
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 确保运行环境已设置 `DB_PASSWORD` 后执行：
@@ -233,7 +231,7 @@ migrate status
 指定配置文件：
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 指定工作目录：

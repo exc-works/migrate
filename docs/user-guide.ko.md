@@ -49,22 +49,20 @@ migrate new config
 선택 사항:
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
 기본 설정 템플릿:
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+schema_name: migration_schema
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:postgres} sslmode=disable"
+working_directory: ""
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations
 ```
 
 ### 2.2 핵심 설정 필드 업데이트
@@ -96,13 +94,13 @@ migrate baseline
 ### 3.1 자동 생성 버전
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 명시적 버전
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 생성되는 파일명 형식:
@@ -205,11 +203,9 @@ migrate version
 
 예시:
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 먼저 환경에 `DB_PASSWORD`가 이미 설정되어 있는지 확인한 뒤 다음을 실행하세요:
@@ -227,7 +223,7 @@ migrate status
 특정 설정 파일 사용:
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 특정 작업 디렉터리 사용:
@@ -245,7 +241,7 @@ migrate -w ./deploy up
 
 해결:
 
-- 현재 디렉터리에 `migration_config.json`이 있는지 확인
+- 현재 디렉터리에 `migration_config.yml`이 있는지 확인
 - 또는 `-c`로 설정 경로 전달
 
 ### 11.2 누락된 환경 변수

@@ -7,11 +7,12 @@ version and capabilities do not.
 ## Command or configuration not found
 
 If `migrate` is not on PATH, check the binary location in [Installation](./installation).
-If `migration_config.json` cannot be found, run from the project directory or use
-`-c` / `-w`. See [Configuration](./configuration) for path resolution.
+If no configuration file is found, run `migrate new config` in your project directory,
+or use `-c` / `-w` to locate an existing file. See [Configuration](./configuration) for path resolution.
 
-The config must be JSON only. A syntax error includes line/column information;
-remove comments, trailing commas or text after the closing object.
+The default file is `migration_config.yml`. For configuration errors, check indentation
+and field values at the reported location. Use spaces rather than tabs for YAML indentation.
+The [search order](./configuration#configuration-file-search-order) determines which configuration is used.
 
 ## Missing environment variable
 

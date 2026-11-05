@@ -19,8 +19,13 @@
   text-align: start;
 }
 
+:where([dir="rtl"]) .vp-doc div[class*="language-"],
 :where([dir="rtl"]) .vp-doc pre,
 :where([dir="rtl"]) .vp-doc code {
   direction: ltr;
   unicode-bidi: isolate;
+}
+
+:where([dir="rtl"]) .vp-doc pre {
+  text-align: left;
 }

@@ -7,28 +7,25 @@ installed version. Use `migrate version` to identify the binary.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--config`, `-c` | Search `.yml`, `.yaml`, then `.json` | Explicit config path; otherwise discover `migration_config` with those extensions |
+| `--config`, `-c` | Automatic search | Select a file; see [search order](./configuration#configuration-file-search-order) when omitted |
 | `--working-dir`, `-w` | Current directory | Resolve config from this directory and override migration working directory |
 | `--non-interactive` | `false` | Fail instead of requesting secrets or approval for unknown SSH host keys |
 
 ## new config
 
 ```sh
-migrate new config [filename] [--format yaml|json] [--force]
+migrate new config [filename] [--format yaml|json] [--multi] [--shards N] [--ssh-tunnel] [--force]
 migrate new config shards.yml --multi --shards 4
 migrate new config shards-ssh.yml --multi --ssh-tunnel --proxy socks5
 ```
 
-Generate a commented YAML config, defaulting to `migration_config.yml`.
-Use `--format json` or a `.json` filename for strict JSON. `--force` permits
-overwriting an existing file.
-
-`--multi` generates two sources named `shard_0` and `shard_1`; `--shards N`
-requires `--multi` and sets a positive source count, numbered from 0.
-`--ssh-tunnel` adds shared SSH defaults, and `--proxy socks5|http` adds an upstream
-proxy. Authentication, address and credential-reference flags are listed by
-`migrate new config --help`. See [Configuration](./configuration) for examples
-and flag dependencies.
+Generate `migration_config.yml`. Use `--multi` for multiple databases, `--shards N` to set
+how many, `--ssh-tunnel` to add SSH settings and `--proxy socks5|http` to add an SSH upstream proxy.
+Choose SSH authentication with `--ssh-auth agent|private_key|password`.
+`--shards N` requires `--multi` and a positive count, numbered from 0.
+`--proxy` requires `--ssh-tunnel`.
+`--force` permits overwriting an existing file. A `.json` filename or `--format json` selects JSON output.
+Run `migrate new config --help` for all options; see [configuration](./configuration) for common setups.
 
 ## new version
 
@@ -37,14 +34,16 @@ migrate new version <description> [-v <version>] [--format sql|js|ts|mjs]
 ```
 
 Create a version file in the migration directory. `--version` / `-v` overrides the
-generated version; `--format` defaults to `sql`. See [SQL migrations](./sql-migrations) or [script migrations](./scripting).
+generated version; `--format` defaults to `sql`. Quote descriptions with spaces, as in
+`migrate new version "init users"`; spaces become underscores in filenames. See [SQL migrations](./sql-migrations) or [script migrations](./scripting).
 
 ## Multiple databases
 
 With `data_sources` configured, create/baseline/status/up/down visit every source.
 Each accepts `--parallel N` (default 8). One failure does not cancel other targets;
-results are grouped by source and any failure yields a nonzero exit. See
-[configuration](./configuration) for shared SSH settings and JSON result shapes.
+results are grouped by source and any failure yields a nonzero exit. See [multiple databases](./configuration#multiple-databases) for shared files and SSH settings.
+`status --output json` returns results sorted by data-source name. Each item has `data_source`
+and `status`, plus `migrations` on success or `error` on failure.
 
 ## create
 
@@ -100,7 +99,7 @@ migrate capabilities [--output text|json]
 
 Report build formats, aliases, script verification and transaction limits without
 reading config or connecting to a database. `--output` / `-o` defaults to `text`.
-See [Database capabilities](./databases).
+See [Supported databases](./databases).
 
 ## version
 

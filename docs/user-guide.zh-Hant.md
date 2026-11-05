@@ -49,22 +49,20 @@ migrate new config
 可選：
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
 預設設定範本：
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+schema_name: migration_schema
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:postgres} sslmode=disable"
+working_directory: ""
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations
 ```
 
 ### 2.2 更新關鍵設定欄位
@@ -96,13 +94,13 @@ migrate baseline
 ### 3.1 自動產生版本號
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 明確指定版本號
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 產生的檔名格式：
@@ -205,11 +203,9 @@ migrate version
 
 範例：
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 請先確認你的環境中已設定 `DB_PASSWORD`，然後執行：
@@ -227,7 +223,7 @@ migrate status
 使用指定設定檔：
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 使用指定工作目錄：
@@ -245,7 +241,7 @@ migrate -w ./deploy up
 
 修復：
 
-- 確認目前目錄存在 `migration_config.json`
+- 確認目前目錄存在 `migration_config.yml`
 - 或使用 `-c` 傳入設定檔路徑
 
 ### 11.2 缺少環境變數

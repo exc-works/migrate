@@ -49,22 +49,20 @@ migrate new config
 Opcional:
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
 Plantilla de configuración por defecto:
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+schema_name: migration_schema
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:postgres} sslmode=disable"
+working_directory: ""
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations
 ```
 
 ### 2.2 Actualizar campos clave de configuración
@@ -96,13 +94,13 @@ migrate baseline
 ### 3.1 Versión autogenerada
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 Versión explícita
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 Formato de nombre de archivo generado:
@@ -205,11 +203,9 @@ migrate version
 
 Ejemplo:
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 Asegúrate de que `DB_PASSWORD` ya esté definido en tu entorno, luego ejecuta:
@@ -227,7 +223,7 @@ migrate status
 Usar archivo de configuración específico:
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 Usar directorio de trabajo específico:
@@ -245,7 +241,7 @@ Error: `config file ... no such file or directory`
 
 Solución:
 
-- asegúrate de que `migration_config.json` exista en el directorio actual
+- asegúrate de que `migration_config.yml` exista en el directorio actual
 - o pasa la ruta de configuración con `-c`
 
 ### 11.2 Falta variable de entorno

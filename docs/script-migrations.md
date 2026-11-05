@@ -16,7 +16,7 @@ migrate capabilities
 在已配置的迁移项目中创建文件：
 
 ```bash
-migrate new version create_projects --format js
+migrate new version "create projects" --format js
 ```
 
 将生成文件的内容替换为：
@@ -118,12 +118,10 @@ export const config = { transaction: false };
 
 在配置文件中设置执行时间和单次查询结果上限：
 
-```json
-{
-  "script_timeout": "5m",
-  "script_max_rows": 1000,
-  "script_max_bytes": 16777216
-}
+```yaml
+script_timeout: "5m"
+script_max_rows: 1000
+script_max_bytes: 16777216
 ```
 
 超时或结果超限会终止迁移；调整查询或限额后再重试。

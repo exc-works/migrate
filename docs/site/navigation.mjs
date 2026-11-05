@@ -1,4 +1,6 @@
-// Each topic has the same route in both languages, making the reading order explicit.
+import { navigationTranslations } from './navigation-translations.mjs'
+
+// Every language uses the same topic filenames and reading order.
 const sections = [
   ['Start here', '开始使用', [
     ['guide', 'Documentation map', '文档导览'],
@@ -25,30 +27,45 @@ const sections = [
   ]],
   ['Reference', '参考', [
     ['commands', 'CLI reference', '命令行参考'],
-    ['databases', 'Database capabilities', '数据库能力'],
+    ['databases', 'Supported databases', '支持的数据库'],
     ['troubleshooting', 'Troubleshooting', '问题排查']
   ]]
 ]
 
+export const topicSlugs = sections.flatMap(([, , pages]) => pages.map(([slug]) => slug))
+
+export function navigationLabels(locale) {
+  if (locale === 'root' || locale === 'en' || locale === 'zh') {
+    const zh = locale === 'zh'
+    return {
+      groups: sections.map(section => section[zh ? 1 : 0]).concat(zh ? '项目' : 'Project'),
+      titles: sections.flatMap(([, , pages]) => pages.map(page => page[zh ? 2 : 1])),
+      extras: zh ? ['发布说明', '变更记录', '语言'] : ['Release notes', 'Changelog', 'Languages'],
+      footer: zh ? ['上一页', '下一页'] : ['Previous page', 'Next page']
+    }
+  }
+  const labels = navigationTranslations[locale]
+  if (!labels) throw new Error(`Unknown documentation locale: ${locale}`)
+  return labels
+}
+
 export function sidebar(locale) {
-  const zh = locale === 'zh'
-  const route = path => `/${path}`
-  const prefix = zh ? 'zh/' : ''
+  const labels = navigationLabels(locale)
+  const prefix = locale === 'root' || locale === 'en' ? '' : `${locale}/`
   return [
-    ...sections.map(([en, cn, pages]) => ({
-      text: zh ? cn : en,
-      items: pages.map(([slug, title, translation]) => ({
-        text: zh ? translation : title,
-        link: route(`${prefix}${slug}`)
+    ...sections.map(([, , pages], index) => ({
+      text: labels.groups[index],
+      items: pages.map(([slug]) => ({
+        text: labels.titles[topicSlugs.indexOf(slug)],
+        link: `/${prefix}${slug}`
       }))
     })),
     {
-      text: zh ? '项目' : 'Project',
-      items: [
-        { text: zh ? '发布说明' : 'Release notes', link: route('releases') },
-        { text: zh ? '变更记录' : 'Changelog', link: route('changelog') },
-        { text: zh ? '其他语言' : 'Other languages', link: route('languages') }
-      ]
+      text: labels.groups[5],
+      items: ['releases', 'changelog', 'languages'].map((slug, index) => ({
+        text: labels.extras[index],
+        link: `/${slug}`
+      }))
     }
   ]
 }

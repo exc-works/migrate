@@ -49,22 +49,20 @@ migrate new config
 Optionnel :
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
 Modèle de configuration par défaut :
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+schema_name: migration_schema
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:postgres} sslmode=disable"
+working_directory: ""
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations
 ```
 
 ### 2.2 Mettre à jour les champs clés de la configuration
@@ -96,13 +94,13 @@ migrate baseline
 ### 3.1 Version générée automatiquement
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 Version explicite
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 Format de nom de fichier généré :
@@ -205,11 +203,9 @@ migrate version
 
 Exemple :
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 Assurez-vous que `DB_PASSWORD` est déjà défini dans votre environnement, puis exécutez :
@@ -227,7 +223,7 @@ migrate status
 Utiliser un fichier de configuration spécifique :
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 Utiliser un répertoire de travail spécifique :
@@ -245,7 +241,7 @@ Erreur : `config file ... no such file or directory`
 
 Correction :
 
-- assurez-vous que `migration_config.json` existe dans le répertoire courant
+- assurez-vous que `migration_config.yml` existe dans le répertoire courant
 - ou passez le chemin de configuration avec `-c`
 
 ### 11.2 Variable d’environnement manquante

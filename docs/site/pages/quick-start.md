@@ -18,30 +18,27 @@ source installation and PATH setup, or [database capabilities](./databases) for 
 ```sh
 mkdir migrate-demo
 cd migrate-demo
-migrate new config --format json
+migrate new config
 ```
 
-This example selects JSON explicitly. The default initializer produces commented YAML.
+Replace the generated `migration_config.yml` with:
 
-Replace the generated `migration_config.json` with:
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+# Table that records migration history
+schema_name: migration_schema
+dialect: sqlite
+data_source_name: ./demo.sqlite # Local SQLite file
+working_directory: .
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations # Migration directory
 ```
 
 ## Create a migration
 
 ```sh
 migrate create
-migrate new version init_users -v 202611030001
+migrate new version "init users" -v 202611030001
 ```
 
 Replace `migrations/V202611030001__init_users.sql` with:

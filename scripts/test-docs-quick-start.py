@@ -21,7 +21,13 @@ with tempfile.TemporaryDirectory(prefix="migrate-docs-") as directory:
     binary = workspace / ("migrate.exe" if os.name == "nt" else "migrate")
     subprocess.run(["go", "build", "-o", str(binary), "./cmd/migrate"], cwd=repository, check=True)
     environment = dict(os.environ, PATH=str(workspace) + os.pathsep + os.environ.get("PATH", ""))
-    for locale in ("", "zh"):
+    locales = json.loads(subprocess.run(
+        ["node", "--input-type=module", "-e",
+         "import { languages } from './docs/site/locales.mjs'; "
+         "process.stdout.write(JSON.stringify(languages.map(language => language.prefix ? language.prefix.slice(0, -1) : '')));"],
+        cwd=repository, check=True, capture_output=True, text=True,
+    ).stdout)
+    for locale in locales:
         document = (repository / "docs/site/pages" / locale / "quick-start.md").read_text()
         commands = blocks(document, "sh")
         assert len(commands) == 5, "Update this runner when the quick-start sequence changes"
@@ -32,9 +38,13 @@ with tempfile.TemporaryDirectory(prefix="migrate-docs-") as directory:
         subprocess.run([str(binary), "version"], check=True, capture_output=True)
         subprocess.run(["bash", "-eu", "-c", commands[1]], cwd=scenario, env=environment, check=True)
         project = scenario / "migrate-demo"
-        (project / "migration_config.json").write_text(blocks(document, "json")[0])
+        config_file = project / "migration_config.yml"
+        assert config_file.is_file(), "new config must generate the documented YAML file"
+        config_file.write_text(blocks(document, "yaml")[0])
         subprocess.run(["bash", "-eu", "-c", commands[2]], cwd=project, env=environment, check=True)
-        (project / "migrations/V202611030001__init_users.sql").write_text(blocks(document, "sql")[0])
+        migration = project / "migrations/V202611030001__init_users.sql"
+        assert migration.is_file(), "quoted descriptions must produce the documented filename"
+        migration.write_text(blocks(document, "sql")[0])
 
         for command_block, expected in ((commands[3], "applied"), (commands[4], "pending")):
             subprocess.run(["bash", "-eu", "-c", command_block], cwd=project, env=environment, check=True)
@@ -54,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix="migrate-docs-") as directory:
         project = workspace / ("scripts-en" if suffix else "scripts-zh")
         project.mkdir()
         config = (repository / "docs/site/pages/quick-start.md").read_text()
-        (project / "migration_config.json").write_text(blocks(config, "json")[0])
+        (project / "migration_config.yml").write_text(blocks(config, "yaml")[0])
         subprocess.run([str(binary), "create"], cwd=project, check=True)
         subprocess.run(["bash", "-eu", "-c", commands[1]], cwd=project, env=environment, check=True)
         migration = next((project / "migrations").glob("*.js"))

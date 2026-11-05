@@ -16,7 +16,7 @@ The CLI supports SQL, JS, TS and MJS migrations and uses an embedded script engi
 Create a file in your configured migration project:
 
 ```bash
-migrate new version create_projects --format js
+migrate new version "create projects" --format js
 ```
 
 Replace its contents with:
@@ -123,12 +123,10 @@ When handling SQL exceptions, recover the transaction with a savepoint or rollba
 
 Set execution time and per-query result limits in the configuration:
 
-```json
-{
-  "script_timeout": "5m",
-  "script_max_rows": 1000,
-  "script_max_bytes": 16777216
-}
+```yaml
+script_timeout: "5m"
+script_max_rows: 1000
+script_max_bytes: 16777216
 ```
 
 Reaching a timeout or result limit terminates the migration. Adjust the query or limits before retrying.

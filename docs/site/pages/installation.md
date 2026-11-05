@@ -32,7 +32,7 @@ module version for `go install ...@version`. Local development builds report `de
 For older versions that report `dev` after `go install`, use `go version -m <binary>`
 to inspect the installed module version.
 `capabilities` lists formats, database verification and transaction limits without
-connecting to a database. See [Database capabilities](./databases) for interpretation.
+connecting to a database. See [Supported databases](./databases) for interpretation.
 
 If a Go installation is not found on macOS/Linux, add its binary directory to PATH:
 
