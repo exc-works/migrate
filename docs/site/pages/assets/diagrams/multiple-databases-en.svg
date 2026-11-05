@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="288" viewBox="0 0 720 288" role="img" aria-labelledby="title desc">
+  <title id="title">Migrations across databases</title>
+  <desc id="desc">One migration directory feeds two databases. Each checks its own history and applies pending versions, then results are collected.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#52688d"/></marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: #243451; text-anchor: middle; font-size: 17px; }
+    .small { font-size: 14px; fill: #485b7a; }
+    .box { fill: #eef3ff; stroke: #7690c5; stroke-width: 1.5; }
+    .line { fill: none; stroke: #52688d; stroke-width: 2; marker-end: url(#arrow); }
+  </style>
+  <rect width="720" height="288" rx="12" fill="#fafbff"/>
+  <rect class="box" x="20" y="88" width="175" height="76" rx="9"/>
+  <text x="107.5" y="117">Migration files</text>
+  <text class="small" x="107.5" y="140">migrations/</text>
+  <rect class="box" x="260" y="24" width="210" height="76" rx="9"/>
+  <text x="365" y="53">shard_0</text>
+  <text class="small" x="365" y="76">Own history → apply in order</text>
+  <rect class="box" x="260" y="152" width="210" height="76" rx="9"/>
+  <text x="365" y="181">shard_1</text>
+  <text class="small" x="365" y="204">Own history → apply in order</text>
+  <rect class="box" x="535" y="88" width="165" height="76" rx="9"/>
+  <text x="617.5" y="117">Collect results</text>
+  <text class="small" x="617.5" y="140">Per database</text>
+  <path class="line" d="M195 126 H225 V62 H255"/>
+  <path class="line" d="M225 126 V190 H255"/>
+  <path class="line" d="M470 62 H500 V126 H530"/>
+  <path class="line" d="M470 190 H500 V126"/>
+  <text class="small" x="360" y="264">Up to 8 databases at once by default; no rollback across databases</text>
+</svg>

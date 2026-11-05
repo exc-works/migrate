@@ -11,37 +11,34 @@ migrate version
 ```
 
 源码安装和 PATH 设置见[安装](./installation)，
-支持的迁移格式见[数据库能力](./databases)。
+支持的迁移格式见[支持的数据库](./databases)。
 
 ## 配置
 
 ```sh
 mkdir migrate-demo
 cd migrate-demo
-migrate new config --format json
+migrate new config
 ```
 
-此示例显式选择 JSON；默认初始化命令会生成带注释的 YAML。
+将生成的 `migration_config.yml` 替换为：
 
-将生成的 `migration_config.json` 替换为：
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "sqlite",
-  "data_source_name": "./demo.sqlite",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+# 记录迁移历史的表名
+schema_name: migration_schema
+dialect: sqlite
+data_source_name: ./demo.sqlite # 本地 SQLite 文件
+working_directory: .
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations # 迁移文件目录
 ```
 
 ## 创建迁移
 
 ```sh
 migrate create
-migrate new version init_users -v 202611030001
+migrate new version "init users" -v 202611030001
 ```
 
 将 `migrations/V202611030001__init_users.sql` 替换为：

@@ -7,7 +7,7 @@
 ## 创建脚本
 
 ```sh
-migrate new version normalize_names --format ts
+migrate new version "normalize names" --format ts
 ```
 
 支持 `js`、`ts` 和 `mjs`；`.mjs` 与 `.js` 的运行时限制相同。
@@ -40,18 +40,17 @@ migrate up
 migrate status
 ```
 
-Dry-run 编译依赖并输出计划，不对脚本求值。实际执行会在写入前准备整个选中范围，
-模块初始化时不能访问数据库。每条迁移拥有独立的 VM 和模块状态。
+Dry-run 检查脚本及其导入，并列出待执行文件，不运行脚本，因此不会展示动态生成的 SQL。
+把数据库操作放在 `up(db)` 或 `down(db)` 中，不要写在模块顶层；不同迁移之间不要依赖全局变量传递数据。
 
-## 编辑器支持与运行时边界
+## 编辑器提示与脚本要求
 
 生成的 JS 模板通过 JSDoc 标注 `db`，TS 模板提供等价声明。转译不执行类型检查。
 也可以使用共享的 [migration-api.d.ts](../assets/migration-api.d.ts) 替换局部声明，
 通过 triple-slash 路径注释引用。
 
-脚本应视为受信任的仓库代码。不提供 Node 内置模块、运行时模块加载、网络、文件系统、
-环境变量或定时器 API。取消会中断 JavaScript 并取消数据库操作，但不保证原生调用
-硬实时终止或每个 VM 的堆隔离。
+脚本可以使用 JavaScript 语法和上面的数据库 API，但不能调用 Node 内置模块、
+网络、文件系统、环境变量或定时器，也不能动态加载模块。导入 npm 包前，先确认它不依赖这些功能。
 
 接下来阅读[共享模块](./modules)、[事务与执行限制](./script-transactions)，
 或尝试[可运行示例](./examples)。

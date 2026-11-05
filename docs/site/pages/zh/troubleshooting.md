@@ -6,16 +6,17 @@
 ## 找不到命令或配置
 
 PATH 中找不到 `migrate` 时，按[安装](./installation)检查二进制位置。
-找不到 `migration_config.json` 时，在项目目录执行，或使用 `-c` / `-w` 指定。
+找不到配置文件时，在项目目录执行 `migrate new config`，或使用 `-c` / `-w` 指定已有配置的位置。
 路径解析见[配置](./configuration)。
 
-配置只能包含 JSON。语法错误会提供行列信息，应移除注释、多余逗号或对象结束后的文字。
+默认配置文件是 `migration_config.yml`。配置报错时，根据提示的位置检查缩进和字段值；
+YAML 缩进使用空格，不使用 Tab。配置文件的[查找顺序](./configuration#配置文件的查找顺序)决定实际使用哪一份配置。
 
 ## 缺少环境变量
 
 `can't find env value for XXX` 表示必需的 `${XXX}` 模板无法解析。
 在命令环境中提供变量，或对合适的非敏感字段使用 `${XXX:default}`。
-SSH secret 字段应直接填写变量名，参见 [SSH 认证](./ssh-tunnels)。
+SSH 的 `password_env` 等字段应直接填写变量名，参见 [SSH 认证](./ssh-tunnels)。
 
 ## 不支持的格式、方言或模块
 
@@ -23,7 +24,7 @@ SSH secret 字段应直接填写变量名，参见 [SSH 认证](./ssh-tunnels)�
   应按[安装说明](./installation)升级。
 - `unsupported dialect` 应检查[规范名称与别名](./databases#aliases)。
 - 模块无法解析时，检查相对导入文件的路径，并提前安装 npm 依赖。
-  虚拟来源需要显式指定磁盘依赖设置。
+  在 Go 中嵌入脚本时，npm 包需通过 `DependencyDir` 指定安装目录。
 - 依赖 Node API 或异步执行的包，即使成功打包也不能直接运行。参见[共享模块](./modules)。
 
 ## 哈希或文件名不一致

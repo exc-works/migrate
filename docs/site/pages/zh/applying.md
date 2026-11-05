@@ -42,4 +42,4 @@ migrate --non-interactive status --output json
 在并发、进程崩溃或隐式提交的情况下，历史记录不能保证变更恰好执行一次。
 
 执行失败后，先检查数据库实际状态和历史，再决定是否重试；DDL 和非事务引擎尤其如此。
-参见[问题排查](./troubleshooting)及[数据库事务边界](./databases)。
+参见[问题排查](./troubleshooting)及[数据库事务说明](./databases)。

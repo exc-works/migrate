@@ -25,7 +25,7 @@ const sections = [
   ]],
   ['Reference', '参考', [
     ['commands', 'CLI reference', '命令行参考'],
-    ['databases', 'Database capabilities', '数据库能力'],
+    ['databases', 'Supported databases', '支持的数据库'],
     ['troubleshooting', 'Troubleshooting', '问题排查']
   ]]
 ]

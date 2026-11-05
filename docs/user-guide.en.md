@@ -49,7 +49,7 @@ migrate new config
 Optional:
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
@@ -101,13 +101,13 @@ migrate baseline
 ### 3.1 Auto-generated version
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 Explicit version
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 Generated filename format:
@@ -210,11 +210,9 @@ migrate version
 
 Example:
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 Make sure `DB_PASSWORD` is already set in your environment, then run:
@@ -232,7 +230,7 @@ migrate status
 Use specific config file:
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 Use specific working directory:

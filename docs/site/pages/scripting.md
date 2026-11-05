@@ -7,7 +7,7 @@ a Node.js runtime. Follow the [installation instructions](./installation) before
 ## Create a script
 
 ```sh
-migrate new version normalize_names --format ts
+migrate new version "normalize names" --format ts
 ```
 
 Supported formats are `js`, `ts` and `mjs`; `.mjs` has the same runtime restrictions
@@ -44,22 +44,20 @@ migrate up
 migrate status
 ```
 
-Dry-run compiles dependencies and prints a plan without evaluating scripts.
-Actual execution prepares the entire selected range before migration writes;
-module initialization happens without database access. Each migration has its own
-VM and module state.
+Dry-run checks scripts and their imports and lists planned files without running them,
+so it cannot show dynamically generated SQL. Put database operations inside `up(db)` or
+`down(db)`, not at module top level. Do not rely on global variables to share data between migrations.
 
-## Editor support and runtime boundaries
+## Editor hints and script requirements
 
 Generated JS templates annotate `db` with JSDoc; TS templates include equivalent
 type declarations. Transpilation does not type-check. The shared
 [migration-api.d.ts](./assets/migration-api.d.ts) can replace local declarations
 and be referenced with a triple-slash path comment.
 
-Scripts are trusted repository code. There are no Node built-ins, runtime module
-loading, network, filesystem, environment or timer APIs. Cancellation interrupts
-JavaScript and database operations but does not guarantee hard real-time termination
-of native calls or per-VM heap isolation.
+Scripts can use JavaScript and the database API above, but cannot use Node built-ins,
+network, filesystem, environment or timer APIs, or load modules dynamically.
+Before importing an npm package, check that it does not depend on these features.
 
 Continue with [shared modules](./modules), [transactions and limits](./script-transactions),
 or the [runnable examples](./examples).

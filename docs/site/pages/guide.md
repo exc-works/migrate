@@ -29,7 +29,7 @@ a bastion, see [SSH tunnels and proxies](./ssh-tunnels).
 ## Look something up
 
 - [CLI reference](./commands): commands, arguments and flags.
-- [Database capabilities](./databases): verification, placeholders and engine limits.
+- [Supported databases](./databases): verification, placeholders and engine limits.
 - [Troubleshooting](./troubleshooting): configuration, history and execution failures.
 - [Release notes](./releases): behavior shipped in a specific release.
 

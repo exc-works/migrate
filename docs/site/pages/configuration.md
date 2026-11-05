@@ -1,62 +1,172 @@
 # Configuration
 
-Run commands from your migration project directory. By default, migrate searches YAML first and falls back to JSON. Generate a starting file with:
+Generate a configuration file in your project directory:
 
 ```sh
 migrate new config
 ```
 
-Use `migrate new config dev.json` for a different filename. Existing files are
-preserved unless you explicitly pass `--force`.
+Open `migration_config.yml`, fill in your database type and connection details, then run migration commands.
 
-## Initialize YAML, multiple databases, SSH and proxy settings
+## Connect to a database
 
-`new config` now writes `migration_config.yml` with field comments. Use
-`--format json` or a `.json` filename for strict JSON. Explicit format and filename
-extension must agree. Initialization does not read environment values, keys or an
-existing configuration, and never opens a network connection.
+This configuration connects to PostgreSQL using the `DATABASE_DSN` environment variable:
 
-```sh
-migrate new config
-migrate new config shards.yml --multi
-migrate new config shards-four.yml --multi --shards 4
-migrate new config shards-ssh.yml --multi --ssh-tunnel
-migrate new config shards-key.yml --multi --ssh-tunnel --ssh-auth private_key
-migrate new config shards-proxy.yml --multi --ssh-tunnel --proxy socks5
-migrate new config shards-http.yml --multi --ssh-tunnel --proxy http
-migrate new config --format json
+```yaml
+# Database type
+dialect: postgres
+# Set DATABASE_DSN in your shell or deployment environment before running commands
+data_source_name: "${DATABASE_DSN}"
+# Directory containing migration files
+migration_source: migrations
+# Table that records applied versions
+schema_name: migration_schema
 ```
 
-`--multi` defaults to `shard_0` and `shard_1`. Use `--shards N` with `--multi`
-to select a positive number of shards. Numbering starts at 0: `--shards 4` creates
-`shard_0` through `shard_3`, with matching `SHARD_0_DSN`, `SHARD_1_DSN`, etc. references.
+| Field | Purpose | Default when omitted |
+| --- | --- | --- |
+| `dialect` | Database type; see [supported names](./databases#aliases) | `postgres` |
+| `data_source_name` | Database connection string; choose this or `data_sources` | Required for one database |
+| `data_sources` | Named databases and their connection settings; see [multiple databases](#multiple-databases) | Disabled |
+| `migration_source` | Directory containing migration files | `migrations` |
+| `schema_name` | Migration history table name | `migration_schema` |
+| `working_directory` | Starting directory for finding migration files | Current directory |
+| `migrate_out_of_order` | Apply pending versions below the applied version | `false` |
+| `logger_level` | `debug`, `info`, `warn` or `error`; see [logging levels](#logging) | `info` |
 
-SSH host/user and proxy address default to environment placeholders. Passwords and
-key passphrases use environment-variable names, never literal password flags.
-`--proxy-username` and `--proxy-password-env` must be provided together. SSH/proxy
-options require their corresponding enabling flags. Run `migrate new config --help`
-for address, port, authentication, key-path and known_hosts options. Shared SSH and
-proxy settings are generated once at the top level; each database supplies its DSN.
-Custom proxy address references such as `${CORP_PROXY_ADDRESS}` and
-`proxy.example:${PROXY_PORT}` are preserved without reading their values during
-initialization; the reader validates the expanded address at migration runtime.
+### Connection examples for each database
 
-## YAML and JSON discovery
+Choose your database and copy its `dialect` and `data_source_name` into your configuration.
+Replace the host, port, database name or Oracle service name with your own values,
+and set `DB_USER` and `DB_PASSWORD` before running commands. For SQLite, use the database file path directly.
 
-The configuration reader accepts YAML and JSON. Without an explicit `-c`, it checks
-`migration_config.yml`, `migration_config.yaml`, then `migration_config.json` in that
-order. Only a missing file permits fallback; invalid or unreadable YAML is an error.
-An explicit `-c` reads exactly that file. YAML supports native `#` comments; JSON
-remains strict. Fields, defaults, environment templates and relative-path rules are
-the same in both formats. Nested SSH and proxy fields use the same names.
+::: code-group
 
+```yaml [PostgreSQL]
+dialect: postgres
+data_source_name: "postgres://${DB_USER}:${DB_PASSWORD}@db.example:5432/app?sslmode=require"
+```
 
-## Apply one migration directory to every database
+```yaml [MySQL]
+dialect: mysql
+data_source_name: "${DB_USER}:${DB_PASSWORD}@tcp(db.example:3306)/app?parseTime=true"
+```
 
-Add named `data_sources` instead of the top-level `data_source_name`. Migration
-settings and an optional top-level SSH/proxy configuration are shared. A source
-with no SSH object (or null) inherits the shared settings; a source SSH object
-replaces them completely. Each active target owns its connection and transport.
+```yaml [MariaDB]
+dialect: mariadb
+data_source_name: "${DB_USER}:${DB_PASSWORD}@tcp(db.example:3306)/app?parseTime=true"
+```
+
+```yaml [SQLite]
+dialect: sqlite
+data_source_name: "./demo.sqlite"
+```
+
+```yaml [Oracle]
+dialect: oracle
+data_source_name: "oracle://${DB_USER}:${DB_PASSWORD}@db.example:1521/FREEPDB1"
+```
+
+```yaml [SQL Server]
+dialect: mssql
+data_source_name: "sqlserver://${DB_USER}:${DB_PASSWORD}@db.example:1433?database=app"
+```
+
+```yaml [ClickHouse]
+dialect: clickhouse
+data_source_name: "clickhouse://${DB_USER}:${DB_PASSWORD}@db.example:9000/app"
+```
+
+```yaml [TiDB]
+dialect: tidb
+data_source_name: "${DB_USER}:${DB_PASSWORD}@tcp(db.example:4000)/app?parseTime=true"
+```
+
+```yaml [Redshift]
+dialect: redshift
+data_source_name: "postgres://${DB_USER}:${DB_PASSWORD}@cluster.example:5439/app?sslmode=require"
+```
+
+:::
+
+For URL connection strings, URL-encode special characters such as `@`, `:` and `/` in usernames
+or passwords first; environment substitution does not encode them. The `user:password@tcp(...)`
+format used by MySQL, MariaDB and TiDB does not use URL encoding.
+Set TLS/SSL options according to your database service's connection requirements.
+
+### Logging levels {#logging}
+
+`logger_level` controls which messages are shown and defaults to `info`:
+
+| Value | Messages shown |
+| --- | --- |
+| `debug` | Debug, information, warnings and errors |
+| `info` | Information, warnings and errors |
+| `warn` | Warnings and errors; `warning` is also accepted |
+| `error` | Errors only |
+
+```yaml
+logger_level: debug # Show debug messages when troubleshooting
+```
+
+## Use environment variables {#environment-variables}
+
+Connection strings accept `${KEY}` and `${KEY:default}`:
+
+- `${DATABASE_DSN}` reads `DATABASE_DSN`; the command fails if it is unset.
+- `${DB_NAME:app}` reads `DB_NAME`, using `app` if it is unset.
+
+Use the same configuration in development, testing and production by supplying different
+variable values in each environment. Provide database credentials through environment variables
+or your deployment platform's secret store.
+SSH hosts, usernames and proxy addresses also accept these templates; see [SSH tunnels and proxies](./ssh-tunnels).
+
+## Configuration file search order
+
+Without `-c`, migrate searches the current working directory in this order and uses the first file it finds:
+
+1. `migration_config.yml`
+2. `migration_config.yaml`
+3. `migration_config.json`
+
+Files are not merged. If the selected file contains an error or cannot be read, fix that file before running again.
+
+Use `-c` to select a file directly. If that file is missing, the command fails without searching for another one:
+
+```sh
+migrate -c ./configs/dev.yml status
+```
+
+## Generate configuration for your setup
+
+Choose a command for your setup, then fill in the generated connection settings:
+
+| Setup | Command |
+| --- | --- |
+| One database | `migrate new config` |
+| Custom filename | `migrate new config dev.yml` |
+| Multiple databases | `migrate new config --multi` |
+| Four databases | `migrate new config --multi --shards 4` |
+| SSH with SSH Agent | `migrate new config --ssh-tunnel` |
+| SSH with a private key | `migrate new config --ssh-tunnel --ssh-auth private_key` |
+| SSH with a password | `migrate new config --ssh-tunnel --ssh-auth password` |
+| SOCKS5 proxy to an SSH bastion | `migrate new config --ssh-tunnel --proxy socks5` |
+| HTTP CONNECT proxy to an SSH bastion | `migrate new config --ssh-tunnel --proxy http` |
+
+Combine options as needed. For example, generate shared SSH and proxy settings for four databases:
+
+```sh
+migrate new config shards.yml --multi --shards 4 --ssh-tunnel --proxy socks5
+```
+
+Existing files are preserved unless you pass `--force`.
+Run `migrate new config --help` for all options.
+
+## Apply one set of migrations to multiple databases {#multiple-databases}
+
+For shards or tenant databases that need the same changes, list each database under
+`data_sources` instead of using the top-level `data_source_name`. All databases share the
+database type, migration directory and history table name.
 
 ```yaml
 dialect: postgres
@@ -64,83 +174,62 @@ migration_source: migrations
 schema_name: migration_schema
 data_sources:
   shard_0:
-    data_source_name: "${SHARD_0_DSN}"
+    data_source_name: "${SHARD_0_DSN}" # Connection string for the first database
   shard_1:
-    data_source_name: "${SHARD_1_DSN}"
+    data_source_name: "${SHARD_1_DSN}" # Connection string for the second database
 ```
+
+Set `SHARD_0_DSN` and `SHARD_1_DSN` before running commands. Configurations generated with
+`--multi --shards N` start at `shard_0` and reference `SHARD_0_DSN`, `SHARD_1_DSN`, and so on.
+
+![Migrations from one directory are applied to shard_0 and shard_1, each with its own history, then results are collected.](./assets/diagrams/multiple-databases-en.svg)
 
 ```sh
-migrate create --parallel 8
-migrate up --parallel 8
-migrate status --parallel 8 --output json
-migrate down --all --parallel 8
+migrate create
+migrate up --dry-run
+migrate up
+migrate status
 ```
 
-All configured sources are visited automatically. `--parallel` defaults to 8;
-use 1 for sequential execution. Each database selects pending versions from its
-own history and applies them in order. A target failure does not stop other
-targets. The command reports every result and exits nonzero if any target fails
-or is canceled. Parent cancellation stops new targets and cancels active ones.
+These commands automatically process every configured database. Each database selects pending
+versions from its own history and applies them in version order. Successful recorded versions
+are skipped on later runs. Run `new version` once to create a file shared by all databases.
 
-Multi-source status JSON is a sorted array of objects with `data_source`, `status`,
-optional safe `error`, and a `migrations` array for successful status reads. Existing
-single-source JSON retains its original migration array. Logs are labeled by
-source and go to stderr; dry-run plans are grouped by source on stdout.
-
-Keep the directory and script dependencies unchanged during a run. Configure each
-physical database once, and serialize overlapping invocations against that database
-as before. Reruns skip successful recorded versions; inspect data and history after
-nontransactional failures or uncertain commits before retrying. `new version`
-creates one shared file and does not require database credentials or connections.
-
-## Connect to a database
-
-This PostgreSQL example keeps the connection string in an environment variable:
-
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "${DATABASE_DSN}",
-  "working_directory": ".",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
-```
-
-Set `DATABASE_DSN` through your shell or deployment secret store before running
-database commands. For a local SQLite project, use `"dialect": "sqlite"` and
-`"data_source_name": "./demo.sqlite"` instead.
-
-| Field | Purpose | Default when omitted |
-| --- | --- | --- |
-| `schema_name` | Migration history table name | `migration_schema` |
-| `dialect` | Database dialect; see [accepted names](./databases#aliases) | `postgres` |
-| `data_source_name` | Driver connection string | Required |
-| `working_directory` | Base for a relative migration directory | Current directory |
-| `migration_source` | Directory containing version files | `migrations` |
-| `migrate_out_of_order` | Allow pending versions below the applied version | `false` |
-| `logger_level` | Logging level | `info` |
-
-## Environment templates
-
-`data_source_name` accepts `${KEY}` for a required variable and `${KEY:default}`
-for a fallback when the variable is absent. For example, use `${DB_NAME:app}` for
-a nonsecret database name. Keep credentials in the environment.
-
-## Select a project or configuration
+By default, up to 8 databases are processed at once. Adjust `--parallel` as needed;
+use 1 to process databases one at a time:
 
 ```sh
-migrate -c ./configs/dev.json status
+migrate up --parallel 4
+migrate status --output json
+```
+
+If one database fails, the others continue. Results are reported per database, and the command
+exits nonzero if any database fails. This is not a transaction across databases: a failure does
+not undo changes already completed elsewhere. Pressing Ctrl+C stops new databases from starting
+and cancels running operations.
+
+For databases behind the same bastion, add `ssh_tunnel` at the top level. To use different SSH
+settings for one database, provide a complete `ssh_tunnel` in that database's entry; it replaces
+the shared settings. Omitting it or setting it to `null` uses the shared settings.
+See [SSH tunnels and proxies](./ssh-tunnels) for fields.
+
+Configure each physical database once and run only one migration command against it at a time.
+Keep migration files and script dependencies unchanged during execution.
+After a failure, inspect that database's data and history before retrying.
+
+## Working directory and relative paths
+
+```sh
 migrate -w ./deploy up
+migrate -w ./deploy -c configs/dev.yml status
 ```
 
-`-c` selects a config file. `-w` selects the working directory, resolves the config
-path from there, and overrides `working_directory` for migration discovery.
-A relative `migration_source` is resolved from the working directory, not automatically
-from the directory containing a custom `-c` file.
+`-w` selects the working directory. Configuration files are located from there, and the option
+overrides `working_directory` in the file. A relative `migration_source` is resolved from the
+working directory. Passing only `-c` does not change it to the configuration file's directory.
 
-Script limits are documented in [Transactions and limits](./script-transactions).
-For bastion connections, add [SSH tunnel settings](./ssh-tunnels).
-Once configured, [write your first SQL migration](./sql-migrations).
+For example, running `migrate -c configs/dev.yml up` from the project root with
+`migration_source: migrations` uses the project's root-level `migrations` directory.
+Relative SSH key paths are resolved from the configuration file's directory instead.
+
+Once configured, [write your first SQL migration](./sql-migrations) or set [script execution limits](./script-transactions).

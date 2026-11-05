@@ -1,15 +1,14 @@
 # Script transactions and limits
 
-## Managed transactions
+## Default transaction behavior
 
 Where supported, each script runs in a framework transaction and successful history
 writes share that transaction. Do not issue your own BEGIN, COMMIT or ROLLBACK in
 managed mode; SQL is forwarded and can break the framework's rollback guarantees.
 
-Handled database errors may recover, but uncaught exceptions, fatal bridge errors,
-commit failures and history-write failures fail the migration. Implicit DDL commits,
-procedure side effects and engine limits prevent universal rollback guarantees.
-Check your [database's execution boundary](./databases#script-support).
+A failed script causes the transaction to roll back where supported. Some databases
+implicitly commit DDL, and others, such as ClickHouse, do not support transactions,
+so changes may remain after a failure. Check [transaction behavior for your database](./databases#script-support).
 
 ## Explicitly disable the framework transaction
 
@@ -29,8 +28,8 @@ export function down(db) {
 ```
 
 This setting applies to up and down. Omitted config/transaction defaults to true;
-a defined transaction value must be boolean. Config is evaluated and snapshotted
-during actual execution preflight, not by status, baseline or dry-run.
+a defined transaction value must be boolean. `status`, `baseline` and dry-run do not run scripts,
+so they do not validate the configuration exported at runtime.
 
 All calls in one explicitly nontransactional step use a dedicated connection. If
 you manage a transaction yourself, finish it before returning successfully. Restore
@@ -45,17 +44,14 @@ rollback guarantee on a nontransactional engine.
 
 Add these optional fields to your project configuration:
 
-```json
-{
-  "script_timeout": "5m",
-  "script_max_rows": 1000,
-  "script_max_bytes": 16777216
-}
+```yaml
+script_timeout: 5m # Execution timeout for each script
+script_max_rows: 1000 # Maximum rows returned by one query
+script_max_bytes: 16777216 # Maximum bytes returned by one query (16 MiB)
 ```
 
 Limit violations fail instead of truncating results. Page large reads explicitly;
-paging does not create batch commits or resumable migrations. Cancellation interrupts
-JS and cancels database operations, but native calls are not guaranteed to terminate
-in hard real time.
+paging does not create batch commits or resumable migrations. Canceling interrupts the script and requests cancellation of database operations;
+the database may take some time to finish stopping a running statement.
 
 Go callers configure `Config.ScriptOptions` with `migrate.ScriptOptions`. See [Use from Go](./go-library).

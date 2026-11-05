@@ -1,37 +1,38 @@
 # SSH tunnels and proxies
 
 Connect through one SSH bastion, optionally reached through one SOCKS5 or HTTP
-CONNECT proxy. Connections are managed in Go, without an
-external ssh process or OpenSSH configuration.
+CONNECT proxy. Configure the bastion in migrate without starting SSH port forwarding yourself.
+Settings from `~/.ssh/config` are not loaded automatically.
+
+![migrate connects through an optional proxy to an SSH bastion, then to the database.](./assets/diagrams/ssh-route-en.svg)
 
 ## Configure the route
+
+Start with `migrate new config --ssh-tunnel --ssh-auth password`, then fill in these fields.
 
 Keep the original database address and TLS settings in `DATABASE_DSN`. The bastion
 must be able to reach that database address. Add this to your project configuration:
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "${DATABASE_DSN}",
-  "ssh_tunnel": {
-    "host": "${SSH_HOST}",
-    "port": 22,
-    "user": "${SSH_USER}",
-    "auth": {
-      "type": "password",
-      "password_env": "MIGRATE_SSH_PASSWORD"
-    },
-    "known_hosts_file": "~/.ssh/known_hosts"
-  }
-}
+```yaml
+dialect: postgres
+data_source_name: "${DATABASE_DSN}" # Keep the actual database address
+ssh_tunnel:
+  host: "${SSH_HOST}"
+  port: 22
+  user: "${SSH_USER}"
+  auth:
+    type: password
+    password_env: MIGRATE_SSH_PASSWORD # Environment variable name
+  known_hosts_file: ~/.ssh/known_hosts
 ```
 
-On an unknown host key, interactive CLI mode shows the SSH address, key algorithm
-and SHA256 fingerprint. Verify the fingerprint independently, then explicitly choose
-“Trust and save”; rejection is the default. Approval appends the record and creates
-a missing file/directory with 0600/0700 permissions, preserving existing entries.
-Changed or revoked keys and invalid files fail without a trust prompt. Noninteractive
-mode never approves or writes unknown keys; provision trusted records before CI runs.
+Set `DATABASE_DSN`, `SSH_HOST`, `SSH_USER` and `MIGRATE_SSH_PASSWORD` before running commands.
+
+On the first connection to an unknown bastion, the CLI shows its address and host-key fingerprint.
+Verify the fingerprint with your administrator, then choose “Trust and save”. Later connections
+check the saved record. Changed or revoked keys and invalid records cause the command to fail;
+verify and fix the records before continuing. CI never trusts unknown hosts automatically;
+prepare a trusted `known_hosts` file before running migrations.
 
 ## Choose authentication
 
@@ -41,30 +42,31 @@ mode never approves or writes unknown keys; provision trusted records before CI 
 | `private_key` | `key_file`, optional `passphrase_env` | Read a local key; use the named variable for an encrypted key's passphrase |
 | `agent` | No password/key fields | Use the Unix `SSH_AUTH_SOCK` socket |
 
-Secret fields contain variable names such as `MIGRATE_SSH_PASSWORD`, not secret
-values or `${...}` templates. Unset secrets may prompt without echo when a controlling
-terminal is available; explicitly empty values fail. Authentication failure does
-not retry input. On Windows, choose password or key-file authentication.
+Use environment variable names such as `MIGRATE_SSH_PASSWORD` for `password_env` and
+`passphrase_env`. migrate reads their values at runtime; do not enter passwords or `${...}`
+templates in these fields. If a variable is unset, interactive CLI mode can prompt without
+echoing your input. Empty values cause an error. On Windows, use password or key-file authentication.
 
-In CI, inject the required secrets and run `migrate --non-interactive up`.
-Prompts go to stderr so stdout JSON remains usable. Library callers opt into
-secret prompting through `ConnectionOptions.Prompt`. The separate `HostKeyPrompt`
-receives `SSHHostKeyInfo` and returns true only after fingerprint verification to
-approve saving a new key. Nil callbacks never prompt or trust unknown keys; callbacks
-must honor cancellation. See [Use from Go](./go-library).
+In CI, supply credentials before running `migrate --non-interactive up`; missing credentials
+cause the command to fail. For credential prompts and host trust in Go applications, see [Use from Go](./go-library).
 
 ## Add an optional proxy
 
-Place a `proxy` object inside `ssh_tunnel`:
+Generate settings with `migrate new config --ssh-tunnel --proxy socks5`,
+or add `proxy` under your existing `ssh_tunnel` settings:
 
-```json
-{
-  "type": "socks5",
-  "address": "127.0.0.1:1080"
-}
+```yaml
+ssh_tunnel:
+  # Keep host, user, auth and other SSH settings above, and add proxy alongside them
+  proxy:
+    type: socks5 # Use http for HTTP CONNECT
+    address: "${PROXY_ADDRESS}" # For example proxy.example:1080, without a URL scheme
+    # If authentication is required, add both username and password_env
+    # username: "${PROXY_USER}"
+    # password_env: MIGRATE_PROXY_PASSWORD
 ```
 
-Use `"type": "http"` for HTTP CONNECT. The address is host:port, not a URL.
+Use `type: http` for HTTP CONNECT. The address is host:port, not a URL.
 Optional authentication requires both `username` and `password_env`. SOCKS5 supports
 username/password and HTTP CONNECT supports Basic. HTTP proxy authentication occurs
 before SSH encryption and has no TLS protection; use it only on trusted networks.
@@ -76,7 +78,7 @@ HTTPS proxy endpoints, NTLM/Kerberos, MFA, proxy chains and SSH jumps are unsupp
 
 SSH file paths accept `~` and `~/...`; relative paths resolve from the migration
 config file directory. The known-hosts default is `~/.ssh/known_hosts`.
-Other nonsecret string settings accept environment templates; `port` is a JSON number.
+Other nonsecret string settings accept environment templates; `port` is a number, such as `22`.
 
 | Setting | Default |
 | --- | --- |
@@ -84,11 +86,10 @@ Other nonsecret string settings accept environment templates; `port` is a JSON n
 | `keepalive_interval` | `15s` |
 | `keepalive_timeout` | `5s` |
 
-Durations must be positive. Waiting for host-key approval pauses the network handshake
-timeout; the caller context can still cancel it. Driver connection deadlines also
-bound remote channel setup. A channel-open timeout invalidates the whole route. Transport loss cancels
-execution without reconnecting or replaying SQL; inspect data/history before recovery
-because DDL or COMMIT may already have completed.
+Use positive durations such as `10s` or `5m`. Time spent confirming a host key does not
+count toward the handshake timeout. If the connection drops, migration stops without
+automatically reconnecting or replaying SQL. Inspect data and history before recovery,
+because the database may already have completed some changes.
 
 ## Supported database routes
 
@@ -96,7 +97,6 @@ PostgreSQL, MySQL, MariaDB, MSSQL, Oracle, ClickHouse, TiDB and Redshift support
 single TCP target. Multi-host DSNs, Unix sockets, foreign-endpoint redirects and
 SQLite tunnel settings fail explicitly.
 
-- TiDB uses MySQL routing; Redshift uses PostgreSQL routing.
 - MSSQL requires TCP host/port (default 1433), without named-instance discovery,
   failover or explicit MultiSubnetFailover.
 - Oracle requires a single-host `oracle://` URL with a port, using TCP/TCPS;
@@ -106,5 +106,4 @@ SQLite tunnel settings fail explicitly.
   TLS identity in the original DSN.
 
 `version`, `capabilities` and `new` do not start SSH. `status`, `baseline` and
-dry-run may connect to read history. CLI-owned pools and tunnels close on success,
-failure or cancellation.
+dry-run may connect to read history.

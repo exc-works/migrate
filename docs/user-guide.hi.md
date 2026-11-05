@@ -49,22 +49,20 @@ migrate new config
 वैकल्पिक:
 
 ```bash
-migrate new config dev.json
+migrate new config dev.yml
 migrate new config --force
 ```
 
 डिफ़ॉल्ट कॉन्फ़िग टेम्पलेट:
 
-```json
-{
-  "schema_name": "migration_schema",
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD:change_me} dbname=${DB_NAME:postgres} sslmode=disable",
-  "working_directory": "",
-  "migrate_out_of_order": false,
-  "logger_level": "info",
-  "migration_source": "migrations"
-}
+```yaml
+schema_name: migration_schema
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:postgres} sslmode=disable"
+working_directory: ""
+migrate_out_of_order: false
+logger_level: info
+migration_source: migrations
 ```
 
 ### 2.2 मुख्य कॉन्फ़िग फ़ील्ड अपडेट करें
@@ -96,13 +94,13 @@ migrate baseline
 ### 3.1 स्वतः-जनरेटेड वर्शन
 
 ```bash
-migrate new version init_users
+migrate new version "init users"
 ```
 
 ### 3.2 स्पष्ट वर्शन
 
 ```bash
-migrate new version add_email -v 202604140002
+migrate new version "add email" -v 202604140002
 ```
 
 जनरेटेड फ़ाइलनाम फ़ॉर्मेट:
@@ -205,11 +203,9 @@ migrate version
 
 उदाहरण:
 
-```json
-{
-  "dialect": "postgres",
-  "data_source_name": "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
-}
+```yaml
+dialect: postgres
+data_source_name: "host=127.0.0.1 port=5432 user=${DB_USER:postgres} password=${DB_PASSWORD} dbname=${DB_NAME:app} sslmode=disable"
 ```
 
 सुनिश्चित करें कि `DB_PASSWORD` आपके environment में पहले से सेट है, फिर चलाएँ:
@@ -227,7 +223,7 @@ migrate status
 विशिष्ट कॉन्फ़िग फ़ाइल का उपयोग करें:
 
 ```bash
-migrate -c ./configs/dev.json status
+migrate -c ./configs/dev.yml status
 ```
 
 विशिष्ट working directory का उपयोग करें:
@@ -245,7 +241,7 @@ migrate -w ./deploy up
 
 समाधान:
 
-- सुनिश्चित करें कि `migration_config.json` वर्तमान डायरेक्टरी में मौजूद है
+- सुनिश्चित करें कि `migration_config.yml` वर्तमान डायरेक्टरी में मौजूद है
 - या `-c` के साथ कॉन्फ़िग पाथ पास करें
 
 ### 11.2 Environment variable गायब है

@@ -6,11 +6,12 @@
 ## 创建版本文件
 
 ```sh
-migrate new version init_users
-migrate new version add_email -v 202611040002
+migrate new version "init users"
+migrate new version "add email" -v 202611040002
 ```
 
-第一条命令自动生成版本，`-v` 可以显式指定版本。文件名采用
+描述中有空格时用引号包住，生成文件名时空格会替换为下划线。
+第一条命令自动生成版本，`-v` 可以指定版本。文件名采用
 `V<version>__<description>.sql`。SQL 与脚本文件共用一个版本序列。
 已应用的文件不要修改或重命名，应新增版本完成后续变更。
 

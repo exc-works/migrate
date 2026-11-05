@@ -75,4 +75,4 @@ rm -r "$example_workspace"
 npm 安装还会留下已忽略的 `examples/script-imports/npm/node_modules` 目录。
 需要自动检查并自行管理临时副本时，在仓库根目录执行 `./scripts/test-script-examples.sh`。
 
-模块解析与校验和边界见[共享模块](./modules)。
+共享代码的导入方式，以及修改依赖对旧迁移的影响，见[共享模块](./modules)。

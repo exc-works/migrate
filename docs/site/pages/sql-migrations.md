@@ -6,10 +6,11 @@ Keep one logical change in each version file. migrate reads files from the confi
 ## Create a version file
 
 ```sh
-migrate new version init_users
-migrate new version add_email -v 202611040002
+migrate new version "init users"
+migrate new version "add email" -v 202611040002
 ```
 
+Quote descriptions containing spaces; spaces become underscores in filenames.
 The first command generates a version; `-v` lets you choose one explicitly. Files
 use `V<version>__<description>.sql`. SQL and script files share one version sequence.
 Do not edit or rename a file after it has been applied; add a new version instead.

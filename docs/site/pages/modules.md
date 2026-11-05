@@ -31,7 +31,7 @@ Install dependencies with your project's lockfile workflow before running migrat
 The compiler resolves exports, subpaths, nested dependencies and static CommonJS
 imports using neutral conditions and `module`, then `main` entry fields.
 
-Packages must work in Goja's synchronous runtime. migrate does not install packages
+Packages must run synchronously without Node.js-specific features. migrate does not install packages
 or provide Node built-ins, native addons, dynamic import or dynamic require.
 
 ## Embedded and in-memory sources
@@ -61,7 +61,7 @@ implement `MigrationEntriesSource` to provide entry contexts. See [Use from Go](
 
 ## Preserve historical dependencies {#checksums}
 
-Script hashes cover original entry bytes only. Editing a helper, installed package
+migrate checks only the migration file itself for content changes. Editing a helper, installed package
 or lockfile neither creates a hash mismatch nor replays an applied migration.
 Retain historical helper behavior and pin dependencies when old migrations must be
 reproducible; introduce a new helper version for changed behavior.
