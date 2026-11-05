@@ -14,12 +14,16 @@ installed version. Use `migrate version` to identify the binary.
 ## new config
 
 ```sh
-migrate new config [filename] [--multi] [--shards N] [--ssh-tunnel] [--force]
+migrate new config [filename] [--format yaml|json] [--multi] [--shards N] [--ssh-tunnel] [--force]
+migrate new config shards.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel --proxy socks5
 ```
 
 Generate `migration_config.yml`. Use `--multi` for multiple databases, `--shards N` to set
 how many, `--ssh-tunnel` to add SSH settings and `--proxy socks5|http` to add an SSH upstream proxy.
 Choose SSH authentication with `--ssh-auth agent|private_key|password`.
+`--shards N` requires `--multi` and a positive count, numbered from 0.
+`--proxy` requires `--ssh-tunnel`.
 `--force` permits overwriting an existing file. A `.json` filename or `--format json` selects JSON output.
 Run `migrate new config --help` for all options; see [configuration](./configuration) for common setups.
 

@@ -14,12 +14,16 @@
 ## new config
 
 ```sh
-migrate new config [filename] [--multi] [--shards N] [--ssh-tunnel] [--force]
+migrate new config [filename] [--format yaml|json] [--multi] [--shards N] [--ssh-tunnel] [--force]
+migrate new config shards.yml --multi --shards 4
+migrate new config shards-ssh.yml --multi --ssh-tunnel --proxy socks5
 ```
 
 生成 `migration_config.yml`。用 `--multi` 生成多数据库配置，`--shards N` 指定数据库数量；
 `--ssh-tunnel` 添加 SSH 设置，`--proxy socks5|http` 添加 SSH 上游代理。
 `--ssh-auth agent|private_key|password` 选择 SSH 认证方式。
+`--shards N` 需要同时使用 `--multi`，数量必须是正整数，编号从 0 开始。
+`--proxy` 需要同时使用 `--ssh-tunnel`。
 `--force` 允许覆盖已有文件。可通过 `.json` 文件名或 `--format json` 选择 JSON 输出。
 全部选项见 `migrate new config --help`，常见用法见[配置](./configuration)。
 
