@@ -11,12 +11,13 @@ pnpm --dir docs/site run dev
 
 ## Edit
 
-- Author user documentation in `pages/`, with matching topic filenames under `pages/zh/`.
+- Author user documentation in `pages/`, with matching topic filenames under every registered language directory.
   Organize content around reader tasks in `navigation.mjs`, keeping tutorials,
   operational guides and references on separate pages.
-- Register languages in `locales.mjs`. Every language has an authored website entry;
-  English and Simplified Chinese have complete topic navigation. Other entries link
-  to existing repository translations until their topic pages are written.
+- Register languages in `locales.mjs`. Every language has an authored homepage, all topic pages, localized navigation, and
+  previous/next links. Keep `navigation-translations.mjs` aligned with the shared
+  topic order in `navigation.mjs`; do not substitute English or repository links
+  for a translated topic. Shared release records remain in their original languages.
 - The website does not import old user guides, script guides or example READMEs.
   Link to GitHub when readers need source code, original translations or example projects.
 - `content.mjs` shares only CHANGELOG and release records. Add release notes in
@@ -46,8 +47,10 @@ pnpm --dir docs/site run preview
 
 The artifact check validates rendered pages, local resources, links and fragments.
 It does not fetch external websites. Rebuild before previewing changed content.
-The onboarding runner checks the English and Chinese SQLite walkthroughs and
-repository script-guide examples against freshly built binaries.
+The onboarding runner requires Go, Python 3 and Node.js. It checks all twelve
+localized SQLite walkthroughs and repository script-guide examples against
+freshly built binaries. It reads the language registry so newly registered
+languages cannot silently skip executable verification.
 
 ## Publish
 

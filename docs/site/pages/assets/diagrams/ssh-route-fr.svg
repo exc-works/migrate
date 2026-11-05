@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="478" viewBox="0 0 450 478" role="img" aria-labelledby="title desc">
+  <title id="title">Bastion SSH</title>
+  <desc id="desc">migrate → Proxy facultatif → Bastion SSH → Base de données</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#52688d"/></marker>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: #243451; text-anchor: middle; font-size: 17px; }
+    .small { font-size: 14px; fill: #485b7a; }
+    .box { fill: #eef3ff; stroke: #7690c5; stroke-width: 1.5; }
+    .line { fill: none; stroke: #52688d; stroke-width: 2; marker-end: url(#arrow); }
+  </style>
+  <rect width="450" height="478" rx="12" fill="#fafbff"/>
+  <rect class="box" x="24" y="24" width="250" height="76" rx="9"/>
+  <text x="149" y="53">migrate</text>
+  <text class="small" x="149" y="76">Local / CI</text>
+  <rect class="box" x="24" y="142" width="250" height="76" rx="9"/>
+  <text x="149" y="171">Proxy facultatif</text>
+  <text class="small" x="149" y="194">SOCKS5 / HTTP CONNECT</text>
+  <rect class="box" x="24" y="260" width="250" height="76" rx="9"/>
+  <text x="149" y="289">Bastion SSH</text>
+  <text class="small" x="149" y="312">Mot de passe / clé / Agent</text>
+  <rect class="box" x="24" y="378" width="250" height="76" rx="9"/>
+  <text x="149" y="407">Base de données</text>
+  <text class="small" x="149" y="430">Adresse du DSN</text>
+  <path class="line" d="M149 100 V136"/>
+  <path class="line" d="M149 218 V254"/>
+  <path class="line" d="M149 336 V372"/>
+  <path class="line" d="M274 62 H330 V298 H280"/>
+  <text class="small" x="385" y="175">Sans proxy</text>
+  <text class="small" x="385" y="198">SSH direct</text>
+</svg>

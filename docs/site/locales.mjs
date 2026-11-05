@@ -20,9 +20,9 @@ export const languages = definitions.map(([key, lang, label, file, [guide, relea
     lang,
     label,
     legacySource: `docs/${file}`,
-    source: `docs/site/pages/${prefix}${key === 'root' || key === 'zh' ? 'guide' : 'index'}.md`,
+    source: `docs/site/pages/${prefix}guide.md`,
     home: `${prefix}index.md`,
-    guideRoute: `${prefix}${key === 'root' || key === 'zh' ? 'guide' : 'index'}.md`,
+    guideRoute: `${prefix}guide.md`,
     prefix,
     ui: { guide, releases, search, outline, edit }
   }

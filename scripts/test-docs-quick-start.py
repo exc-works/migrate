@@ -21,7 +21,13 @@ with tempfile.TemporaryDirectory(prefix="migrate-docs-") as directory:
     binary = workspace / ("migrate.exe" if os.name == "nt" else "migrate")
     subprocess.run(["go", "build", "-o", str(binary), "./cmd/migrate"], cwd=repository, check=True)
     environment = dict(os.environ, PATH=str(workspace) + os.pathsep + os.environ.get("PATH", ""))
-    for locale in ("", "zh"):
+    locales = json.loads(subprocess.run(
+        ["node", "--input-type=module", "-e",
+         "import { languages } from './docs/site/locales.mjs'; "
+         "process.stdout.write(JSON.stringify(languages.map(language => language.prefix ? language.prefix.slice(0, -1) : '')));"],
+        cwd=repository, check=True, capture_output=True, text=True,
+    ).stdout)
+    for locale in locales:
         document = (repository / "docs/site/pages" / locale / "quick-start.md").read_text()
         commands = blocks(document, "sh")
         assert len(commands) == 5, "Update this runner when the quick-start sequence changes"

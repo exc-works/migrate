@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { rewriteLink, sourceForRoute } from './links.mjs'
 import { sourceRoutes, pageRoutes, repositoryRoot } from './content.mjs'
-import { sidebar } from './navigation.mjs'
-import { existsSync } from 'node:fs'
+import { sidebar, topicSlugs, navigationLabels } from './navigation.mjs'
+import { languages } from './locales.mjs'
+import { existsSync, readFileSync } from 'node:fs'
 
 test('release records link to published release routes', () => {
   assert.equal(rewriteLink('docs/releases/v1.5.0.md', 'changelog.md'), 'releases/v1.5.0.md')
@@ -38,9 +39,14 @@ test('edit links address canonical source files', () => {
   assert.equal(sourceForRoute('releases.md'), 'docs/site/prepare.mjs')
 })
 
-test('both language sidebars resolve to independently authored topic pages', () => {
-  for (const locale of ['en', 'zh']) {
-    for (const { items } of sidebar(locale)) {
+test('every language has a complete sidebar with local topic pages', () => {
+  for (const language of languages) {
+    const labels = navigationLabels(language.key)
+    assert.equal(labels.titles.length, topicSlugs.length, language.key)
+    assert.equal(labels.groups.length, 6, language.key)
+    const topicLinks = sidebar(language.key).slice(0, -1).flatMap(section => section.items.map(item => item.link))
+    assert.deepEqual(topicLinks, topicSlugs.map(slug => `/${language.prefix}${slug}`))
+    for (const { items } of sidebar(language.key)) {
       for (const { link } of items) {
         const route = `${link.slice(1)}.md`
         if (['releases.md', 'changelog.md', 'languages.md'].includes(route)) continue
@@ -73,4 +79,27 @@ test('every existing language has an authored website entry and remains selectab
     assert.equal(sourceForRoute(language.guideRoute), language.source)
   }
   assert.equal(config.locales.ar.dir, 'rtl')
+})
+
+test('localized homepages and onboarding examples match the complete site', () => {
+  const read = route => readFileSync(new URL(`pages/${route}`, import.meta.url), 'utf8')
+  const blocks = (text, language) => text.split('```')
+    .filter((block, index) => index % 2 === 1 && block.split(String.fromCharCode(10))[0] === language)
+    .map(block => block.slice(language.length + 1).trimEnd())
+  const english = read('quick-start.md')
+  assert.equal(blocks(english, 'sh').length, 5)
+  assert.equal(blocks(english, 'sql').length, 1)
+  for (const language of languages) {
+    const home = read(`${language.prefix}index.md`)
+    assert.ok(home.split(String.fromCharCode(10)).includes('layout: home'))
+    assert.equal(home.split(String.fromCharCode(10)).filter(line => line.startsWith('  - title:')).length, 6, language.key)
+    for (const slug of topicSlugs) {
+      const content = read(`${language.prefix}${slug}.md`)
+      assert.match(content, /^# /, `${language.key}/${slug}`)
+      assert.doesNotMatch(content, /\{\{(?:code|connections|aliases)[:}]/, `${language.key}/${slug}`)
+    }
+    const quickStart = read(`${language.prefix}quick-start.md`)
+    assert.deepEqual(blocks(quickStart, 'sh'), blocks(english, 'sh'), language.key)
+    assert.deepEqual(blocks(quickStart, 'sql'), blocks(english, 'sql'), language.key)
+  }
 })
